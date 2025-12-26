@@ -1,0 +1,28 @@
+version: "3.9"
+services:
+  db:
+    build: .
+    image: pg17-vectorscale-textsearch:latest
+    container_name: pg17-vectorscale-textsearch
+    shm_size: 4gb
+    ports:
+      - "9002:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: postgres
+      # Add these for better performance
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.utf8"
+    volumes:
+      - pgLocalData:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Optional: auto-create extensions
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgLocalData:
+    driver: local
