@@ -2,9 +2,29 @@
 
 Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL with pgvector. Features advanced vector search, comprehensive evaluation metrics, and optimization tools.
 
+**NEW:** Support for AWS Bedrock embeddings and flexible database configurations (local/remote)!
+
+📖 **[Full Configuration Guide](docs/CONFIGURATION.md)**
+
 ---
 
 ## 🌟 Features
+
+### 🤖 **2 Embedding Providers**
+- **HuggingFace** - Free, local, offline embeddings (default)
+  - Models: sentence-transformers, instructor, etc.
+  - Runs on CPU or GPU
+  - No API costs or rate limits
+- **AWS Bedrock** - Managed embedding service
+  - Models: Amazon Titan, Cohere Embed, etc.
+  - Enterprise-grade performance
+  - Pay-per-use pricing
+
+### 💾 **Flexible Database Connections**
+- **Local Database** - For development and testing
+- **Remote Database** - For production deployments
+- **Environment-Aware** - Automatic configuration based on environment
+- **Test-Safe** - Tests always use local database
 
 ### 🔍 **3 Vector Index Types**
 - **HNSW** - Fast approximate nearest neighbor search (best for <1M vectors)
@@ -402,6 +422,37 @@ This will verify:
 
 ## Quick Start
 
+### 0. Configure Environment (NEW!)
+
+Copy the example configuration and customize:
+
+```bash
+# Copy configuration template
+cp config/.env.example config/.env
+
+# Edit with your settings (use notepad, nano, vim, etc.)
+```
+
+**For HuggingFace (Local, Free):**
+```dotenv
+ENVIRONMENT=local
+EMBEDDING_PROVIDER=huggingface
+HUGGINGFACE_MODEL=sentence-transformers/all-MiniLM-L6-v2
+LOCAL_DB_HOST=localhost
+LOCAL_DB_PORT=9002
+```
+
+**For AWS Bedrock (Managed):**
+```dotenv
+ENVIRONMENT=remote
+EMBEDDING_PROVIDER=bedrock
+BEDROCK_MODEL_ID=amazon.titan-embed-text-v1
+AWS_REGION=us-east-1
+REMOTE_DB_HOST=your-db-server.example.com
+```
+
+📖 See **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** for complete setup guide.
+
 ### 1. Test Requirements
 
 Before starting, verify all requirements are met:
@@ -412,27 +463,32 @@ python scripts/test_connection.py
 
 If any tests fail, install missing packages:
 ```bash
-pip install langchain-community psycopg2-binary sentence-transformers
+# For HuggingFace
+pip install langchain-huggingface sentence-transformers torch
+
+# For AWS Bedrock (additional)
+pip install langchain-aws boto3
 ```
 
 ### 2. Basic Usage
 
+**New way (recommended - uses config/.env):**
+
 ```python
 import asyncio
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
-from src.core import pgVectorDB, IndexType, KeywordSearchType
+from src.config import Config
+from src.core import pgVectorDB, IndexType
 
 async def main():
-    # Initialize
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    # Automatically uses settings from config/.env
+    embeddings = Config.get_embeddings()
+    connection_string = Config.get_connection_string()
     
     rag = pgVectorDB(
         collection_name="my_docs",
         embedding_model=embeddings,
-        connection_string="postgresql+asyncpg://user:pass@localhost/db",
+        connection_string=connection_string,
         index_type=IndexType.HNSW
     )
     

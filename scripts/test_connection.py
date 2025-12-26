@@ -73,16 +73,12 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
     }
     
     try:
-        from langchain_huggingface import HuggingFaceEmbeddings
         from src.core import pgVectorDB, IndexType
+        from src.config import Config
         
-        # Create minimal embedding model (won't be used, just for initialization)
-        print_info("Initializing test embedding model...")
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True}
-        )
+        # Get embedding model from config
+        print_info("Initializing test embedding model from config...")
+        embeddings = Config.get_embeddings()
         
         # Use pgVectorDB to test connection (same as notebook)
         print_info("Testing database connection with pgVectorDB...")
@@ -250,26 +246,24 @@ def test_embedding_model() -> Dict[str, Any]:
     print_header("Checking Embedding Model")
     
     try:
-        from langchain_huggingface import HuggingFaceEmbeddings
+        from src.config import Config
         
-        model_name = "sentence-transformers/all-MiniLM-L6-v2"
-        print_info(f"Loading embedding model: {model_name}")
+        print_info(f"Loading embedding model from config...")
+        print_info(f"Provider: {Config.EMBEDDING_PROVIDER}")
         
-        embeddings = HuggingFaceEmbeddings(
-            model_name=model_name,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True}
-        )
+        embeddings = Config.get_embeddings()
         
         # Test embedding
         test_text = "This is a test sentence."
         embedding = embeddings.embed_query(test_text)
         
         results['model_available'] = True
-        results['model_name'] = model_name
+        results['model_name'] = Config.BEDROCK_MODEL_ID if Config.EMBEDDING_PROVIDER == "bedrock" else Config.HUGGINGFACE_MODEL
         results['dimensions'] = len(embedding)
         
         print_success(f"Embedding model loaded successfully")
+        print_info(f"Provider: {Config.EMBEDDING_PROVIDER}")
+        print_info(f"Model: {results['model_name']}")
         print_info(f"Vector dimensions: {results['dimensions']}")
         
     except Exception as e:
@@ -396,23 +390,15 @@ async def main():
     all_results['config'] = test_environment_config()
     
     # Get connection string
-    connection_string = args.conn
-    if not connection_string:
-        # Try to read from config
-        config_path = os.path.join(os.path.dirname(__file__), '..', 'config', '.env')
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, 'r') as f:
-                    for line in f:
-                        if line.strip().startswith('DB_CONNECTION_STRING='):
-                            connection_string = line.split('=', 1)[1].strip()
-                            break
-            except:
-                pass
+    from src.config import Config
     
-    if not connection_string:
-        connection_string = "postgresql+asyncpg://user:root@localhost:9002/postgres"
-        print_warning(f"Using default connection string: {connection_string}")
+    if args.conn:
+        connection_string = args.conn
+        print_info(f"Using provided connection string")
+    else:
+        # Get from config (respects ENVIRONMENT setting)
+        connection_string = Config.get_connection_string()
+        print_info(f"Using connection string from config (env: {Config.ENVIRONMENT})")
     
     # Test database connection
     print_header("Testing Database Connection")

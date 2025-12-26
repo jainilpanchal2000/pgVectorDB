@@ -32,9 +32,9 @@ from typing import List, Dict, Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
 from src.core import pgVectorDB, IndexType, KeywordSearchType
 from src.evaluation import RAGEvaluator, EvaluationResult
+from src.config import Config
 import pandas as pd
 
 
@@ -482,14 +482,19 @@ async def main():
     # 1. Setup
     print("\n📦 Step 1: Setting up RAG system...")
     
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    # Display current configuration
+    Config.print_config()
+    
+    # Get embeddings based on configuration
+    embeddings = Config.get_embeddings()
+    
+    # Get connection string (respects ENVIRONMENT setting)
+    connection_string = Config.get_connection_string()
     
     rag = pgVectorDB(
         collection_name="benchmark_test",
         embedding_model=embeddings,
-        connection_string="postgresql+asyncpg://user:root@localhost:9002/postgres",
+        connection_string=connection_string,
         index_type=IndexType.HNSW
     )
     

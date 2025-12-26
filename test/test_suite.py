@@ -13,13 +13,17 @@ Comprehensive testing of all pgVectorDB functionality:
 - LangChain integration
 - Error handling
 - Performance benchmarks
+- Embedding provider testing (HuggingFace, Bedrock)
 
 Usage:
     python test/test_suite.py
+    python test/test_suite.py --embedding bedrock
+    python test/test_suite.py --test-embeddings
 """
 
 import sys
 import os
+import argparse
 from pathlib import Path
 
 # Add parent directory to path
@@ -33,7 +37,6 @@ import time
 import logging
 from typing import List
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
 from src.core import (
     pgVectorDB,
     IndexType,
@@ -42,6 +45,7 @@ from src.core import (
     ValidationError,
     InitializationError
 )
+from src.config import Config, get_test_config
 
 # Configure logging
 logging.basicConfig(
@@ -50,14 +54,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database configuration
+# Database configuration - ALWAYS LOCAL FOR TESTS
 DB_HOST = "localhost"
 DB_PORT = "9002"
 DB_NAME = "postgres"
 DB_USER = "user"
 DB_PASSWORD = "root"
 SCHEMA_NAME = "test"
-
 CONNECTION_STRING = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 
@@ -851,21 +854,120 @@ async def test_performance(embeddings):
 
 
 # ==================== Main Test Runner ====================
-async def run_all_tests():
+# ==================== Embedding Provider Tests ====================
+async def test_embedding_providers():
+    """Test both HuggingFace and Bedrock embedding providers."""
+    
+    print("\n" + "=" * 80)
+    print("TEST: EMBEDDING PROVIDERS")
+    print("=" * 80)
+    
+    # Test HuggingFace
+    try:
+        print("\n📊 Testing HuggingFace Embeddings...")
+        from langchain_huggingface import HuggingFaceEmbeddings
+        
+        hf_embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        
+        # Test embedding
+        test_text = "This is a test sentence for embeddings."
+        hf_embedding = hf_embeddings.embed_query(test_text)
+        
+        assert len(hf_embedding) == 384, f"Expected 384 dims, got {len(hf_embedding)}"
+        assert all(isinstance(x, float) for x in hf_embedding), "All values should be floats"
+        
+        results.add_pass("HuggingFace Embeddings")
+        print(f"   ✓ Model: all-MiniLM-L6-v2")
+        print(f"   ✓ Dimensions: {len(hf_embedding)}")
+        print(f"   ✓ Sample values: {hf_embedding[:3]}")
+        
+    except Exception as e:
+        results.add_fail("HuggingFace Embeddings", str(e))
+    
+    # Test Bedrock (skip if no credentials)
+    try:
+        print("\n📊 Testing AWS Bedrock Embeddings...")
+        
+        try:
+            from langchain_aws import BedrockEmbeddings
+        except ImportError:
+            print("   ⚠️  SKIPPED: langchain-aws not installed")
+            print("      Install with: pip install langchain-aws boto3")
+            return
+        
+        # Check if AWS credentials are available
+        import os
+        has_creds = (
+            os.getenv("AWS_ACCESS_KEY_ID") or 
+            os.getenv("AWS_PROFILE") or
+            Config.AWS_ACCESS_KEY_ID
+        )
+        
+        if not has_creds:
+            print("   ⚠️  SKIPPED: No AWS credentials found")
+            print("      Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or configure AWS CLI")
+            return
+        
+        bedrock_embeddings = BedrockEmbeddings(
+            model_id=Config.BEDROCK_MODEL_ID,
+            region_name=Config.AWS_REGION
+        )
+        
+        # Test embedding
+        bedrock_embedding = bedrock_embeddings.embed_query(test_text)
+        
+        assert len(bedrock_embedding) > 0, "Bedrock embedding should not be empty"
+        assert all(isinstance(x, float) for x in bedrock_embedding), "All values should be floats"
+        
+        results.add_pass("AWS Bedrock Embeddings")
+        print(f"   ✓ Model: {Config.BEDROCK_MODEL_ID}")
+        print(f"   ✓ Region: {Config.AWS_REGION}")
+        print(f"   ✓ Dimensions: {len(bedrock_embedding)}")
+        print(f"   ✓ Sample values: {bedrock_embedding[:3]}")
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "credentials" in error_msg.lower() or "auth" in error_msg.lower():
+            print(f"   ⚠️  SKIPPED: {error_msg}")
+        else:
+            results.add_fail("AWS Bedrock Embeddings", error_msg)
+
+
+async def run_all_tests(args):
     """Run complete test suite."""
     print("\n" + "=" * 80)
     print("PRODUCTION RAG SYSTEM - COMPLETE TEST SUITE")
     print("=" * 80)
     print(f"Database: {DB_HOST}:{DB_PORT}/{DB_NAME}")
     print(f"Schema: {SCHEMA_NAME}")
-    print(f"Testing with 100 example documents")
+    print("Testing with 100 example documents")
     print("=" * 80)
     
-    # Load embeddings once
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"}
-    )
+    # Get embeddings based on args or config
+    if args.embedding:
+        # Override with command-line arg
+        original_provider = Config.EMBEDDING_PROVIDER
+        Config.EMBEDDING_PROVIDER = args.embedding
+        
+        if args.bedrock_model:
+            Config.BEDROCK_MODEL_ID = args.bedrock_model
+        
+        embeddings = Config.get_embeddings()
+        Config.EMBEDDING_PROVIDER = original_provider  # Restore
+    else:
+        # Use test config (forces local DB)
+        test_conf = get_test_config()
+        embeddings = test_conf["embeddings"]
+    
+    print(f"\n📊 Using Embedding Model: {type(embeddings).__name__}")
+    print(f"💾 Database: {CONNECTION_STRING}\n")
+    
+    # If only testing embeddings, run that and return
+    if args.test_embeddings:
+        await test_embedding_providers()
+        return results.failed == 0
     
     try:
         # Run all test suites
@@ -890,18 +992,53 @@ async def run_all_tests():
 
 async def main():
     """Entry point."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Production RAG System Test Suite",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python test/test_suite.py                           # Run all tests with default config
+  python test/test_suite.py --embedding huggingface  # Force HuggingFace
+  python test/test_suite.py --embedding bedrock       # Force Bedrock
+  python test/test_suite.py --test-embeddings         # Test only embedding providers
+  python test/test_suite.py --embedding bedrock --bedrock-model amazon.titan-embed-text-v2
+        """
+    )
+    
+    parser.add_argument(
+        '--embedding',
+        choices=['huggingface', 'bedrock'],
+        help='Override embedding provider (default: uses config/.env)'
+    )
+    
+    parser.add_argument(
+        '--bedrock-model',
+        help='Bedrock model ID (default: amazon.titan-embed-text-v1)'
+    )
+    
+    parser.add_argument(
+        '--test-embeddings',
+        action='store_true',
+        help='Test only embedding providers (skip full test suite)'
+    )
+    
+    args = parser.parse_args()
+    
     try:
         # Create test schema
-        await create_test_schema()
+        if not args.test_embeddings:
+            await create_test_schema()
         
         # Run tests
-        success = await run_all_tests()
+        success = await run_all_tests(args)
         
         # Print summary
         results.print_summary()
         
         # Cleanup
-        await cleanup_test_schema()
+        if not args.test_embeddings:
+            await cleanup_test_schema()
         
         # Exit
         if success:
@@ -913,14 +1050,16 @@ async def main():
     
     except KeyboardInterrupt:
         print("\n\n⚠️  Tests interrupted by user")
-        await cleanup_test_schema()
+        if not args.test_embeddings:
+            await cleanup_test_schema()
         sys.exit(130)
     
     except Exception as e:
         print(f"\n\n❌ FATAL ERROR: {e}")
         import traceback
         traceback.print_exc()
-        await cleanup_test_schema()
+        if not args.test_embeddings:
+            await cleanup_test_schema()
         sys.exit(1)
 
 

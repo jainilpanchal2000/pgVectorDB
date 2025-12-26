@@ -3,6 +3,11 @@ langchain>=0.1.0
 langchain-core>=0.1.0
 langchain-postgres>=0.0.1
 langchain-huggingface>=0.0.1
+langchain-aws>=0.1.0  # For AWS Bedrock embeddings
+
+# AWS (for Bedrock embeddings)
+boto3>=1.28.0
+botocore>=1.31.0
 
 # Database
 sqlalchemy>=2.0.0
