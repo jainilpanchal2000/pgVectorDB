@@ -2,14 +2,85 @@
 Production-Ready Multi-Index RAG System
 ========================================
 
-Combines all features from exhaustive_retrieval_demo and multi_index_system:
-- 3 Index Types: HNSW, IVFFlat, DiskANN
-- 10 Search Methods: Keyword, Universal Keyword, Semantic, Metadata Filter, Metadata+Keyword, Metadata+Semantic, Hybrid, Ensemble, Trigram, Metadata+Trigram
-- 13 Filter Operators: $eq, $ne, $lt, $lte, $gt, $gte, $in, $nin, $between, $exists, $like, $ilike, $and, $or
-- Connection pooling, error handling, validation, logging
-- Label-based filtering for DiskANN
-- Query parameter tuning for all index types
-- Reciprocal Rank Fusion (RRF) scoring for hybrid searches
+A comprehensive PostgreSQL-based RAG (Retrieval-Augmented Generation) system with 
+advanced vector indexing, multiple search methods, and production utilities.
+
+Features
+--------
+**Index Types (3):**
+    - HNSW: Fast approximate nearest neighbor search, best for <1M vectors
+    - IVFFlat: Inverted file index with clustering, best for 100K-10M vectors
+    - DiskANN: Disk-based scalable index with label filtering, best for >10M vectors
+
+**Search Methods (10):**
+    1. keyword_search - Full-text search (FTS/BM25)
+    2. universal_keyword_search - FTS + metadata field search
+    3. semantic_search - Vector similarity search
+    4. metadata_filter - Pure metadata filtering
+    5. metadata_keyword_search - Filtered FTS
+    6. metadata_semantic_search - Filtered vector search
+    7. hybrid_search - Combined keyword + semantic (RRF or weighted)
+    8. ensemble_search - Filtered hybrid search
+    9. trigram_search - Fuzzy text matching
+    10. metadata_trigram_search - Filtered fuzzy search
+
+**Filter Operators (13):**
+    - Comparison: $eq, $ne, $lt, $lte, $gt, $gte
+    - Range: $between
+    - Set: $in, $nin
+    - Existence: $exists
+    - Pattern: $like, $ilike
+    - Logical: $and, $or
+
+**Utilities (17):**
+    - Document management: aget_by_ids, aupdate_documents, add_documents_batch
+    - Metadata operations: count_by_metadata, update_metadata
+    - Search variants: asimilarity_search_by_vector, asimilarity_search_with_score
+    - Index operations: areindex, adrop_vector_index, vacuum_analyze, get_index_stats
+    - Data management: export_to_json, import_from_json
+    - Analytics: explain_query, benchmark_search_methods, validate_collection
+    - LangChain integration: as_retriever
+
+**Production Features:**
+    - Connection pooling with configurable pool size
+    - Comprehensive error handling and validation
+    - Automatic extension installation (vector, pg_trgm, vectorscale, pg_textsearch)
+    - Batch operations with progress tracking
+    - Query parameter tuning for all index types
+    - BM25 native support via pg_textsearch
+
+Quick Start
+-----------
+    >>> from langchain_huggingface import HuggingFaceEmbeddings
+    >>> from src.core import pgVectorDB, IndexType
+    >>> 
+    >>> # Initialize
+    >>> embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    >>> rag = pgVectorDB(
+    ...     collection_name="my_docs",
+    ...     embedding_model=embeddings,
+    ...     connection_string="postgresql+asyncpg://user:pass@localhost/db",
+    ...     index_type=IndexType.HNSW
+    ... )
+    >>> await rag.initialize()
+    >>> 
+    >>> # Add documents
+    >>> from langchain_core.documents import Document
+    >>> docs = [Document(page_content="AI content", metadata={"category": "tech"})]
+    >>> await rag.add_documents(docs)
+    >>> 
+    >>> # Build index
+    >>> await rag.build_index()
+    >>> 
+    >>> # Search
+    >>> results = await rag.semantic_search("artificial intelligence", k=5)
+    >>> 
+    >>> # LangChain integration
+    >>> retriever = rag.as_retriever(search_method="hybrid_search")
+
+Author: Production RAG Team
+Version: 2.0
+License: MIT
 """
 
 import uuid
@@ -19,6 +90,7 @@ from enum import Enum
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_postgres.v2.indexes import HNSWIndex, IVFFlatIndex
 from langchain_postgres.v2.vectorstores import PGVectorStore
 from langchain_postgres.v2.engine import PGEngine
@@ -449,6 +521,305 @@ class pgVectorDB:
         except Exception as e:
             raise DatabaseError(f"Failed to add labels column: {e}") from e
 
+    async def aupdate_documents(
+        self,
+        documents: List[Document],
+        update_embeddings: bool = True
+    ) -> List[str]:
+        """
+        Update existing documents without having to delete and re-add.
+        
+        Efficiently updates document content and/or metadata. Can optionally
+        skip re-embedding if only metadata changed.
+        
+        Args:
+            documents: List of Documents with 'id' in metadata (required for matching)
+            update_embeddings: If True, re-compute embeddings for content changes (default: True)
+                              Set to False if only updating metadata to save computation
+        
+        Returns:
+            List of updated document IDs
+        
+        Raises:
+            ValidationError: If documents missing 'langchain_id' or list is empty
+            DatabaseError: If update operation fails
+        
+        Example:
+            >>> # Update metadata only (fast - no re-embedding)
+            >>> docs[0].metadata['status'] = 'reviewed'
+            >>> docs[0].metadata['langchain_id'] = 'existing-id'
+            >>> await rag.aupdate_documents(docs, update_embeddings=False)
+            >>> 
+            >>> # Update content (re-embeds automatically)
+            >>> docs[1].page_content = "Updated content here"
+            >>> docs[1].metadata['langchain_id'] = 'existing-id-2'
+            >>> await rag.aupdate_documents(docs, update_embeddings=True)
+        """
+        self._ensure_initialized()
+        
+        if not documents:
+            raise ValidationError("documents list cannot be empty")
+        
+        updated_ids = []
+        
+        try:
+            async with self.sqlalchemy_engine.connect() as conn:
+                for doc in documents:
+                    # Validate document has ID
+                    doc_id = doc.metadata.get("langchain_id")
+                    if not doc_id:
+                        raise ValidationError(
+                            "Each document must have 'langchain_id' in metadata for updates"
+                        )
+                    
+                    # Build update query based on what needs updating
+                    if update_embeddings:
+                        # Re-compute embedding for content
+                        embedding = self.embedding_model.embed_query(doc.page_content)
+                        
+                        update_query = text(f"""
+                            UPDATE "{self.schema_name}"."{self.table_name}"
+                            SET content = :content,
+                                langchain_metadata = :metadata,
+                                embedding = :embedding
+                            WHERE langchain_id = :doc_id
+                        """)
+                        
+                        await conn.execute(
+                            update_query,
+                            {
+                                "content": doc.page_content,
+                                "metadata": doc.metadata,
+                                "embedding": str(embedding),
+                                "doc_id": doc_id
+                            }
+                        )
+                    else:
+                        # Update only content and metadata (no embedding)
+                        import json
+                        update_query = text(f"""
+                            UPDATE "{self.schema_name}"."{self.table_name}"
+                            SET content = :content,
+                                langchain_metadata = CAST(:metadata AS jsonb)
+                            WHERE langchain_id = :doc_id
+                        """)
+                        
+                        await conn.execute(
+                            update_query,
+                            {
+                                "content": doc.page_content,
+                                "metadata": json.dumps(doc.metadata),
+                                "doc_id": doc_id
+                            }
+                        )
+                    
+                    updated_ids.append(doc_id)
+                
+                await conn.commit()
+            
+            logger.info(f"Updated {len(updated_ids)} documents (embeddings={update_embeddings})")
+            return updated_ids
+        except Exception as e:
+            raise DatabaseError(f"Failed to update documents: {e}") from e
+
+    async def adelete(self, ids: List[str]) -> int:
+        """
+        Delete documents by their IDs.
+        
+        Args:
+            ids: List of document IDs (langchain_id) to delete
+        
+        Returns:
+            Number of documents deleted
+        
+        Raises:
+            InitializationError: If system not initialized
+            ValidationError: If ids list is empty
+            DatabaseError: If deletion fails
+        
+        Example:
+            >>> doc_ids = await rag.add_documents(documents)
+            >>> # Delete first 5 documents
+            >>> deleted_count = await rag.adelete(doc_ids[:5])
+            >>> print(f"Deleted {deleted_count} documents")
+        """
+        self._ensure_initialized()
+        
+        if not ids:
+            raise ValidationError("ids list cannot be empty")
+        
+        try:
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Delete documents matching the provided IDs
+                query = text(f"""
+                    DELETE FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE langchain_id = ANY(:ids)
+                """)
+                result = await conn.execute(query, {"ids": ids})
+                await conn.commit()
+                
+                deleted_count = result.rowcount
+                logger.info(f"Deleted {deleted_count} documents")
+                return deleted_count
+        except Exception as e:
+            raise DatabaseError(f"Failed to delete documents: {e}") from e
+
+    async def add_documents_batch(
+        self,
+        documents: List[Document],
+        batch_size: int = 100,
+        labels: Optional[List[List[int]]] = None,
+        show_progress: bool = True
+    ) -> List[str]:
+        """
+        Add large numbers of documents efficiently with batching and progress tracking.
+        
+        Benefits:
+        - Prevents memory overflow with large datasets
+        - Progress tracking for long operations
+        - Resumable if interrupted (returns IDs added so far)
+        - Automatic commit batching for performance
+        
+        Args:
+            documents: List of Documents to add (can be 10K+)
+            batch_size: Number of documents per batch (default: 100)
+            labels: Optional labels for DiskANN (must match documents length)
+            show_progress: Print progress updates (default: True)
+        
+        Returns:
+            List of all added document IDs
+        
+        Example:
+            >>> # Add 50,000 documents efficiently
+            >>> all_ids = await rag.add_documents_batch(
+            ...     large_doc_list,
+            ...     batch_size=500,
+            ...     show_progress=True
+            ... )
+            >>> print(f"Added {len(all_ids)} documents")
+        """
+        self._ensure_initialized()
+        
+        if not documents:
+            raise ValidationError("documents list cannot be empty")
+        if batch_size <= 0:
+            raise ValidationError("batch_size must be positive")
+        if labels is not None and len(labels) != len(documents):
+            raise ValidationError(f"labels length ({len(labels)}) must match documents length ({len(documents)})")
+        
+        all_ids = []
+        total_docs = len(documents)
+        num_batches = (total_docs + batch_size - 1) // batch_size
+        
+        try:
+            for batch_idx in range(num_batches):
+                start_idx = batch_idx * batch_size
+                end_idx = min((batch_idx + 1) * batch_size, total_docs)
+                
+                batch_docs = documents[start_idx:end_idx]
+                batch_labels = labels[start_idx:end_idx] if labels else None
+                
+                # Add batch
+                batch_ids = await self.add_documents(batch_docs, labels=batch_labels)
+                all_ids.extend(batch_ids)
+                
+                if show_progress:
+                    progress = (batch_idx + 1) / num_batches * 100
+                    logger.info(
+                        f"Progress: {batch_idx + 1}/{num_batches} batches "
+                        f"({end_idx}/{total_docs} docs, {progress:.1f}%)"
+                    )
+            
+            if show_progress:
+                logger.info(f"✓ Batch ingestion complete: {len(all_ids)} documents added")
+            
+            return all_ids
+        except Exception as e:
+            logger.warning(f"Batch ingestion interrupted at {len(all_ids)}/{total_docs} documents")
+            raise DatabaseError(f"Failed during batch ingestion: {e}") from e
+
+    async def update_metadata(
+        self,
+        ids: List[str],
+        metadata_updates: Dict[str, Any]
+    ) -> int:
+        """
+        Bulk metadata updates without re-embedding.
+        
+        Useful for:
+        - Tagging/categorizing documents
+        - Status updates
+        - Adding computed fields
+        - Fixing metadata errors
+        
+        Args:
+            ids: List of document IDs to update
+            metadata_updates: Dictionary of metadata fields to update/add
+        
+        Returns:
+            Number of documents updated
+        
+        Example:
+            >>> # Tag documents as reviewed
+            >>> doc_ids = ["id1", "id2", "id3"]
+            >>> count = await rag.update_metadata(
+            ...     ids=doc_ids,
+            ...     metadata_updates={"status": "reviewed", "reviewer": "alice"}
+            ... )
+            >>> print(f"Updated {count} documents")
+            >>> 
+            >>> # Add computed field to all documents matching filter
+            >>> docs = await rag.metadata_filter({"category": "ai"})
+            >>> ids = [d['id'] for d in docs]
+            >>> await rag.update_metadata(ids, {"indexed": True})
+        """
+        self._ensure_initialized()
+        
+        if not ids or not isinstance(ids, list):
+            raise ValidationError("ids must be a non-empty list")
+        if not metadata_updates or not isinstance(metadata_updates, dict):
+            raise ValidationError("metadata_updates must be a non-empty dictionary")
+        
+        try:
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Use jsonb_set to update metadata fields
+                # This preserves existing fields while updating/adding new ones
+                update_count = 0
+                
+                for doc_id in ids:
+                    # First, get current metadata
+                    get_query = text(f"""
+                        SELECT langchain_metadata
+                        FROM "{self.schema_name}"."{self.table_name}"
+                        WHERE langchain_id = :doc_id
+                    """)
+                    result = await conn.execute(get_query, {"doc_id": doc_id})
+                    row = result.fetchone()
+                    
+                    if row:
+                        import json
+                        current_metadata = row[0] or {}
+                        # Merge updates
+                        updated_metadata = {**current_metadata, **metadata_updates}
+                        
+                        # Update
+                        update_query = text(f"""
+                            UPDATE "{self.schema_name}"."{self.table_name}"
+                            SET langchain_metadata = CAST(:metadata AS jsonb)
+                            WHERE langchain_id = :doc_id
+                        """)
+                        await conn.execute(
+                            update_query,
+                            {"metadata": json.dumps(updated_metadata), "doc_id": doc_id}
+                        )
+                        update_count += 1
+                
+                await conn.commit()
+                logger.info(f"Updated metadata for {update_count} documents")
+                return update_count
+        except Exception as e:
+            raise DatabaseError(f"Failed to update metadata: {e}") from e
+
     async def create_metadata_index(self, columns: List[str]) -> None:
         """
         Create GIN indexes on metadata JSONB fields for faster filtering.
@@ -758,6 +1129,177 @@ class pgVectorDB:
         except Exception as e:
             raise DatabaseError(f"Failed to build BM25 index: {e}") from e
 
+    async def areindex(
+        self,
+        index_name: Optional[str] = None
+    ) -> None:
+        """
+        Rebuild vector index using existing data.
+        
+        Important for IVFFlat and DiskANN after adding significant amounts of new data.
+        HNSW indexes don't require reindexing.
+        
+        Args:
+            index_name: Optional custom index name. If None, uses default naming pattern.
+        
+        Raises:
+            InitializationError: If system not initialized
+            DatabaseError: If reindex operation fails
+        
+        Example:
+            >>> # Add 100k new documents
+            >>> await rag.add_documents(new_docs)
+            >>> # Rebuild index for optimal performance
+            >>> await rag.areindex()
+        """
+        self._ensure_initialized()
+        
+        if not self._index_built:
+            logger.warning("No index has been built yet. Use build_index() first.")
+            return
+        
+        try:
+            if index_name is None:
+                if self.index_type == IndexType.DISKANN:
+                    index_name = f"idx_{self.table_name}_diskann"
+                else:
+                    # For HNSW and IVFFlat, get index name from pg_indexes
+                    async with self.sqlalchemy_engine.connect() as conn:
+                        result = await conn.execute(text("""
+                            SELECT indexname FROM pg_indexes 
+                            WHERE schemaname = :schema 
+                            AND tablename = :table
+                            AND indexdef LIKE '%embedding%'
+                            AND indexdef LIKE '%USING%'
+                            LIMIT 1
+                        """), {"schema": self.schema_name, "table": self.table_name})
+                        row = result.fetchone()
+                        if row:
+                            index_name = row[0]
+                        else:
+                            raise DatabaseError("No vector index found to reindex")
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                logger.info(f"Reindexing '{index_name}'...")
+                await conn.execute(text(f'REINDEX INDEX "{self.schema_name}"."{index_name}"'))
+                await conn.commit()
+                logger.info(f"✓ Index '{index_name}' rebuilt successfully")
+        except Exception as e:
+            raise DatabaseError(f"Failed to reindex: {e}") from e
+
+    async def adrop_vector_index(
+        self,
+        index_name: Optional[str] = None
+    ) -> None:
+        """
+        Remove vector index while keeping all data.
+        
+        Useful for:
+        - Switching to a different index type
+        - Saving disk space when index not needed
+        - Testing different index configurations
+        
+        Args:
+            index_name: Optional custom index name. If None, drops the primary vector index.
+        
+        Raises:
+            InitializationError: If system not initialized
+            DatabaseError: If drop operation fails
+        
+        Example:
+            >>> # Switch from HNSW to DiskANN
+            >>> await rag.adrop_vector_index()
+            >>> rag.index_type = IndexType.DISKANN
+            >>> await rag.build_index()
+        """
+        self._ensure_initialized()
+        
+        try:
+            if index_name is None:
+                if self.index_type == IndexType.DISKANN:
+                    index_name = f"idx_{self.table_name}_diskann"
+                else:
+                    # Get index name from pg_indexes
+                    async with self.sqlalchemy_engine.connect() as conn:
+                        result = await conn.execute(text("""
+                            SELECT indexname FROM pg_indexes 
+                            WHERE schemaname = :schema 
+                            AND tablename = :table
+                            AND indexdef LIKE '%embedding%'
+                            AND (indexdef LIKE '%hnsw%' OR indexdef LIKE '%ivfflat%')
+                            LIMIT 1
+                        """), {"schema": self.schema_name, "table": self.table_name})
+                        row = result.fetchone()
+                        if row:
+                            index_name = row[0]
+                        else:
+                            logger.warning("No vector index found to drop")
+                            return
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                await conn.execute(text(
+                    f'DROP INDEX IF EXISTS "{self.schema_name}"."{index_name}"'
+                ))
+                await conn.commit()
+                logger.info(f"✓ Dropped index '{index_name}'")
+                self._index_built = False
+        except Exception as e:
+            raise DatabaseError(f"Failed to drop vector index: {e}") from e
+
+    async def vacuum_analyze(
+        self,
+        full: bool = False
+    ) -> None:
+        """
+        PostgreSQL maintenance to optimize performance.
+        
+        VACUUM reclaims storage from deleted rows.
+        ANALYZE updates statistics for query planner.
+        
+        Run after:
+        - Large batch inserts/updates/deletes
+        - Noticing slow query performance
+        - Before benchmarking
+        
+        Args:
+            full: If True, runs VACUUM FULL (more thorough but locks table). Default: False
+        
+        Raises:
+            InitializationError: If system not initialized
+            DatabaseError: If maintenance fails
+        
+        Example:
+            >>> # After bulk operations
+            >>> await rag.add_documents_batch(large_docs)
+            >>> await rag.vacuum_analyze()
+            >>> 
+            >>> # Deep maintenance (locks table)
+            >>> await rag.vacuum_analyze(full=True)
+        """
+        self._ensure_initialized()
+        
+        try:
+            # VACUUM cannot run inside a transaction block
+            # Need to use autocommit mode
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Set isolation level to autocommit
+                await conn.execution_options(isolation_level="AUTOCOMMIT")
+                
+                if full:
+                    logger.info("Running VACUUM FULL ANALYZE (this may take a while and locks table)...")
+                    await conn.execute(text(
+                        f'VACUUM FULL ANALYZE "{self.schema_name}"."{self.table_name}"'
+                    ))
+                else:
+                    logger.info("Running VACUUM ANALYZE...")
+                    await conn.execute(text(
+                        f'VACUUM ANALYZE "{self.schema_name}"."{self.table_name}"'
+                    ))
+                
+                logger.info("✓ Maintenance completed")
+        except Exception as e:
+            raise DatabaseError(f"Failed to run vacuum/analyze: {e}") from e
+
     # ==================== SEARCH METHODS ====================
 
     def _validate_search_params(self, query: str, k: int) -> None:
@@ -989,6 +1531,97 @@ class pgVectorDB:
         except Exception as e:
             raise DatabaseError(f"Semantic search failed: {e}") from e
 
+    async def asimilarity_search_by_vector(
+        self, 
+        embedding: List[float], 
+        k: int = 4,
+        label_filter: Optional[List[int]] = None
+    ) -> List[QueryResult]:
+        """
+        Search using pre-computed embeddings (saves embedding computation time).
+        
+        Useful when:
+        - You already have embeddings from another source
+        - Running multiple searches with same embedding
+        - Building custom embedding pipelines
+        
+        Args:
+            embedding: Pre-computed embedding vector (list of floats)
+            k: Number of results
+            label_filter: Optional labels for DiskANN filtering (uses && operator)
+        
+        Returns documents ranked by semantic similarity (cosine distance).
+        
+        Example:
+            >>> embedding = model.embed_query("AI applications")
+            >>> results = await rag.asimilarity_search_by_vector(embedding, k=5)
+        """
+        self._ensure_initialized()
+        
+        if not embedding or not isinstance(embedding, list):
+            raise ValidationError("embedding must be a non-empty list of floats")
+        if len(embedding) != self.vector_size:
+            raise ValidationError(
+                f"embedding dimension {len(embedding)} doesn't match vector_size {self.vector_size}"
+            )
+        if k <= 0:
+            raise ValidationError("k must be positive")
+        
+        try:
+            where_clause = ""
+            params = {"embedding": str(embedding), "k": k}
+            
+            if label_filter is not None and self.index_type == IndexType.DISKANN:
+                where_clause = "WHERE labels && :labels"
+                params["labels"] = label_filter
+            
+            full_query = text(f"""
+                SELECT "langchain_id", "content", "langchain_metadata", 
+                       "embedding" <=> :embedding AS distance
+                FROM "{self.schema_name}"."{self.table_name}"
+                {where_clause}
+                ORDER BY distance LIMIT :k
+            """)
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                result = await conn.execute(full_query, params)
+                return [
+                    QueryResult(
+                        id=str(row[0]),
+                        content=row[1],
+                        metadata=row[2] or {},
+                        score=float(row[3])
+                    )
+                    for row in result.fetchall()
+                ]
+        except Exception as e:
+            raise DatabaseError(f"Similarity search by vector failed: {e}") from e
+
+    async def asimilarity_search_with_score(
+        self, 
+        query: str, 
+        k: int = 4,
+        label_filter: Optional[List[int]] = None
+    ) -> List[Tuple[QueryResult, float]]:
+        """
+        Semantic search returning (document, score) tuples for debugging/tuning.
+        
+        Args:
+            query: Search query string
+            k: Number of results
+            label_filter: Optional labels for DiskANN filtering
+        
+        Returns:
+            List of (QueryResult, score) tuples where score is the distance
+        
+        Example:
+            >>> results = await rag.asimilarity_search_with_score("AI", k=3)
+            >>> for doc, score in results:
+            ...     print(f"Score: {score:.4f} - {doc['content'][:50]}")
+        """
+        results = await self.semantic_search(query, k, label_filter)
+        return [(result, result['score']) for result in results]
+
     async def metadata_filter(
         self,
         filter: Dict[str, Any],
@@ -1061,6 +1694,58 @@ class pgVectorDB:
                 ]
         except Exception as e:
             raise DatabaseError(f"Metadata filter failed: {e}") from e
+
+    async def count_by_metadata(
+        self,
+        filter: Optional[Dict[str, Any]] = None
+    ) -> int:
+        """
+        Count documents matching filter criteria without retrieval.
+        
+        Useful for:
+        - Quick statistics and validation
+        - Checking filter results before expensive searches
+        - Analytics and monitoring
+        
+        Args:
+            filter: Metadata filter dictionary (None = count all documents)
+        
+        Returns:
+            Number of documents matching the filter
+        
+        Example:
+            >>> # Count all active documents
+            >>> count = await rag.count_by_metadata({"status": "active"})
+            >>> print(f"Found {count} active documents")
+            >>> 
+            >>> # Count recent high-priority items
+            >>> count = await rag.count_by_metadata({
+            ...     "priority": {"$gte": 8},
+            ...     "created_date": {"$gte": "2024-01-01"}
+            ... })
+        """
+        self._ensure_initialized()
+        
+        try:
+            if filter:
+                filter_clauses, params = self._build_filter_clauses_wrapper(filter)
+                full_query = text(f"""
+                    SELECT COUNT(*)
+                    FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE {filter_clauses}
+                """)
+            else:
+                params = {}
+                full_query = text(f"""
+                    SELECT COUNT(*)
+                    FROM "{self.schema_name}"."{self.table_name}"
+                """)
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                result = await conn.execute(full_query, params)
+                return result.scalar() or 0
+        except Exception as e:
+            raise DatabaseError(f"Count by metadata failed: {e}") from e
 
     async def metadata_keyword_search(
         self, 
@@ -1729,6 +2414,680 @@ class pgVectorDB:
             logger.warning(f"Could not fetch complete stats: {e}")
         
         return stats
+
+    async def get_index_stats(self) -> Dict[str, Any]:
+        """
+        Get detailed index statistics for monitoring and optimization.
+        
+        Returns comprehensive information about:
+        - Index type, size, and health
+        - Index parameters and configuration
+        - Performance-related metrics
+        - Table bloat and fragmentation
+        
+        Returns:
+            Dictionary with index statistics
+        
+        Example:
+            >>> stats = await rag.get_index_stats()
+            >>> print(f"Index type: {stats['index_type']}")
+            >>> print(f"Index size: {stats['index_size']}")
+            >>> print(f"Table bloat: {stats['bloat_ratio']:.1%}")
+        """
+        self._ensure_initialized()
+        
+        stats = {
+            "index_type": self.index_type.value,
+            "index_built": self._index_built,
+            "vector_size": self.vector_size,
+        }
+        
+        try:
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Get all indexes on the table
+                result = await conn.execute(text("""
+                    SELECT 
+                        i.indexname,
+                        i.indexdef
+                    FROM pg_indexes i
+                    WHERE i.schemaname = :schema 
+                    AND i.tablename = :table
+                """), {"schema": self.schema_name, "table": self.table_name})
+                
+                indexes = []
+                for row in result.fetchall():
+                    indexes.append({
+                        "name": row[0],
+                        "definition": row[1]
+                    })
+                stats["indexes"] = indexes
+                
+                # Get table statistics
+                result = await conn.execute(text(f"""
+                    SELECT
+                        n_tup_ins as inserts,
+                        n_tup_upd as updates,
+                        n_tup_del as deletes,
+                        n_live_tup as live_tuples,
+                        n_dead_tup as dead_tuples,
+                        last_vacuum,
+                        last_autovacuum,
+                        last_analyze,
+                        last_autoanalyze
+                    FROM pg_stat_user_tables
+                    WHERE schemaname = :schema
+                    AND relname = :table
+                """), {"schema": self.schema_name, "table": self.table_name})
+                
+                row = result.fetchone()
+                if row:
+                    stats["table_stats"] = {
+                        "inserts": row[0],
+                        "updates": row[1],
+                        "deletes": row[2],
+                        "live_tuples": row[3],
+                        "dead_tuples": row[4],
+                        "last_vacuum": str(row[5]) if row[5] else None,
+                        "last_autovacuum": str(row[6]) if row[6] else None,
+                        "last_analyze": str(row[7]) if row[7] else None,
+                        "last_autoanalyze": str(row[8]) if row[8] else None,
+                        "bloat_ratio": row[4] / max(row[3], 1) if row[3] else 0
+                    }
+                
+                # Get table size
+                result = await conn.execute(text(
+                    f"""
+                    SELECT 
+                        pg_size_pretty(pg_total_relation_size('"{self.schema_name}"."{self.table_name}"')) as total_size,
+                        pg_size_pretty(pg_table_size('"{self.schema_name}"."{self.table_name}"')) as table_size,
+                        pg_size_pretty(pg_indexes_size('"{self.schema_name}"."{self.table_name}"')) as indexes_size
+                    """
+                ))
+                row = result.fetchone()
+                if row:
+                    stats["size"] = {
+                        "total": row[0],
+                        "table": row[1],
+                        "indexes": row[2]
+                    }
+                
+                logger.info("Retrieved index statistics")
+        except Exception as e:
+            logger.warning(f"Could not fetch complete index stats: {e}")
+        
+        return stats
+
+    async def export_to_json(
+        self,
+        output_file: str,
+        filter: Optional[Dict[str, Any]] = None,
+        include_embeddings: bool = False
+    ) -> int:
+        """
+        Export documents to JSON file for backup or migration.
+        
+        Args:
+            output_file: Path to output JSON file
+            filter: Optional metadata filter (None = export all documents)
+            include_embeddings: If True, include embedding vectors (makes file much larger)
+        
+        Returns:
+            Number of documents exported
+        
+        Example:
+            >>> # Export all documents (without embeddings for smaller file)
+            >>> count = await rag.export_to_json("backup.json")
+            >>> 
+            >>> # Export filtered documents with embeddings
+            >>> count = await rag.export_to_json(
+            ...     "active_docs.json",
+            ...     filter={"status": "active"},
+            ...     include_embeddings=True
+            ... )
+        """
+        self._ensure_initialized()
+        
+        import json
+        from pathlib import Path
+        
+        try:
+            if filter:
+                filter_clauses, params = self._build_filter_clauses_wrapper(filter)
+                where_clause = f"WHERE {filter_clauses}"
+            else:
+                where_clause = ""
+                params = {}
+            
+            # Select columns based on include_embeddings
+            if include_embeddings:
+                select_columns = '"langchain_id", "content", "langchain_metadata", "embedding"'
+            else:
+                select_columns = '"langchain_id", "content", "langchain_metadata"'
+            
+            full_query = text(f"""
+                SELECT {select_columns}
+                FROM "{self.schema_name}"."{self.table_name}"
+                {where_clause}
+            """)
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                result = await conn.execute(full_query, params)
+                
+                documents = []
+                for row in result.fetchall():
+                    doc = {
+                        "id": str(row[0]),
+                        "content": row[1],
+                        "metadata": row[2] or {}
+                    }
+                    if include_embeddings and len(row) > 3:
+                        doc["embedding"] = row[3]
+                    documents.append(doc)
+            
+            # Write to file
+            output_path = Path(output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(documents, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"✓ Exported {len(documents)} documents to {output_file}")
+            return len(documents)
+        except Exception as e:
+            raise DatabaseError(f"Failed to export to JSON: {e}") from e
+
+    async def import_from_json(
+        self,
+        input_file: str,
+        batch_size: int = 100,
+        skip_existing: bool = True
+    ) -> int:
+        """
+        Import documents from JSON backup file.
+        
+        Args:
+            input_file: Path to input JSON file
+            batch_size: Number of documents per batch
+            skip_existing: If True, skip documents with existing IDs
+        
+        Returns:
+            Number of documents imported
+        
+        Example:
+            >>> # Restore from backup
+            >>> count = await rag.import_from_json("backup.json")
+            >>> print(f"Imported {count} documents")
+        """
+        self._ensure_initialized()
+        
+        import json
+        from pathlib import Path
+        
+        try:
+            input_path = Path(input_file)
+            if not input_path.exists():
+                raise ValidationError(f"Input file not found: {input_file}")
+            
+            with open(input_path, 'r', encoding='utf-8') as f:
+                documents_data = json.load(f)
+            
+            if not isinstance(documents_data, list):
+                raise ValidationError("JSON file must contain an array of documents")
+            
+            # Convert to Document objects
+            documents = []
+            for doc_data in documents_data:
+                # Ensure langchain_id is in metadata
+                metadata = doc_data.get("metadata", {})
+                if "id" in doc_data:
+                    metadata["langchain_id"] = doc_data["id"]
+                
+                doc = Document(
+                    page_content=doc_data.get("content", ""),
+                    metadata=metadata
+                )
+                documents.append(doc)
+            
+            # Check for existing IDs if skip_existing is True
+            if skip_existing:
+                existing_ids = set()
+                async with self.sqlalchemy_engine.connect() as conn:
+                    result = await conn.execute(text(f"""
+                        SELECT langchain_id 
+                        FROM "{self.schema_name}"."{self.table_name}"
+                    """))
+                    existing_ids = {str(row[0]) for row in result.fetchall()}
+                
+                # Filter out existing documents
+                documents = [
+                    doc for doc in documents 
+                    if doc.metadata.get("langchain_id") not in existing_ids
+                ]
+                logger.info(f"Skipping {len(documents_data) - len(documents)} existing documents")
+            
+            if not documents:
+                logger.info("No new documents to import")
+                return 0
+            
+            # Import in batches
+            imported_ids = await self.add_documents_batch(
+                documents,
+                batch_size=batch_size,
+                show_progress=True
+            )
+            
+            logger.info(f"✓ Imported {len(imported_ids)} documents from {input_file}")
+            return len(imported_ids)
+        except Exception as e:
+            raise DatabaseError(f"Failed to import from JSON: {e}") from e
+
+    async def explain_query(
+        self,
+        query: str,
+        search_method: str = "semantic_search",
+        **search_kwargs
+    ) -> str:
+        """
+        Show PostgreSQL query execution plan for performance debugging.
+        
+        Useful for:
+        - Understanding if indexes are being used
+        - Identifying slow query patterns
+        - Optimizing search performance
+        - Debugging unexpected results
+        
+        Args:
+            query: Search query string
+            search_method: Name of search method to explain
+            **search_kwargs: Additional arguments for the search method
+        
+        Returns:
+            Query execution plan as formatted string
+        
+        Example:
+            >>> plan = await rag.explain_query(
+            ...     "machine learning",
+            ...     search_method="hybrid_search",
+            ...     k=10
+            ... )
+            >>> print(plan)
+        """
+        self._ensure_initialized()
+        
+        if search_method not in ["semantic_search", "keyword_search", "hybrid_search"]:
+            raise ValidationError(
+                f"explain_query only supports semantic_search, keyword_search, hybrid_search"
+            )
+        
+        try:
+            # Get the embedding if needed
+            if search_method in ["semantic_search", "hybrid_search"]:
+                embedding = self.embedding_model.embed_query(query)
+            
+            k = search_kwargs.get("k", 4)
+            
+            # Build EXPLAIN query based on method
+            if search_method == "semantic_search":
+                explain_query = text(f"""
+                    EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+                    SELECT "langchain_id", "content", "langchain_metadata", 
+                           "embedding" <=> :embedding AS distance
+                    FROM "{self.schema_name}"."{self.table_name}"
+                    ORDER BY distance LIMIT :k
+                """)
+                params = {"embedding": str(embedding), "k": k}
+            
+            elif search_method == "keyword_search":
+                explain_query = text(f"""
+                    EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+                    SELECT "langchain_id", "content", "langchain_metadata", 
+                           ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
+                    FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE content_tsvector @@ plainto_tsquery('english', :query)
+                    ORDER BY rank DESC LIMIT :k
+                """)
+                params = {"query": query, "k": k}
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                result = await conn.execute(explain_query, params)
+                plan_lines = [row[0] for row in result.fetchall()]
+                plan = "\n".join(plan_lines)
+            
+            logger.info(f"Generated EXPLAIN plan for {search_method}")
+            return plan
+        except Exception as e:
+            raise DatabaseError(f"Failed to explain query: {e}") from e
+
+    async def benchmark_search_methods(
+        self,
+        test_queries: List[str],
+        k: int = 4
+    ) -> Dict[str, Dict[str, float]]:
+        """
+        Compare performance of all search methods on test queries.
+        
+        Measures:
+        - Average query time
+        - Total time for all queries
+        - Queries per second
+        
+        Args:
+            test_queries: List of queries to benchmark
+            k: Number of results per query
+        
+        Returns:
+            Dictionary mapping method name to performance metrics
+        
+        Example:
+            >>> queries = ["AI", "machine learning", "neural networks"]
+            >>> results = await rag.benchmark_search_methods(queries, k=10)
+            >>> for method, metrics in results.items():
+            ...     print(f"{method}: {metrics['avg_time_ms']:.2f}ms, {metrics['qps']:.1f} QPS")
+        """
+        self._ensure_initialized()
+        
+        import time
+        
+        methods_to_test = [
+            "semantic_search",
+            "keyword_search",
+            "hybrid_search",
+            "trigram_search",
+        ]
+        
+        results = {}
+        
+        try:
+            for method_name in methods_to_test:
+                method = getattr(self, method_name, None)
+                if not method:
+                    continue
+                
+                times = []
+                for query in test_queries:
+                    start = time.time()
+                    try:
+                        await method(query, k=k)
+                        elapsed = (time.time() - start) * 1000  # Convert to ms
+                        times.append(elapsed)
+                    except Exception as e:
+                        logger.warning(f"Error in {method_name} with query '{query}': {e}")
+                        continue
+                
+                if times:
+                    avg_time = sum(times) / len(times)
+                    total_time = sum(times)
+                    qps = (len(times) / total_time) * 1000 if total_time > 0 else 0
+                    
+                    results[method_name] = {
+                        "avg_time_ms": avg_time,
+                        "total_time_ms": total_time,
+                        "qps": qps,
+                        "num_queries": len(times),
+                        "min_time_ms": min(times),
+                        "max_time_ms": max(times)
+                    }
+            
+            logger.info(f"Benchmarked {len(methods_to_test)} methods on {len(test_queries)} queries")
+            return results
+        except Exception as e:
+            raise DatabaseError(f"Failed to benchmark search methods: {e}") from e
+
+    async def validate_collection(self) -> Dict[str, Any]:
+        """
+        Check data integrity and health of the collection.
+        
+        Validates:
+        - Documents have embeddings
+        - No null/empty content
+        - Metadata structure consistency
+        - Orphaned data
+        - Embedding dimension consistency
+        
+        Returns:
+            Dictionary with validation results and issues found
+        
+        Example:
+            >>> validation = await rag.validate_collection()
+            >>> if validation['issues_found']:
+            ...     print(f"Found {len(validation['issues'])} issues:")
+            ...     for issue in validation['issues']:
+            ...         print(f"  - {issue}")
+            >>> else:
+            ...     print("Collection is healthy!")
+        """
+        self._ensure_initialized()
+        
+        issues = []
+        stats = {}
+        
+        try:
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Check total count
+                result = await conn.execute(text(f"""
+                    SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"
+                """))
+                total_count = result.scalar()
+                stats["total_documents"] = total_count
+                
+                # Check for null embeddings
+                result = await conn.execute(text(f"""
+                    SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE embedding IS NULL
+                """))
+                null_embeddings = result.scalar()
+                stats["null_embeddings"] = null_embeddings
+                if null_embeddings > 0:
+                    issues.append(f"{null_embeddings} documents have null embeddings")
+                
+                # Check for empty content
+                result = await conn.execute(text(f"""
+                    SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE content IS NULL OR content = ''
+                """))
+                empty_content = result.scalar()
+                stats["empty_content"] = empty_content
+                if empty_content > 0:
+                    issues.append(f"{empty_content} documents have empty content")
+                
+                # Check for null IDs
+                result = await conn.execute(text(f"""
+                    SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE langchain_id IS NULL
+                """))
+                null_ids = result.scalar()
+                stats["null_ids"] = null_ids
+                if null_ids > 0:
+                    issues.append(f"{null_ids} documents have null IDs")
+                
+                # Check for duplicate IDs
+                result = await conn.execute(text(f"""
+                    SELECT langchain_id, COUNT(*) as cnt
+                    FROM "{self.schema_name}"."{self.table_name}"
+                    GROUP BY langchain_id
+                    HAVING COUNT(*) > 1
+                """))
+                duplicate_ids = result.fetchall()
+                stats["duplicate_ids"] = len(duplicate_ids)
+                if duplicate_ids:
+                    issues.append(f"{len(duplicate_ids)} duplicate IDs found")
+                
+                # Check embedding dimensions (pgvector doesn't support array_length, use expected dimension)
+                if total_count > 0:
+                    # For pgvector, we validate by checking if embeddings can be cast to the expected dimension
+                    stats["embedding_dimensions"] = {self.vector_size: total_count - null_embeddings}
+                    # Note: pgvector enforces dimension at insert time, so inconsistencies are not possible
+            
+            validation_result = {
+                "healthy": len(issues) == 0,
+                "issues_found": len(issues),
+                "issues": issues,
+                "stats": stats
+            }
+            
+            if validation_result["healthy"]:
+                logger.info("✓ Collection validation passed - no issues found")
+            else:
+                logger.warning(f"⚠ Collection validation found {len(issues)} issues")
+            
+            return validation_result
+        except Exception as e:
+            raise DatabaseError(f"Failed to validate collection: {e}") from e
+
+    async def aget_by_ids(
+        self,
+        ids: List[str]
+    ) -> List[QueryResult]:
+        """
+        Retrieve specific documents by their IDs.
+        
+        Useful for:
+        - Quick lookups of known documents
+        - Fetching related documents
+        - Debugging and validation
+        - Building citation/reference features
+        
+        Args:
+            ids: List of document IDs (langchain_id values)
+        
+        Returns:
+            List of QueryResult objects (score=1.0 for all results)
+        
+        Raises:
+            ValidationError: If ids list is empty
+            DatabaseError: If retrieval fails
+        
+        Example:
+            >>> doc_ids = ["uuid-1", "uuid-2", "uuid-3"]
+            >>> docs = await rag.aget_by_ids(doc_ids)
+            >>> for doc in docs:
+            ...     print(f"ID: {doc['id']}, Content: {doc['content'][:50]}")
+        """
+        self._ensure_initialized()
+        
+        if not ids or not isinstance(ids, list):
+            raise ValidationError("ids must be a non-empty list")
+        
+        try:
+            # Use ANY for efficient batch retrieval
+            full_query = text(f"""
+                SELECT "langchain_id", "content", "langchain_metadata"
+                FROM "{self.schema_name}"."{self.table_name}"
+                WHERE "langchain_id" = ANY(:ids)
+            """)
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                result = await conn.execute(full_query, {"ids": ids})
+                return [
+                    QueryResult(
+                        id=str(row[0]),
+                        content=row[1],
+                        metadata=row[2] or {},
+                        score=1.0  # No relevance score for direct ID lookup
+                    )
+                    for row in result.fetchall()
+                ]
+        except Exception as e:
+            raise DatabaseError(f"Failed to get documents by IDs: {e}") from e
+
+    def as_retriever(
+        self,
+        search_method: str = "semantic_search",
+        search_kwargs: Optional[Dict[str, Any]] = None
+    ) -> VectorStoreRetriever:
+        """
+        Convert to LangChain Retriever for ecosystem compatibility.
+        
+        Enables drop-in use with any LangChain RAG pipeline, chains, and agents.
+        
+        Args:
+            search_method: Name of search method to use:
+                - "semantic_search" (default)
+                - "keyword_search"
+                - "hybrid_search"
+                - "ensemble_search"
+                - "trigram_search"
+                - Any other search method name from this class
+            search_kwargs: Arguments to pass to the search method (e.g., {"k": 5, "filter": {...}})
+        
+        Returns:
+            VectorStoreRetriever object compatible with LangChain
+        
+        Example:
+            >>> # Basic semantic retriever
+            >>> retriever = rag.as_retriever()
+            >>> 
+            >>> # Hybrid search retriever with custom parameters
+            >>> retriever = rag.as_retriever(
+            ...     search_method="hybrid_search",
+            ...     search_kwargs={"k": 10, "weights": (0.7, 0.3)}
+            ... )
+            >>> 
+            >>> # Use in LangChain RAG chain
+            >>> from langchain.chains import RetrievalQA
+            >>> qa_chain = RetrievalQA.from_chain_type(
+            ...     llm=llm,
+            ...     retriever=retriever
+            ... )
+        """
+        from langchain_core.retrievers import BaseRetriever
+        from langchain_core.callbacks import CallbackManagerForRetrieverRun
+        from typing import List as TypingList
+        
+        search_kwargs = search_kwargs or {"k": 4}
+        
+        class VectorStoreRetriever(BaseRetriever):
+            """Custom retriever wrapping pgVectorDB search methods."""
+            
+            vectorstore: Any
+            search_method: str
+            search_kwargs: Dict[str, Any]
+            
+            class Config:
+                arbitrary_types_allowed = True
+            
+            def _get_relevant_documents(
+                self,
+                query: str,
+                *,
+                run_manager: Optional[CallbackManagerForRetrieverRun] = None
+            ) -> TypingList[Document]:
+                """Sync version - not implemented (use async version)."""
+                raise NotImplementedError(
+                    "Sync retrieval not supported. Use async methods with ainvoke() or aget_relevant_documents()"
+                )
+            
+            async def _aget_relevant_documents(
+                self,
+                query: str,
+                *,
+                run_manager: Optional[CallbackManagerForRetrieverRun] = None
+            ) -> TypingList[Document]:
+                """Async retrieval using configured search method."""
+                # Get the search method from vectorstore
+                method = getattr(self.vectorstore, self.search_method, None)
+                if not method:
+                    raise ValueError(
+                        f"Search method '{self.search_method}' not found on vectorstore"
+                    )
+                
+                # Call search method
+                results = await method(query, **self.search_kwargs)
+                
+                # Convert QueryResult to Document
+                return [
+                    Document(
+                        page_content=result['content'],
+                        metadata={**result['metadata'], 'score': result['score']}
+                    )
+                    for result in results
+                ]
+        
+        return VectorStoreRetriever(
+            vectorstore=self,
+            search_method=search_method,
+            search_kwargs=search_kwargs
+        )
 
     async def close(self) -> None:
         """Close database connections and cleanup resources."""

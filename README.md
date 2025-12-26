@@ -19,16 +19,16 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
   - 29+ language support (english, french, german, spanish, etc.)
 
 ### 🎯 **10 Search Methods**
-1. **Keyword Search** - Pure keyword search (FTS or BM25)
-2. **Universal Keyword Search** - Keyword search across content + metadata fields
-3. **Semantic Search** - Vector similarity search
-4. **Metadata Filter** - Pure metadata filtering (no query)
-5. **Metadata + Keyword** - Filtered keyword search (FTS or BM25)
-6. **Metadata + Semantic** - Filtered vector search
-7. **Hybrid Search** - Keyword (FTS/BM25) + Semantic combined (weighted or RRF)
-8. **Ensemble Search** - Metadata + Keyword (FTS/BM25) + Semantic (most comprehensive)
-9. **Trigram Search** - Fuzzy text matching (typo-tolerant)
-10. **Metadata + Trigram** - Filtered fuzzy search
+1. **keyword_search** - Pure keyword search (FTS or BM25)
+2. **universal_keyword_search** - Keyword search across content + metadata fields
+3. **semantic_search** - Vector similarity search
+4. **metadata_filter** - Pure metadata filtering (no query)
+5. **metadata_keyword_search** - Filtered keyword search (FTS or BM25)
+6. **metadata_semantic_search** - Filtered vector search
+7. **hybrid_search** - Keyword (FTS/BM25) + Semantic combined (weighted or RRF)
+8. **ensemble_search** - Metadata + Keyword (FTS/BM25) + Semantic (most comprehensive)
+9. **trigram_search** - Fuzzy text matching (typo-tolerant)
+10. **metadata_trigram_search** - Filtered fuzzy search
 
 ### 📊 **7 Evaluation Metrics**
 - **Precision@K** - Quality of top K results
@@ -45,11 +45,310 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
 - **Pattern:** `$like`, `$ilike`, `$exists`
 - **Logical:** `$and`, `$or`
 
+### 🛠️ **33 Utility Methods**
+- **Document Management (6):** add_documents, add_documents_batch, aupdate_documents, update_metadata, adelete, aget_by_ids
+- **Index Operations (6):** build_index, build_bm25_index, create_metadata_index, areindex, adrop_vector_index, set_query_params
+- **Advanced Search (2):** asimilarity_search_by_vector, asimilarity_search_with_score
+- **Analytics & Monitoring (5):** get_stats, get_index_stats, count_by_metadata, explain_query, validate_collection
+- **Data Export/Import (2):** export_to_json, import_from_json
+- **Database Operations (1):** vacuum_analyze
+- **Benchmarking (1):** benchmark_search_methods
+- **LangChain Integration (1):** as_retriever
+
+### ✨ **Production Features**
+- Connection pooling with configurable pool size
+- Comprehensive error handling and validation
+- Automatic extension installation (vector, pg_trgm, vectorscale, pg_textsearch)
+- Batch operations with progress tracking
+- Query parameter tuning for all index types
+- BM25 native support via pg_textsearch
+- Label-based filtering for DiskANN
+- Multiple distance metrics (cosine, L2, inner product)
+- Schema isolation support
+
+---
+
+## � Docker Setup
+
+### PostgreSQL Extensions Used
+
+This project uses three powerful PostgreSQL extensions for advanced vector and text search:
+
+#### 1. **pgvector** ([github.com/pgvector/pgvector](https://github.com/pgvector/pgvector))
+- **Purpose:** Open-source vector similarity search for PostgreSQL
+- **Version:** v0.8.0
+- **Features:**
+  - Store vector embeddings directly in PostgreSQL
+  - Three index types: HNSW, IVFFlat, and basic vector support
+  - Supports L2 distance, inner product, and cosine similarity
+  - Compatible with PostgreSQL 12+
+  - Production-ready with billions of vectors in use
+
+#### 2. **pgvectorscale** ([github.com/timescale/pgvectorscale](https://github.com/timescale/pgvectorscale))
+- **Purpose:** High-performance vector search with DiskANN algorithm
+- **Built by:** Timescale (PostgreSQL time-series database experts)
+- **Features:**
+  - DiskANN index for 10M+ vectors with minimal memory
+  - StreamingDiskANN for fast incremental index building
+  - 28x faster index creation than HNSW
+  - 16x less memory usage than HNSW
+  - Built with Rust for maximum performance
+  - Requires pgvector to be installed first
+
+#### 3. **pg_textsearch** ([github.com/timescale/pg_textsearch](https://github.com/timescale/pg_textsearch))
+- **Purpose:** BM25 full-text search ranking for PostgreSQL
+- **Built by:** Timescale
+- **Features:**
+  - Industry-standard BM25 algorithm (used by Elasticsearch, Lucene)
+  - Configurable parameters: k1 (term frequency), b (length normalization)
+  - 29+ language support with stemming and stop words
+  - Drop-in replacement for PostgreSQL's ts_rank
+  - Better relevance than default FTS ranking
+
+### Our Custom Dockerfile
+
+We built a custom PostgreSQL 17 image with all three extensions pre-installed:
+
+**Base Image:** `pgvector/pgvector:pg17` (PostgreSQL 17 + pgvector)
+
+**Additional Components:**
+- **Rust toolchain** - Required for building pgvectorscale
+- **cargo-pgrx 0.16.1** - PostgreSQL extension framework for Rust
+- **Build tools** - clang-16, libclang-16-dev, postgresql-server-dev-17
+
+**Extensions Installed:**
+1. `pgvector v0.8.0` - Vector similarity search
+2. `pgvectorscale` (latest) - DiskANN high-performance indexing
+3. `pg_textsearch` (latest) - BM25 text search
+
+**File:** [docker/Dockerfile](docker/Dockerfile)
+
+### Docker Commands
+
+#### Build the Image
+```bash
+# Using Docker
+cd docker
+docker build -t pg17-vectorscale-textsearch:latest .
+
+# Using Podman
+cd docker
+podman build -t pg17-vectorscale-textsearch:latest .
+```
+
+#### Start the Container
+```bash
+# Using Docker Compose
+cd docker
+docker compose up -d
+
+# Using Docker
+docker run -d \
+  --name pg17-vectorscale-textsearch \
+  -p 9002:5432 \
+  -e POSTGRES_USER=user \
+  -e POSTGRES_PASSWORD=root \
+  -e POSTGRES_DB=postgres \
+  -v pgLocalData:/var/lib/postgresql/data \
+  --shm-size=4gb \
+  pg17-vectorscale-textsearch:latest
+
+# Using Podman Compose
+cd docker
+podman-compose up -d
+
+# Using Podman
+podman run -d \
+  --name pg17-vectorscale-textsearch \
+  -p 9002:5432 \
+  -e POSTGRES_USER=user \
+  -e POSTGRES_PASSWORD=root \
+  -e POSTGRES_DB=postgres \
+  -v pgLocalData:/var/lib/postgresql/data \
+  --shm-size=4gb \
+  pg17-vectorscale-textsearch:latest
+```
+
+#### Stop and Remove
+```bash
+# Using Docker Compose
+docker compose down              # Stop containers
+docker compose down -v           # Stop and remove volumes
+
+# Using Docker
+docker stop pg17-vectorscale-textsearch
+docker rm pg17-vectorscale-textsearch
+docker volume rm pgLocalData     # Remove data volume
+
+# Using Podman
+podman stop pg17-vectorscale-textsearch
+podman rm pg17-vectorscale-textsearch
+podman volume rm pgLocalData
+```
+
+#### View Logs
+```bash
+# Docker
+docker logs pg17-vectorscale-textsearch
+docker logs -f pg17-vectorscale-textsearch  # Follow logs
+
+# Podman
+podman logs pg17-vectorscale-textsearch
+podman logs -f pg17-vectorscale-textsearch
+```
+
+#### Access PostgreSQL Shell
+```bash
+# Docker
+docker exec -it pg17-vectorscale-textsearch psql -U user -d postgres
+
+# Podman
+podman exec -it pg17-vectorscale-textsearch psql -U user -d postgres
+```
+
+#### Verify Extensions
+```bash
+# Check installed extensions
+docker exec -it pg17-vectorscale-textsearch psql -U user -d postgres -c \
+  "SELECT extname, extversion FROM pg_extension WHERE extname IN ('vector', 'vectorscale', 'pg_textsearch');"
+
+# Expected output:
+#    extname     | extversion
+# ---------------+------------
+#  vector        | 0.8.0
+#  vectorscale   | 0.x.x
+#  pg_textsearch | 0.x.x
+```
+
+### PostgreSQL Compatibility
+
+| Extension      | Min Version | Recommended | Notes                                    |
+|----------------|-------------|-------------|------------------------------------------|
+| **pgvector**   | PostgreSQL 13+ | PostgreSQL 17+ | Supports PG 13-18, latest recommended |
+| **pgvectorscale** | No specific minimum stated | PostgreSQL 17+ | Built with PGRX, tested on latest versions |
+| **pg_textsearch** | PostgreSQL 17+ | PostgreSQL 17+ | Currently supports PG 17 and 18 only |
+
+**Our Setup:** PostgreSQL 17 (latest stable) for full compatibility with all three extensions
+
+**Note:** While pgvector supports PostgreSQL 13+, we recommend PostgreSQL 17+ for optimal performance and to ensure compatibility with all three extensions, especially pg_textsearch which requires PG 17+.
+
+---
+
+## 🎯 When to Use Which Extension
+
+### pgvector - Core Vector Operations
+**Use when:**
+- You need basic vector similarity search
+- Working with <1M vectors (HNSW) or 100K-10M vectors (IVFFlat)
+- You want a mature, production-proven solution
+- You need multi-language client support (30+ languages)
+
+**Key Features:**
+- 3 index types: HNSW (fast), IVFFlat (balanced), basic vector
+- Multiple distance metrics: L2, cosine, inner product, L1, Hamming, Jaccard
+- Up to 2,000 dimensions (vector), 4,000 (halfvec), 64,000 (bit)
+- Sparse vectors support
+- Binary quantization for compression
+
+**Best for:** General-purpose vector search, RAG applications, semantic search
+
+---
+
+### pgvectorscale - High-Performance Large-Scale Vectors
+**Use when:**
+- You have >10M vectors (DiskANN algorithm)
+- You need low latency at scale (28x faster than alternatives)
+- Memory is limited (16x less memory than HNSW)
+- You need label-based filtering for vector search
+- Cost efficiency is critical (75% less cost than managed solutions)
+
+**Key Features:**
+- StreamingDiskANN index (inspired by Microsoft DiskANN)
+- Statistical Binary Quantization (SBQ) for compression
+- Parallel index building (28x faster than HNSW)
+- Label-based filtered vector search (uses `&&` operator)
+- Built with Rust for maximum performance
+
+**Best for:** Production vector workloads at scale, large embedding datasets (millions+), cost-sensitive deployments
+
+**Requires:** pgvector must be installed first (installed via CASCADE)
+
+---
+
+### pg_textsearch - BM25 Full-Text Search
+**Use when:**
+- You need keyword-based text search with relevance ranking
+- BM25 algorithm is required (industry standard used by Elasticsearch, Lucene)
+- You want better ranking than PostgreSQL's default ts_rank
+- You need configurable ranking parameters (k1, b)
+- Multi-language text search with stemming (29+ languages)
+
+**Key Features:**
+- Native BM25 ranking function
+- Configurable parameters: k1 (term frequency), b (length normalization)
+- Simple syntax: `ORDER BY content <@> 'search terms'`
+- 29+ language support with stemming
+- Partitioned table support
+- Memtable architecture for efficient writes
+
+**Best for:** Full-text search, document retrieval, keyword search, hybrid search (combining with vector search)
+
+**Note:** Prerelease status (v0.1.1-dev) - feature-complete but not yet fully optimized
+
+---
+
+## 🔄 Using All Three Together (Our Setup)
+
+### The Complete Stack:
+1. **pgvector** - Vector similarity search for semantic queries
+2. **pgvectorscale** - High-performance DiskANN for large-scale embeddings
+3. **pg_textsearch** - BM25 keyword search for exact term matching
+
+### Hybrid Search Strategy:
+```python
+# Our implementation supports:
+# 1. Keyword Search (FTS or BM25) - exact term matching
+# 2. Semantic Search (pgvector/pgvectorscale) - meaning-based
+# 3. Hybrid Search - combines both with weighted fusion or RRF
+# 4. Filtered Search - metadata filters + any search type
+
+# Example: Best of all worlds
+results = await rag.ensemble_search(
+    query="machine learning algorithms",
+    filter={"category": "ai", "year": {"$gte": 2020}},
+    keyword_type=KeywordSearchType.BM25,  # pg_textsearch
+    use_rrf=True  # Reciprocal Rank Fusion
+)
+```
+
+### When to Use Each in Hybrid Mode:
+- **BM25 (pg_textsearch):** Better for technical terms, product names, exact phrases
+- **Semantic (pgvector/pgvectorscale):** Better for understanding intent, synonyms, context
+- **Hybrid:** Combines both for optimal recall and precision
+
 ---
 
 ## 📦 Installation
 
-### Prerequisites
+### Option 1: Using Docker (Recommended)
+
+1. **Start the PostgreSQL container:**
+```bash
+cd docker
+docker compose up -d
+```
+
+2. **Verify extensions are loaded:**
+```bash
+docker exec -it pg17-vectorscale-textsearch psql -U user -d postgres -c \
+  "CREATE EXTENSION IF NOT EXISTS vector; \
+   CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE; \
+   CREATE EXTENSION IF NOT EXISTS pg_textsearch;"
+```
+
+All extensions are automatically initialized via [docker/init.sql](docker/init.sql)
+
+### Option 2: Manual Installation
 
 1. **PostgreSQL 12+ with extensions:**
 ```bash
@@ -160,6 +459,389 @@ async def main():
         print(f"{doc.page_content}")
 
 asyncio.run(main())
+```
+
+---
+
+## 🗂️ Multi-Table Architecture (One Schema, Multiple Collections)
+
+### Understanding Schema and Tables
+
+pgVectorDB uses the `collection_name` parameter as the **table name** within a PostgreSQL schema. This allows you to organize multiple independent document collections in the same database schema.
+
+**Architecture:**
+```
+PostgreSQL Database
+└── Schema: "public" (default)
+    ├── Table: "technical_docs"     ← pgVectorDB collection 1
+    ├── Table: "product_manuals"    ← pgVectorDB collection 2
+    ├── Table: "customer_support"   ← pgVectorDB collection 3
+    └── Table: "knowledge_base"     ← pgVectorDB collection 4
+```
+
+Each table is completely independent with its own:
+- Vector embeddings
+- Metadata
+- Indexes (HNSW, IVFFlat, or DiskANN)
+- BM25 indexes
+- Full-text search indexes
+
+---
+
+### Example: Multiple Collections in One Schema
+
+```python
+import asyncio
+from langchain_huggingface import HuggingFaceEmbeddings
+from src.core import pgVectorDB, IndexType
+
+async def setup_multi_collection():
+    # Shared connection and embedding model
+    conn_str = "postgresql+asyncpg://user:pass@localhost:9002/postgres"
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    
+    # Collection 1: Technical Documentation
+    tech_docs = pgVectorDB(
+        collection_name="technical_docs",  # Creates table "technical_docs"
+        embedding_model=embeddings,
+        connection_string=conn_str,
+        schema_name="public",  # Default schema
+        index_type=IndexType.HNSW
+    )
+    await tech_docs.initialize()
+    
+    # Collection 2: Product Manuals
+    product_manuals = pgVectorDB(
+        collection_name="product_manuals",  # Creates table "product_manuals"
+        embedding_model=embeddings,
+        connection_string=conn_str,
+        schema_name="public",
+        index_type=IndexType.HNSW
+    )
+    await product_manuals.initialize()
+    
+    # Collection 3: Customer Support FAQs
+    support_faqs = pgVectorDB(
+        collection_name="customer_support",  # Creates table "customer_support"
+        embedding_model=embeddings,
+        connection_string=conn_str,
+        schema_name="public",
+        index_type=IndexType.DISKANN  # Different index type
+    )
+    await support_faqs.initialize()
+    
+    return tech_docs, product_manuals, support_faqs
+
+# Use each collection independently
+async def main():
+    tech_docs, product_manuals, support_faqs = await setup_multi_collection()
+    
+    # Add documents to each collection
+    await tech_docs.add_documents(technical_documents)
+    await product_manuals.add_documents(manual_documents)
+    await support_faqs.add_documents(faq_documents)
+    
+    # Build indexes for each collection
+    await tech_docs.build_index(m=16, ef_construction=64)
+    await product_manuals.build_index(m=16, ef_construction=64)
+    await support_faqs.build_index(num_neighbors=50)
+    
+    # Search in specific collections
+    tech_results = await tech_docs.semantic_search("API documentation", k=5)
+    manual_results = await product_manuals.semantic_search("installation guide", k=5)
+    faq_results = await support_faqs.semantic_search("how to reset password", k=5)
+    
+    print(f"Found {len(tech_results)} technical docs")
+    print(f"Found {len(manual_results)} product manuals")
+    print(f"Found {len(faq_results)} support FAQs")
+
+asyncio.run(main())
+```
+
+---
+
+### Use Cases for Multiple Tables
+
+#### 1. **Department/Team Separation**
+```python
+# Marketing team
+marketing_rag = pgVectorDB(collection_name="marketing_content", ...)
+
+# Engineering team
+engineering_rag = pgVectorDB(collection_name="engineering_docs", ...)
+
+# Sales team
+sales_rag = pgVectorDB(collection_name="sales_materials", ...)
+```
+
+#### 2. **Document Type Separation**
+```python
+# Different document types
+contracts_rag = pgVectorDB(collection_name="legal_contracts", ...)
+emails_rag = pgVectorDB(collection_name="email_archive", ...)
+reports_rag = pgVectorDB(collection_name="financial_reports", ...)
+```
+
+#### 3. **Multi-Language Content**
+```python
+# Language-specific collections with different BM25 configs
+english_rag = pgVectorDB(collection_name="docs_english", ...)
+await english_rag.build_bm25_index(text_config="english")
+
+french_rag = pgVectorDB(collection_name="docs_french", ...)
+await french_rag.build_bm25_index(text_config="french")
+
+german_rag = pgVectorDB(collection_name="docs_german", ...)
+await german_rag.build_bm25_index(text_config="german")
+```
+
+#### 4. **Data Lifecycle Management**
+```python
+# Hot data (recent, frequently accessed)
+hot_data = pgVectorDB(
+    collection_name="docs_2024",
+    index_type=IndexType.HNSW  # Fast queries
+)
+
+# Warm data (older, less accessed)
+warm_data = pgVectorDB(
+    collection_name="docs_2023",
+    index_type=IndexType.IVFFLAT  # Balanced
+)
+
+# Cold data (archive)
+cold_data = pgVectorDB(
+    collection_name="docs_archive",
+    index_type=IndexType.DISKANN  # Memory efficient
+)
+```
+
+---
+
+### Cross-Collection Search
+
+Search across multiple collections and combine results:
+
+```python
+async def search_all_collections(query: str, k: int = 5):
+    """Search across multiple collections and combine results."""
+    
+    # Search each collection
+    tech_results = await tech_docs.semantic_search(query, k=k)
+    manual_results = await product_manuals.semantic_search(query, k=k)
+    faq_results = await support_faqs.semantic_search(query, k=k)
+    
+    # Combine and sort by score
+    all_results = []
+    
+    for result in tech_results:
+        result.metadata['source_collection'] = 'technical_docs'
+        all_results.append(result)
+    
+    for result in manual_results:
+        result.metadata['source_collection'] = 'product_manuals'
+        all_results.append(result)
+    
+    for result in faq_results:
+        result.metadata['source_collection'] = 'customer_support'
+        all_results.append(result)
+    
+    # Sort by score and return top K
+    all_results.sort(key=lambda x: x.score)
+    return all_results[:k]
+
+# Usage
+combined_results = await search_all_collections("installation steps", k=10)
+for doc in combined_results:
+    print(f"[{doc.metadata['source_collection']}] {doc.content}")
+```
+
+---
+
+### Using Custom Schemas
+
+Organize collections into different PostgreSQL schemas:
+
+```python
+# Production data
+prod_rag = pgVectorDB(
+    collection_name="documents",
+    schema_name="production",  # Schema: production
+    ...
+)
+
+# Staging/testing data
+staging_rag = pgVectorDB(
+    collection_name="documents",
+    schema_name="staging",  # Schema: staging
+    ...
+)
+
+# Development data
+dev_rag = pgVectorDB(
+    collection_name="documents",
+    schema_name="development",  # Schema: development
+    ...
+)
+```
+
+**Database Structure:**
+```
+PostgreSQL Database
+├── Schema: "production"
+│   └── Table: "documents"
+├── Schema: "staging"
+│   └── Table: "documents"
+└── Schema: "development"
+    └── Table: "documents"
+```
+
+---
+
+### Best Practices for Multi-Table Setup
+
+#### ✅ **DO:**
+
+1. **Use Descriptive Collection Names**
+   ```python
+   # Good
+   pgVectorDB(collection_name="customer_support_tickets_2024", ...)
+   
+   # Avoid
+   pgVectorDB(collection_name="data", ...)
+   ```
+
+2. **Separate by Access Patterns**
+   ```python
+   # High-frequency searches
+   active_docs = pgVectorDB(collection_name="active_docs", index_type=IndexType.HNSW)
+   
+   # Archive searches (less frequent)
+   archive_docs = pgVectorDB(collection_name="archive_docs", index_type=IndexType.DISKANN)
+   ```
+
+3. **Use Connection Pooling for Multiple Collections**
+   ```python
+   # Share connection string with pooling
+   conn_str = "postgresql+asyncpg://user:pass@localhost/db?pool_size=10&max_overflow=20"
+   
+   rag1 = pgVectorDB(collection_name="collection1", connection_string=conn_str, ...)
+   rag2 = pgVectorDB(collection_name="collection2", connection_string=conn_str, ...)
+   rag3 = pgVectorDB(collection_name="collection3", connection_string=conn_str, ...)
+   ```
+
+4. **Document Source in Metadata**
+   ```python
+   doc = Document(
+       page_content="content...",
+       metadata={
+           "collection": "technical_docs",
+           "department": "engineering",
+           "created_at": "2024-12-26"
+       }
+   )
+   ```
+
+#### ❌ **DON'T:**
+
+1. **Don't Mix Unrelated Data in One Table**
+   ```python
+   # Bad: mixing customer data, products, and support tickets
+   everything = pgVectorDB(collection_name="all_data", ...)
+   
+   # Good: separate collections
+   customers = pgVectorDB(collection_name="customers", ...)
+   products = pgVectorDB(collection_name="products", ...)
+   tickets = pgVectorDB(collection_name="support_tickets", ...)
+   ```
+
+2. **Don't Create Too Many Small Collections**
+   ```python
+   # Bad: one collection per user
+   user_1_docs = pgVectorDB(collection_name="user_1_docs", ...)
+   user_2_docs = pgVectorDB(collection_name="user_2_docs", ...)
+   # ... 10,000 collections
+   
+   # Good: one collection with user_id in metadata
+   all_docs = pgVectorDB(collection_name="user_documents", ...)
+   # Filter by: {"user_id": {"$eq": "user_1"}}
+   ```
+
+---
+
+### Monitoring Multiple Collections
+
+```python
+async def get_collection_stats():
+    """Get statistics for all collections."""
+    collections = [tech_docs, product_manuals, support_faqs]
+    
+    for rag in collections:
+        stats = await rag.get_stats()
+        print(f"\n{stats['table_name']}:")
+        print(f"  Documents: {stats['total_documents']}")
+        print(f"  Index Type: {stats['index_type']}")
+        print(f"  Table Size: {stats['table_size']}")
+        print(f"  Index Size: {stats['index_size']}")
+
+# Check which tables exist in your schema
+async def list_all_collections():
+    """List all pgVectorDB collections in the database."""
+    async with tech_docs.sqlalchemy_engine.connect() as conn:
+        result = await conn.execute(text("""
+            SELECT tablename 
+            FROM pg_tables 
+            WHERE schemaname = 'public'
+            AND tablename NOT LIKE 'pg_%'
+            ORDER BY tablename;
+        """))
+        tables = [row[0] for row in result.fetchall()]
+        print(f"Found {len(tables)} collections:")
+        for table in tables:
+            print(f"  - {table}")
+```
+
+---
+
+### Migration Example: Moving Data Between Collections
+
+```python
+async def migrate_collection(source_rag, target_rag, filter_condition=None):
+    """Migrate documents from one collection to another."""
+    
+    # Get documents from source
+    if filter_condition:
+        docs = await source_rag.metadata_filter(filter=filter_condition, k=10000)
+    else:
+        # Get all documents (adjust k as needed)
+        stats = await source_rag.get_stats()
+        total_docs = stats['total_documents']
+        docs = await source_rag.metadata_filter(filter={}, k=total_docs)
+    
+    # Convert to Document objects
+    documents = [
+        Document(page_content=doc.content, metadata=doc.metadata)
+        for doc in docs
+    ]
+    
+    # Add to target collection
+    await target_rag.add_documents(documents)
+    
+    print(f"Migrated {len(documents)} documents")
+
+# Example: Archive old documents
+async def archive_old_documents():
+    active_docs = pgVectorDB(collection_name="active_docs", ...)
+    archive_docs = pgVectorDB(collection_name="archive_docs", ...)
+    
+    # Move documents older than 2023
+    await migrate_collection(
+        source_rag=active_docs,
+        target_rag=archive_docs,
+        filter_condition={"year": {"$lt": 2023}}
+    )
 ```
 
 ---
@@ -361,7 +1043,186 @@ await rag.build_index(
 
 ---
 
+## Testing
+
+### Comprehensive Test Suite
+
+The project includes a comprehensive test suite in [test/test_suite.py](test/test_suite.py) with 10+ test functions covering all aspects of the system.
+
+**Run all tests:**
+```bash
+python test/test_suite.py
+```
+
+### Test Coverage
+
+#### 1. **Initialization Tests**
+Tests all 3 index types (HNSW, IVFFlat, DiskANN):
+- Database connection and extension setup
+- Schema creation
+- Vector store initialization
+- Index type validation
+
+#### 2. **Document Operations Tests**
+- Add documents (single and batch)
+- Update documents and metadata
+- Delete documents
+- Retrieve documents by IDs
+- Document counting and statistics
+
+#### 3. **Search Methods Tests**
+All 10 search methods are tested:
+- `keyword_search` (FTS and BM25)
+- `universal_keyword_search`
+- `semantic_search`
+- `metadata_filter`
+- `metadata_keyword_search`
+- `metadata_semantic_search`
+- `hybrid_search` (with RRF and weighted)
+- `ensemble_search`
+- `trigram_search`
+- `metadata_trigram_search`
+
+#### 4. **Filter Operators Tests**
+All 13 filter operators validated:
+- **Comparison:** `$eq`, `$ne`, `$lt`, `$lte`, `$gt`, `$gte`
+- **Range:** `$between`
+- **Set:** `$in`, `$nin`
+- **Pattern:** `$like`, `$ilike`
+- **Existence:** `$exists`
+
+#### 5. **Index Operations Tests**
+- Index building (HNSW, IVFFlat, DiskANN)
+- BM25 index creation
+- Reindexing operations
+- Index statistics retrieval
+- Vacuum and analyze
+
+#### 6. **Analytics & Monitoring Tests**
+- Collection statistics
+- Index performance metrics
+- Query explanation (EXPLAIN ANALYZE)
+- Document counting by metadata
+- Validation checks
+
+#### 7. **Data Export/Import Tests**
+- Export documents to JSON
+- Import documents from JSON
+- Data integrity verification
+
+#### 8. **LangChain Integration Tests**
+- Retriever creation with different search methods
+- Search type configuration
+- Result formatting
+
+#### 9. **Error Handling Tests**
+- Invalid initialization parameters
+- Missing required extensions
+- Invalid filter syntax
+- Schema validation
+- Constraint violations
+
+#### 10. **Performance Tests**
+- Batch processing (100+ documents)
+- Large-scale search operations
+- Index build time measurement
+- Query response time tracking
+
+### Test Structure
+
+The test suite uses a custom tracking system:
+
+```python
+class TestResults:
+    """Track test results."""
+    def add_pass(self, test_name: str)
+    def add_fail(self, test_name: str, error: str)
+    def print_summary()
+```
+
+**Example output:**
+```
+✅ [PASS] HNSW Initialization
+✅ [PASS] IVFFlat Initialization
+✅ [PASS] DiskANN Initialization
+✅ [PASS] Add Documents
+✅ [PASS] Semantic Search
+...
+
+================================================================================
+TEST SUMMARY
+================================================================================
+✅ PASSED: 45
+❌ FAILED: 0
+📊 TOTAL:  45
+📈 SUCCESS RATE: 100.0%
+================================================================================
+```
+
+### Running Specific Tests
+
+While the test suite is designed to run all tests together, you can modify it to run specific test categories by commenting out tests in the `main()` function.
+
+### Test Database Configuration
+
+Tests use a dedicated schema to avoid conflicts:
+
+```python
+DB_HOST = "localhost"
+DB_PORT = "9002"
+DB_NAME = "postgres"
+DB_USER = "user"
+DB_PASSWORD = "root"
+SCHEMA_NAME = "test"  # Isolated test schema
+```
+
+The test suite automatically:
+1. Creates the test schema before running
+2. Runs all tests
+3. Drops the test schema after completion (cleanup)
+
+### Test Data Generation
+
+The test suite includes a sophisticated test data generator:
+
+```python
+def generate_test_documents(num_docs: int = 100) -> tuple[List[Document], List[List[int]]]:
+    """Generate diverse test documents with metadata and labels."""
+```
+
+**Generated test data includes:**
+- Diverse content across 8 categories (programming, AI, database, web, DevOps, security, cloud, mobile)
+- Rich metadata (category, language, author, year, priority, status, tags)
+- Label assignments for DiskANN testing
+- Realistic content using templates and variations
+
+---
+
 ## Evaluation
+
+### Benchmark All Search Methods
+
+Compare the performance of all 10 search methods using the benchmarking tool:
+
+```bash
+python eval/benchmark_all_methods.py
+```
+
+This tool:
+- Tests all 10 search methods with the same queries
+- Measures response times
+- Compares result quality
+- Exports results to CSV and JSON formats
+
+**Output files:**
+- `eval/benchmark_results.csv` - Tabular results
+- `eval/benchmark_results.json` - Detailed JSON results
+
+**Benchmark includes:**
+- Query response time (ms)
+- Results per method
+- Score distributions
+- Method comparison metrics
 
 ### Evaluate Search Quality
 
@@ -527,15 +1388,20 @@ embeddings_list = embeddings.embed_documents(contents)
 Prod_RAG/
 ├── src/                         # Core source code
 │   ├── __init__.py             # Package exports
-│   ├── core.py                 # pgVectorDB class (1552 lines)
-│   └── evaluation.py           # Evaluation metrics (942 lines)
+│   ├── core.py                 # pgVectorDB class (~3100 lines)
+│   └── evaluation.py           # Evaluation metrics
 ├── test/                        # Comprehensive test suite
-│   └── test.py                 # 33 test functions (1241 lines)
-├── eval/                        # Optimization tools
-│   └── optimize_k.py           # K-value optimization
+│   └── test_suite.py           # 10+ test functions (~929 lines)
+├── eval/                        # Optimization & benchmarking tools
+│   ├── benchmark_all_methods.py  # Search method comparisons
+│   ├── optimize_k.py            # K-value optimization
+│   ├── benchmark_results.csv    # Benchmark data (CSV)
+│   └── benchmark_results.json   # Benchmark data (JSON)
 ├── notebooks/                   # Interactive demos
-│   ├── demo.ipynb              # Complete walkthrough (74 cells)
+│   ├── demo.ipynb              # Complete walkthrough
 │   └── eval_demo.ipynb         # Evaluation examples
+├── scripts/                     # Utility scripts
+│   └── test_connection.py      # Connection & requirements tester
 ├── docker/                      # Docker deployment
 │   ├── Dockerfile              # Python container
 │   ├── docker-compose.yml      # Multi-container setup
@@ -623,34 +1489,84 @@ psql -c "SELECT * FROM pg_extension WHERE extname IN ('vector', 'vectorscale');"
 
 ## API Reference
 
-### pgVectorDB
+### pgVectorDB Class
 
-**Constructor:**
+#### Constructor
 ```python
 pgVectorDB(
     collection_name: str,
     embedding_model: Embeddings,
     connection_string: str,
+    schema_name: str = "public",
     index_type: IndexType = IndexType.HNSW,
-    distance_metric: DistanceMetric = DistanceMetric.COSINE
+    pool_size: int = 5,
+    max_overflow: int = 10
 )
 ```
 
-**Methods:**
-- `initialize(overwrite_existing=False)` - Initialize system
-- `add_documents(documents)` - Add documents
+#### Initialization & Setup
+- `initialize(overwrite_existing=False)` - Initialize vector store and extensions
+- `close()` - Close database connections
+
+#### Document Management (6 methods)
+- `add_documents(documents, labels=None)` - Add documents with optional DiskANN labels
+- `add_documents_batch(documents, batch_size=100, labels=None)` - Batch add with progress
+- `aupdate_documents(ids, documents)` - Update existing documents
+- `update_metadata(ids, metadata_updates)` - Update document metadata
+- `adelete(ids)` - Delete documents by IDs
+- `aget_by_ids(ids)` - Retrieve documents by IDs
+
+#### Index Operations (6 methods)
 - `build_index(**kwargs)` - Build vector index (HNSW/IVFFlat/DiskANN)
-- `build_bm25_index(text_config, k1, b)` - Build BM25 index for keyword search
-- `keyword_search(query, k, search_type)` - Keyword search (FTS or BM25)
-- `universal_keyword_search(query, k, search_type)` - Multi-table keyword search
-- `semantic_search(query, k, **kwargs)` - Vector search
-- `hybrid_search(query, k, weights, use_rrf, keyword_type)` - Combined search
-- `metadata_filter(filter, k)` - Filter documents
-- `metadata_semantic_search(query, filter, k)` - Filtered semantic
-- `metadata_keyword_search(query, filter, k, search_type)` - Filtered keyword
-- `ensemble_search(query, filter, k, weights, keyword_type)` - All combined
-- `trigram_search(query, k, threshold)` - Fuzzy search
-- `metadata_trigram_search(query, filter, k, threshold)` - Filtered fuzzy
+  - HNSW: `m`, `ef_construction`
+  - IVFFlat: `lists`
+  - DiskANN: `num_neighbors`, `search_list_size`, `storage_layout`, `metric`
+- `build_bm25_index(text_config="english", k1=1.2, b=0.75)` - Build BM25 index
+- `create_metadata_index(columns)` - Create B-tree indexes on metadata
+- `areindex(index_type, **kwargs)` - Rebuild existing index
+- `adrop_vector_index(index_name=None)` - Drop vector index
+- `set_query_params(**params)` - Set runtime query parameters
+  - HNSW: `ef_search`
+  - IVFFlat: `probes`
+  - DiskANN: `search_list_size`
+
+#### Search Methods (10 methods)
+- `keyword_search(query, k, search_type=KeywordSearchType.BM25)` - FTS or BM25 search
+- `universal_keyword_search(query, k, search_type=KeywordSearchType.BM25)` - Search across all text fields
+- `semantic_search(query, k, label_filter=None, **kwargs)` - Vector similarity search
+- `metadata_filter(filter, k=100)` - Filter by metadata only
+- `metadata_keyword_search(query, filter, k, search_type)` - Filtered keyword search
+- `metadata_semantic_search(query, filter, k, label_filter=None)` - Filtered semantic search
+- `hybrid_search(query, k, weights=(0.5, 0.5), use_rrf=False, keyword_type=BM25)` - Combined keyword + semantic
+- `ensemble_search(query, filter, k, weights, use_rrf, keyword_type)` - Filtered hybrid search
+- `trigram_search(query, k, threshold=0.3)` - Fuzzy text matching
+- `metadata_trigram_search(query, filter, k, threshold)` - Filtered fuzzy search
+
+#### Advanced Search (2 methods)
+- `asimilarity_search_by_vector(embedding, k, filter=None, label_filter=None)` - Search by vector
+- `asimilarity_search_with_score(query, k, filter=None, label_filter=None)` - Search with scores
+
+#### Analytics & Monitoring (5 methods)
+- `get_stats()` - Collection statistics (docs, size, index type)
+- `get_index_stats()` - Detailed index metrics
+- `count_by_metadata(filter)` - Count documents matching filter
+- `explain_query(query, method="semantic")` - PostgreSQL EXPLAIN ANALYZE
+- `validate_collection()` - Validate collection integrity
+- `benchmark_search_methods(queries, k)` - Compare all search methods
+
+#### Data Export/Import (2 methods)
+- `export_to_json(output_path, filter=None, batch_size=1000)` - Export to JSON
+- `import_from_json(input_path, batch_size=100)` - Import from JSON
+
+#### Database Operations (1 method)
+- `vacuum_analyze(full=False, analyze=True)` - Optimize database
+
+#### LangChain Integration (1 method)
+- `as_retriever(search_method="semantic_search", search_kwargs={})` - Create LangChain retriever
+
+**Total: 33 public methods**
+
+---
 
 ### RAGEvaluator
 
@@ -660,14 +1576,14 @@ RAGEvaluator(k: int = 5)
 ```
 
 **Methods:**
-- `evaluate(queries, retrieved_doc_ids, ground_truth)` - Calculate all metrics
-- `precision_at_k(retrieved, relevant, k)` - Calculate Precision@K
-- `recall_at_k(retrieved, relevant, k)` - Calculate Recall@K
-- `f1_score_at_k(precision, recall)` - Calculate F1@K
-- `mean_average_precision(retrieved, relevant, k)` - Calculate MAP
-- `mean_reciprocal_rank(retrieved, relevant)` - Calculate MRR
-- `ndcg_at_k(retrieved, relevant, k)` - Calculate NDCG@K
-- `hit_rate_at_k(retrieved, relevant, k)` - Calculate Hit Rate
+- `evaluate(queries, retrieved_doc_ids, ground_truth)` - Calculate all 7 metrics
+- `precision_at_k(retrieved, relevant, k)` - Precision@K
+- `recall_at_k(retrieved, relevant, k)` - Recall@K
+- `f1_score_at_k(precision, recall)` - F1@K
+- `mean_average_precision(retrieved, relevant, k)` - MAP
+- `mean_reciprocal_rank(retrieved, relevant)` - MRR
+- `ndcg_at_k(retrieved, relevant, k)` - NDCG@K
+- `hit_rate_at_k(retrieved, relevant, k)` - Hit Rate
 
 ### KValueAnalysis
 
@@ -676,6 +1592,48 @@ RAGEvaluator(k: int = 5)
 - `print_analysis()` - Print results table
 - `get_recommendation()` - Get optimal K recommendations
 - `plot_metrics()` - Visualize metrics
+
+---
+
+### Enums & Types
+
+#### IndexType
+```python
+class IndexType(str, Enum):
+    HNSW = "hnsw"
+    IVFFLAT = "ivfflat"
+    DISKANN = "diskann"
+```
+
+#### KeywordSearchType
+```python
+class KeywordSearchType(str, Enum):
+    FTS = "fts"      # PostgreSQL ts_rank
+    BM25 = "bm25"    # pg_textsearch BM25
+```
+
+#### DistanceMetric
+```python
+class DistanceMetric(str, Enum):
+    COSINE = "cosine"
+    L2 = "l2"
+    INNER_PRODUCT = "inner_product"
+```
+
+#### StorageLayout
+```python
+class StorageLayout(str, Enum):
+    MEMORY_OPTIMIZED = "memory_optimized"  # SBQ compression
+    PLAIN = "plain"  # Uncompressed
+```
+
+#### Custom Exceptions
+```python
+class RetrievalSystemError(Exception)  # Base exception
+class InitializationError(RetrievalSystemError)
+class ValidationError(RetrievalSystemError)
+class DatabaseError(RetrievalSystemError)
+```
 
 ---
 
@@ -756,7 +1714,7 @@ await rag.build_bm25_index(k1=1.5, b=0.9)
 
 ---
 
-**Version:** 2.0.0  
+**Version:** 2.1.0  
 **Last Updated:** December 26, 2025
 
 
@@ -824,19 +1782,30 @@ Prod_RAG/
 
 ### `/test` - Tests
 **Purpose:** Comprehensive test suite  
+**File:** `test_suite.py` (~929 lines)
 **Coverage:**
-- 3 index types (HNSW, IVFFlat, DiskANN)
-- 10 search methods
-- 13 filter operators
-- Error handling
+- Initialization tests (3 index types: HNSW, IVFFlat, DiskANN)
+- Document operations (CRUD, batch, metadata updates)
+- All 10 search methods (keyword, semantic, hybrid, etc.)
+- All 13 filter operators ($eq, $ne, $in, $between, etc.)
+- Index operations (build, reindex, vacuum, stats)
+- Analytics and monitoring
+- Data export/import (JSON format)
+- LangChain integration (as_retriever)
+- Error handling and validation
 - Performance benchmarks
 
 ### `/eval` - Evaluation Tools
-**Purpose:** RAG system optimization  
-**Tools:**
-- K-value optimization
-- Performance analysis
-- Metric comparison
+**Purpose:** RAG system optimization & benchmarking  
+**Files:**
+- `optimize_k.py` - K-value optimization for search quality
+- `benchmark_all_methods.py` - Compare all 10 search methods
+- `benchmark_results.csv` - Benchmark results (CSV format)
+- `benchmark_results.json` - Benchmark results (JSON format)
+**Features:**
+- Search method performance comparison
+- K-value optimization for precision/recall
+- Result export in multiple formats
 
 ### `/notebooks` - Interactive Demos
 **Purpose:** Jupyter notebook demonstrations  
@@ -868,12 +1837,12 @@ Prod_RAG/
 ### `/scripts` - Utilities
 **Purpose:** Development & maintenance scripts  
 **Files:**
-- `test_connection.py` - Database connection & requirements tester
-**Suggested files:**
-- `setup_database.py` - Database initialization
-- `migrate_data.py` - Data migration tools
-- `benchmark.py` - Performance benchmarking
-- `backup.py` - Backup utilities
+- `test_connection.py` - Comprehensive system validation
+  - Python packages verification
+  - Database connection testing
+  - PostgreSQL extensions check (vector, pg_trgm, vectorscale)
+  - Embedding model loading test
+  - pgVectorDB import validation
 
 ### `/docs` - Documentation
 **Purpose:** Extended documentation  
@@ -908,21 +1877,15 @@ Prod_RAG/
 
 | Folder | Files | Lines of Code | Purpose |
 |--------|-------|---------------|---------|
-| src/ | 3 | ~2,494 | Core implementation |
-| test/ | 1 | 1,241 | Test suite |
-| eval/ | 1 | 215 | Optimization tools |
+| src/ | 3 | ~3,100+ | Core implementation |
+| test/ | 1 | ~929 | Test suite |
+| eval/ | 4 | ~200+ | Benchmarking & optimization |
 | notebooks/ | 2 | - | Interactive demos |
+| scripts/ | 1 | - | Utilities |
 | docker/ | 4 | - | Deployment |
 | config/ | 1 | - | Settings |
-| examples/ | 0 | - | Usage examples |
-| scripts/ | 0 | - | Utilities |
-| docs/ | 0 | - | Documentation |
 
-**Total:** ~4,000 lines of production code
-
----
-
-## Dependencies
+**Total:** ~4,200+ lines of production code
 
 ### Python Packages
 - **LangChain:** Core RAG framework
@@ -957,10 +1920,10 @@ psql -c "CREATE EXTENSION vectorscale CASCADE;"
 ### Testing
 ```bash
 # Run comprehensive test suite
-python test/test.py
+python test/test_suite.py
 
-# Run specific test
-python -m pytest test/test.py::test_hnsw_initialization
+# Or with more verbose output
+python -m pytest test/test_suite.py -v
 ```
 
 ### Docker Deployment
@@ -984,7 +1947,7 @@ When adding new features:
 
 ## Version
 
-**Current Version:** 2.0.0  
+**Current Version:** 0.0.2  
 **Last Updated:** December 26, 2025  
 **Main Class:** `pgVectorDB`
 
