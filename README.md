@@ -17,6 +17,7 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
   - No API costs or rate limits
 - **AWS Bedrock** - Managed embedding service
   - Models: Amazon Titan, Cohere Embed, etc.
+  - Supports model IDs and ARNs (cross-region/cross-account)
   - Enterprise-grade performance
   - Pay-per-use pricing
 
@@ -447,6 +448,7 @@ LOCAL_DB_PORT=9002
 ENVIRONMENT=remote
 EMBEDDING_PROVIDER=bedrock
 BEDROCK_MODEL_ID=amazon.titan-embed-text-v1
+# Or use ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1
 AWS_REGION=us-east-1
 REMOTE_DB_HOST=your-db-server.example.com
 ```

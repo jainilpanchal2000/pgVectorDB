@@ -68,16 +68,35 @@ LOCAL_DB_PASSWORD=root
 ```dotenv
 ENVIRONMENT=remote
 EMBEDDING_PROVIDER=bedrock
+
+# Option 1: Simple model ID
 BEDROCK_MODEL_ID=amazon.titan-embed-text-v1
+
+# Option 2: Full ARN (for cross-region/cross-account)
+BEDROCK_MODEL_ID=arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1
+
 AWS_REGION=us-east-1
+
+# Option A: Explicit credentials
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
+
+# Option B: Leave empty to use default AWS credentials
+# (from ~/.aws/credentials, environment, or IAM role)
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
 
 REMOTE_DB_HOST=your-db.example.com
 REMOTE_DB_PORT=5432
 REMOTE_DB_USER=user
 REMOTE_DB_PASSWORD=root
 ```
+
+### Credential Priority (Bedrock)
+1. **Explicit in .env** - `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`
+2. **AWS CLI** - `~/.aws/credentials`
+3. **Environment variables** - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+4. **IAM Role** - On EC2/ECS/Lambda (recommended for production)
 
 ---
 
@@ -111,12 +130,33 @@ python test/test_suite.py --test-embeddings
 
 ## 🔍 Bedrock Models
 
-| Model ID | Provider | Dimensions | Cost/1K tokens |
-|----------|----------|------------|----------------|
-| `amazon.titan-embed-text-v1` | Amazon | 1536 | $0.0001 |
-| `amazon.titan-embed-text-v2` | Amazon | 1024 | $0.0001 |
-| `cohere.embed-english-v3` | Cohere | 1024 | $0.0001 |
-| `cohere.embed-multilingual-v3` | Cohere | 1024 | $0.0001 |
+### Using Model IDs (Simple)
+```dotenv
+# Provider auto-extracted from model name (e.g., "amazon", "cohere")
+BEDROCK_MODEL_ID=amazon.titan-embed-text-v1
+```
+
+### Using ARNs (Cross-Region/Cross-Account)
+```dotenv
+# Full ARN format - provider auto-extracted from model name
+BEDROCK_MODEL_ID=arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1
+
+# With account ID
+BEDROCK_MODEL_ID=arn:aws:bedrock:us-west-2:123456789012:foundation-model/cohere.embed-english-v3
+```
+
+**Note:** The `provider` parameter (e.g., "amazon", "cohere") is automatically extracted from the model name in both formats.
+
+### Available Models
+
+| Model ID | Provider | ARN Example | Dimensions | Cost/1K |
+|----------|----------|-------------|------------|---------|
+| `amazon.titan-embed-text-v1` | amazon | `arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1` | 1536 | $0.0001 |
+| `amazon.titan-embed-text-v2` | amazon | `arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2` | 1024 | $0.0001 |
+| `cohere.embed-english-v3` | cohere | `arn:aws:bedrock:us-east-1::foundation-model/cohere.embed-english-v3` | 1024 | $0.0001 |
+| `cohere.embed-multilingual-v3` | cohere | `arn:aws:bedrock:us-east-1::foundation-model/cohere.embed-multilingual-v3` | 1024 | $0.0001 |
+
+**Provider extraction:** The system automatically extracts the provider name (e.g., "amazon", "cohere") from the model ID or ARN.
 
 📖 [AWS Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/)
 
@@ -180,8 +220,38 @@ AWS_SECRET_ACCESS_KEY=...
 # Option 2: AWS CLI
 aws configure
 
-# Option 3: Skip Bedrock test
+# Option 3: Use IAM role (on EC2/ECS)
+# No configuration needed - automatically detected
+
+# Option 4: Skip Bedrock test
 python test/test_suite.py --embedding huggingface
+```
+
+### "Could not connect to endpoint" (Bedrock)
+```bash
+# Check region matches model availability
+# Some models only available in specific regions
+
+# Verify ARN format if using ARN
+# Correct: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1
+# Wrong:   arn:aws:bedrock::us-east-1:foundation-model/amazon.titan-embed-text-v1
+```
+
+### ARN Format Issues
+```bash
+# Valid ARN formats:
+# Format 1 (foundation models):
+arn:aws:bedrock:REGION::foundation-model/MODEL_ID
+
+# Format 2 (custom/fine-tuned):
+arn:aws:bedrock:REGION:ACCOUNT_ID:foundation-model/MODEL_ID
+
+# Example valid ARNs:
+arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1
+arn:aws:bedrock:us-west-2:123456789012:foundation-model/cohere.embed-english-v3
+
+# Check your ARN:
+python -c "from src.config import Config; print(Config.BEDROCK_MODEL_ID)"
 ```
 
 ### "Connection refused" (Database)
@@ -232,7 +302,26 @@ rag = pgVectorDB(
     index_type=IndexType.HNSW
 )
 ```
+### Using ARN with Bedrock
+```python
+from src.config import Config
 
+# Override with ARN
+Config.BEDROCK_MODEL_ID = "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2"
+Config.EMBEDDING_PROVIDER = "bedrock"
+
+embeddings = Config.get_embeddings()
+# Uses the ARN to access the model
+```
+
+### Cross-Region Bedrock Access
+```python
+# Access model in different region than your app
+Config.BEDROCK_MODEL_ID = "arn:aws:bedrock:eu-west-1::foundation-model/cohere.embed-english-v3"
+Config.AWS_REGION = "eu-west-1"
+
+embeddings = Config.get_embeddings()
+```
 ### Force Test Configuration
 ```python
 from src.config import get_test_config

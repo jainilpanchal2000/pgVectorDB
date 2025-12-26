@@ -55,6 +55,7 @@ class Config:
         "BEDROCK_MODEL_ID",
         "amazon.titan-embed-text-v1"
     )
+    BEDROCK_PROVIDER: Optional[str] = os.getenv("BEDROCK_PROVIDER")  # e.g., "amazon", "cohere", "anthropic"
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
     AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY: Optional[str] = os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -152,15 +153,51 @@ class Config:
                     "langchain-aws not installed. Install with: pip install langchain-aws boto3"
                 )
             
-            kwargs = {
-                "model_id": cls.BEDROCK_MODEL_ID,
-                "region_name": cls.AWS_REGION,
+            import boto3
+            
+            # Prepare kwargs
+            kwargs = {}
+            
+            # Set model_id (can be simple name or ARN)
+            kwargs["model_id"] = cls.BEDROCK_MODEL_ID
+            
+            # Determine provider
+            # Priority: 1) Explicit BEDROCK_PROVIDER, 2) Extract from model_id/ARN
+            if cls.BEDROCK_PROVIDER:
+                # User explicitly provided provider
+                provider_name = cls.BEDROCK_PROVIDER
+            else:
+                # Try to extract from model_id or ARN
+                model_id = cls.BEDROCK_MODEL_ID
+                
+                if model_id.startswith("arn:"):
+                    # ARN format: arn:aws:bedrock:region:account:foundation-model/model-name
+                    # Extract model name after last /
+                    model_name = model_id.split("/")[-1]
+                else:
+                    # Simple model ID
+                    model_name = model_id
+                
+                # Extract provider from model name (e.g., "amazon.titan-embed-text-v1" -> "amazon")
+                if "." in model_name:
+                    provider_name = model_name.split(".")[0]
+                else:
+                    raise ValueError(
+                        f"Cannot extract provider from model_id: {model_id}. "
+                        "Please set BEDROCK_PROVIDER in config/.env (e.g., 'amazon', 'cohere', 'anthropic')"
+                    )
+            
+            # Set provider (required for BedrockEmbeddings)
+            kwargs["provider"] = provider_name
+            
+            # Create boto3 client for bedrock-runtime
+            client_kwargs = {
+                "service_name": "bedrock-runtime",
+                "region_name": cls.AWS_REGION
             }
             
-            # Add credentials if provided
-            if cls.AWS_ACCESS_KEY_ID:
-                kwargs["credentials_profile_name"] = None  # Use explicit credentials
-                import boto3
+            # Add credentials if explicitly provided
+            if cls.AWS_ACCESS_KEY_ID and cls.AWS_SECRET_ACCESS_KEY:
                 session = boto3.Session(
                     aws_access_key_id=cls.AWS_ACCESS_KEY_ID,
                     aws_secret_access_key=cls.AWS_SECRET_ACCESS_KEY,
@@ -168,6 +205,9 @@ class Config:
                     region_name=cls.AWS_REGION
                 )
                 kwargs["client"] = session.client("bedrock-runtime")
+            else:
+                # Use default credentials (from ~/.aws/credentials or IAM role)
+                kwargs["client"] = boto3.client(**client_kwargs)
             
             return BedrockEmbeddings(**kwargs)
         
