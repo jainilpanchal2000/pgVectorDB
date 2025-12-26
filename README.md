@@ -6,20 +6,27 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
 
 ## 🌟 Features
 
-### 🔍 **3 Index Types**
+### 🔍 **3 Vector Index Types**
 - **HNSW** - Fast approximate nearest neighbor search (best for <1M vectors)
 - **IVFFlat** - Inverted file index for large datasets (100K-10M vectors)  
 - **DiskANN** - Disk-based vector search with memory optimization (>10M vectors)
 
+### 🔤 **2 Keyword Search Types**
+- **FTS (Full-Text Search)** - PostgreSQL's native ts_rank (fast, simple)
+- **BM25** - Industry-standard ranking (Elasticsearch, Lucene) via pg_textsearch
+  - Configurable k1 (term frequency saturation)
+  - Configurable b (length normalization)
+  - 29+ language support (english, french, german, spanish, etc.)
+
 ### 🎯 **10 Search Methods**
-1. **Keyword Search** - Pure FTS (BM25) search
-2. **Universal Keyword Search** - FTS across content + metadata fields
+1. **Keyword Search** - Pure keyword search (FTS or BM25)
+2. **Universal Keyword Search** - Keyword search across content + metadata fields
 3. **Semantic Search** - Vector similarity search
 4. **Metadata Filter** - Pure metadata filtering (no query)
-5. **Metadata + Keyword** - Filtered FTS search
+5. **Metadata + Keyword** - Filtered keyword search (FTS or BM25)
 6. **Metadata + Semantic** - Filtered vector search
-7. **Hybrid Search** - Keyword + Semantic combined (weighted or RRF)
-8. **Ensemble Search** - All methods combined (most comprehensive)
+7. **Hybrid Search** - Keyword (FTS/BM25) + Semantic combined (weighted or RRF)
+8. **Ensemble Search** - Metadata + Keyword (FTS/BM25) + Semantic (most comprehensive)
 9. **Trigram Search** - Fuzzy text matching (typo-tolerant)
 10. **Metadata + Trigram** - Filtered fuzzy search
 
@@ -44,13 +51,19 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
 
 ### Prerequisites
 
-1. **PostgreSQL 12+ with pgvector:**
+1. **PostgreSQL 12+ with extensions:**
 ```bash
-# Install pgvector extension
+# Core vector extension (required)
 psql -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
-# Optional: For DiskANN support
+# Full-text search and trigram (auto-created by pgVectorDB)
 psql -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+# Optional: For native BM25 support
+# Install from: https://github.com/timescale/pg_textsearch
+psql -c "CREATE EXTENSION IF NOT EXISTS pg_textsearch;"
+
+# Optional: For DiskANN support
 psql -c "CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;"
 ```
 
@@ -109,7 +122,7 @@ pip install langchain-community psycopg2-binary sentence-transformers
 import asyncio
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
-from src.core import pgVectorDB, IndexType
+from src.core import pgVectorDB, IndexType, KeywordSearchType
 
 async def main():
     # Initialize
@@ -134,9 +147,14 @@ async def main():
         ),
     ]
     await rag.add_documents(docs)
+    
+    # Build vector index
     await rag.build_index(m=16, ef_construction=64)
     
-    # Search
+    # Build BM25 index for keyword search
+    await rag.build_bm25_index(text_config="english", k1=1.2, b=0.75)
+    
+    # Semantic search
     results = await rag.semantic_search("What is Python?", k=5)
     for doc in results:
         print(f"{doc.page_content}")
@@ -148,9 +166,25 @@ asyncio.run(main())
 
 ## Search Methods
 
-### 1. Keyword Search (BM25)
+### 1. Keyword Search
+Choose between **FTS** (Full-Text Search) or **BM25** ranking:
+
 ```python
-results = await rag.keyword_search("machine learning", k=5)
+from src.core import KeywordSearchType
+
+# BM25 (recommended - better ranking)
+results = await rag.keyword_search(
+    "machine learning", 
+    k=5, 
+    search_type=KeywordSearchType.BM25
+)
+
+# Full-Text Search (classic PostgreSQL ts_rank)
+results = await rag.keyword_search(
+    "machine learning", 
+    k=5, 
+    search_type=KeywordSearchType.FTS
+)
 ```
 
 ### 2. Semantic Search
@@ -161,14 +195,29 @@ results = await rag.semantic_search("What is AI?", k=5)
 ### 3. Hybrid Search
 Combines keyword + semantic with weighted scoring:
 ```python
+# BM25 + semantic
 results = await rag.hybrid_search(
     "neural networks", 
     k=5, 
-    weights=(0.5, 0.5)  # (keyword_weight, semantic_weight)
+    weights=(0.5, 0.5),  # (keyword_weight, semantic_weight)
+    keyword_type=KeywordSearchType.BM25
+)
+
+# FTS + semantic
+results = await rag.hybrid_search(
+    "neural networks", 
+    k=5, 
+    weights=(0.5, 0.5),
+    keyword_type=KeywordSearchType.FTS
 )
 
 # Or use Reciprocal Rank Fusion (RRF):
-results = await rag.hybrid_search("neural networks", k=5, use_rrf=True)
+results = await rag.hybrid_search(
+    "neural networks", 
+    k=5, 
+    use_rrf=True,
+    keyword_type=KeywordSearchType.BM25
+)
 ```
 
 ### 4. Metadata Filtering
@@ -194,7 +243,8 @@ results = await rag.ensemble_search(
     query="machine learning",
     filter={"year": {"$gte": 2020}},
     k=5,
-    weights=(0.4, 0.6)
+    weights=(0.4, 0.6),
+    keyword_type=KeywordSearchType.BM25  # Choose FTS or BM25
 )
 ```
 
@@ -589,14 +639,16 @@ pgVectorDB(
 **Methods:**
 - `initialize(overwrite_existing=False)` - Initialize system
 - `add_documents(documents)` - Add documents
-- `build_index(**kwargs)` - Build vector index
-- `keyword_search(query, k)` - BM25 search
+- `build_index(**kwargs)` - Build vector index (HNSW/IVFFlat/DiskANN)
+- `build_bm25_index(text_config, k1, b)` - Build BM25 index for keyword search
+- `keyword_search(query, k, search_type)` - Keyword search (FTS or BM25)
+- `universal_keyword_search(query, k, search_type)` - Multi-table keyword search
 - `semantic_search(query, k, **kwargs)` - Vector search
-- `hybrid_search(query, k, weights, use_rrf)` - Combined search
+- `hybrid_search(query, k, weights, use_rrf, keyword_type)` - Combined search
 - `metadata_filter(filter, k)` - Filter documents
 - `metadata_semantic_search(query, filter, k)` - Filtered semantic
-- `metadata_keyword_search(query, filter, k)` - Filtered keyword
-- `ensemble_search(query, filter, k, weights)` - All combined
+- `metadata_keyword_search(query, filter, k, search_type)` - Filtered keyword
+- `ensemble_search(query, filter, k, weights, keyword_type)` - All combined
 - `trigram_search(query, k, threshold)` - Fuzzy search
 - `metadata_trigram_search(query, filter, k, threshold)` - Filtered fuzzy
 
@@ -630,6 +682,77 @@ RAGEvaluator(k: int = 5)
 ## License
 
 This project is open source and available for use.
+
+---
+
+## BM25 Configuration Guide
+
+### Language Support
+BM25 supports 29+ text configurations for different languages:
+
+```python
+# English (default)
+await rag.build_bm25_index(text_config="english")
+
+# Other languages
+await rag.build_bm25_index(text_config="french")
+await rag.build_bm25_index(text_config="german")
+await rag.build_bm25_index(text_config="spanish")
+await rag.build_bm25_index(text_config="portuguese")
+await rag.build_bm25_index(text_config="italian")
+await rag.build_bm25_index(text_config="dutch")
+await rag.build_bm25_index(text_config="russian")
+await rag.build_bm25_index(text_config="simple")  # Basic stemming
+```
+
+Full list: arabic, basque, catalan, danish, dutch, english, finnish, french, german, greek, hindi, hungarian, indonesian, irish, italian, lithuanian, nepali, norwegian, portuguese, romanian, russian, serbian, spanish, swedish, tamil, turkish, yiddish
+
+### BM25 Parameter Tuning
+
+**k1 (term frequency saturation, default=1.2):**
+- Lower (0.5-1.0): Less emphasis on term frequency, better for short documents
+- Higher (1.5-2.0): More emphasis on term frequency, better for long documents
+- Typical range: 1.2-2.0
+
+**b (length normalization, default=0.75):**
+- Lower (0.0-0.5): Less penalty for long documents
+- Higher (0.8-1.0): More penalty for long documents
+- 0.0 = no normalization, 1.0 = full normalization
+- Typical range: 0.5-0.9
+
+```python
+# Short documents (tweets, product titles)
+await rag.build_bm25_index(k1=0.8, b=0.5)
+
+# Medium documents (articles, blogs) - default
+await rag.build_bm25_index(k1=1.2, b=0.75)
+
+# Long documents (papers, books)
+await rag.build_bm25_index(k1=1.5, b=0.9)
+```
+
+### FTS vs BM25 Comparison
+
+| Feature | FTS (ts_rank) | BM25 (pg_textsearch) |
+|---------|---------------|----------------------|
+| Speed | Faster | Slightly slower |
+| Ranking | Basic frequency | Advanced TF-IDF |
+| Length normalization | Limited | Full control (b) |
+| Term saturation | No | Yes (k1) |
+| Language support | 29+ configs | 29+ configs |
+| Setup | Built-in | Requires extension |
+| Use case | Fast lookups | Better ranking |
+
+**When to use FTS:**
+- Speed is critical
+- Simple keyword matching is sufficient
+- No extension installation required
+
+**When to use BM25:**
+- Ranking quality matters
+- Working with varied document lengths
+- Need industry-standard results (Elasticsearch-like)
+- Fine-tuning control needed
 
 ---
 

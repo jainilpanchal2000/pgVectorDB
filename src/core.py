@@ -38,6 +38,12 @@ class IndexType(str, Enum):
     DISKANN = "diskann"
 
 
+class KeywordSearchType(str, Enum):
+    """Keyword search implementations."""
+    FTS = "fts"      # PostgreSQL ts_rank (full-text search)
+    BM25 = "bm25"    # pg_textsearch native BM25
+
+
 class StorageLayout(str, Enum):
     """Storage layout for DiskANN index."""
     MEMORY_OPTIMIZED = "memory_optimized"  # Uses SBQ compression
@@ -220,6 +226,16 @@ class pgVectorDB:
                 # Trigram extension for fuzzy matching
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
                 logger.info("✓ Extension 'pg_trgm' enabled")
+                
+                # pg_textsearch extension for native BM25
+                result = await conn.execute(text(
+                    "SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch';"
+                ))
+                if result.fetchone() is not None:
+                    await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_textsearch;"))
+                    logger.info("✓ Extension 'pg_textsearch' enabled (BM25 support)")
+                else:
+                    logger.warning("pg_textsearch extension not available. BM25 search will not be supported.")
                 
                 # DiskANN extension (only if needed)
                 if self.index_type == IndexType.DISKANN:
@@ -500,6 +516,8 @@ class pgVectorDB:
         """
         Build vector index based on the selected index type.
         
+        Note: BM25 indexes are created separately using build_bm25_index() method.
+        
         Args:
             metric: Distance metric (cosine, l2, or inner_product)
             
@@ -681,6 +699,65 @@ class pgVectorDB:
         except Exception as e:
             raise DatabaseError(f"Failed to set query parameters: {e}") from e
 
+    async def build_bm25_index(
+        self,
+        text_config: str = 'english',
+        k1: float = 1.2,
+        b: float = 0.75
+    ) -> None:
+        """
+        Build native BM25 index using pg_textsearch extension.
+        
+        Args:
+            text_config: PostgreSQL text search configuration (default: 'english')
+            k1: Term frequency saturation parameter (default: 1.2, range: 0.1-10.0)
+            b: Length normalization parameter (default: 0.75, range: 0.0-1.0)
+            
+        Raises:
+            InitializationError: If system not initialized
+            ValidationError: If parameters are invalid
+            DatabaseError: If index build fails
+        """
+        self._ensure_initialized()
+        
+        if not 0.1 <= k1 <= 10.0:
+            raise ValidationError("k1 must be between 0.1 and 10.0")
+        if not 0.0 <= b <= 1.0:
+            raise ValidationError("b must be between 0.0 and 1.0")
+        
+        try:
+            index_name = f"idx_{self.table_name}_bm25"
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Check if pg_textsearch extension is available
+                result = await conn.execute(text(
+                    "SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch';"
+                ))
+                if result.fetchone() is None:
+                    raise DatabaseError(
+                        "pg_textsearch extension not available. "
+                        "Install from: https://github.com/timescale/pg_textsearch"
+                    )
+                
+                # Drop existing BM25 index if exists
+                await conn.execute(text(
+                    f'DROP INDEX IF EXISTS "{self.schema_name}"."{index_name}"'
+                ))
+                
+                # Create BM25 index
+                create_index_sql = f"""
+                CREATE INDEX "{index_name}" 
+                ON "{self.schema_name}"."{self.table_name}" 
+                USING bm25(content) 
+                WITH (text_config='{text_config}', k1={k1}, b={b})
+                """
+                await conn.execute(text(create_index_sql))
+                await conn.commit()
+                
+            logger.info(f"BM25 index built (text_config={text_config}, k1={k1}, b={b})")
+        except Exception as e:
+            raise DatabaseError(f"Failed to build BM25 index: {e}") from e
+
     # ==================== SEARCH METHODS ====================
 
     def _validate_search_params(self, query: str, k: int) -> None:
@@ -690,15 +767,16 @@ class pgVectorDB:
         if k <= 0:
             raise ValidationError("k must be positive")
 
-    async def keyword_search(self, query: str, k: int = 4) -> List[QueryResult]:
+    async def _keyword_search_fts(
+        self, 
+        query: str, 
+        k: int
+    ) -> List[QueryResult]:
         """
-        METHOD 1: Pure keyword search using PostgreSQL full-text search.
+        Internal method for FTS (Full-Text Search) using PostgreSQL ts_rank.
         
-        Returns documents ranked by keyword relevance using ts_rank.
+        Uses traditional PostgreSQL full-text search with tsvector/tsquery.
         """
-        self._ensure_initialized()
-        self._validate_search_params(query, k)
-        
         try:
             full_query = text(f"""
                 SELECT "langchain_id", "content", "langchain_metadata", 
@@ -720,16 +798,102 @@ class pgVectorDB:
                     for row in result.fetchall()
                 ]
         except Exception as e:
-            raise DatabaseError(f"Keyword search failed: {e}") from e
+            raise DatabaseError(f"FTS search failed: {e}") from e
+
+    async def _keyword_search_bm25(
+        self, 
+        query: str, 
+        k: int, 
+        k1: float, 
+        b: float, 
+        text_config: str
+    ) -> List[QueryResult]:
+        """
+        Internal method for BM25 search using pg_textsearch.
+        
+        Uses native BM25 ranking with configurable parameters:
+        - k1: Term frequency saturation (1.2 default, range 0.1-10.0)
+        - b: Length normalization (0.75 default, range 0.0-1.0)
+        - text_config: Language configuration (english, french, german, etc.)
+        
+        Note: BM25 <@> operator returns NEGATIVE scores (lower = better).
+        We negate them for consistency (higher = better).
+        """
+        try:
+            index_name = f"idx_{self.table_name}_bm25"
+            
+            # <@> returns negative scores, negate for consistency
+            full_query = text(f"""
+                SELECT "langchain_id", "content", "langchain_metadata", 
+                       -(content <@> to_bm25query(:query, '{index_name}')) as score
+                FROM "{self.schema_name}"."{self.table_name}"
+                ORDER BY content <@> to_bm25query(:query, '{index_name}')
+                LIMIT :k
+            """)
+            
+            async with self.sqlalchemy_engine.connect() as conn:
+                result = await conn.execute(full_query, {"query": query, "k": k})
+                return [
+                    QueryResult(
+                        id=str(row[0]),
+                        content=row[1],
+                        metadata=row[2] or {},
+                        score=float(row[3])
+                    )
+                    for row in result.fetchall()
+                ]
+        except Exception as e:
+            raise DatabaseError(f"BM25 search failed: {e}") from e
+
+    async def keyword_search(
+        self, 
+        query: str, 
+        k: int = 4,
+        search_type: KeywordSearchType = KeywordSearchType.FTS,
+        # BM25-specific parameters (only used when search_type='bm25')
+        k1: float = 1.2,
+        b: float = 0.75,
+        text_config: str = 'english'
+    ) -> List[QueryResult]:
+        """
+        METHOD 1: Pure keyword search using FTS or BM25.
+        
+        Args:
+            query: Search query text
+            k: Number of results to return
+            search_type: 'fts' for PostgreSQL ts_rank or 'bm25' for native BM25
+            k1: BM25 term frequency saturation (only for BM25, default: 1.2)
+            b: BM25 length normalization (only for BM25, default: 0.75)
+            text_config: Text search configuration (only for BM25, default: 'english')
+        
+        Returns documents ranked by keyword relevance.
+        
+        **FTS vs BM25:**
+        - FTS: PostgreSQL's ts_rank, simple and fast
+        - BM25: Industry-standard (Elasticsearch, Lucene), better ranking quality
+        """
+        self._ensure_initialized()
+        self._validate_search_params(query, k)
+        
+        # Route to appropriate search implementation
+        if search_type == KeywordSearchType.BM25:
+            return await self._keyword_search_bm25(query, k, k1, b, text_config)
+        else:
+            return await self._keyword_search_fts(query, k)
 
     async def universal_keyword_search(
         self,
         query: str,
         k: int = 4,
-        metadata_fields: Optional[List[str]] = None
+        metadata_fields: Optional[List[str]] = None,
+        search_type: KeywordSearchType = KeywordSearchType.FTS,
+        # BM25-specific parameters
+        k1: float = 1.2,
+        b: float = 0.75,
+        text_config: str = 'english'
     ) -> List[QueryResult]:
         """
-        METHOD 2: Searches keywords in both content (FTS) and metadata fields (ILIKE).
+        METHOD 2: Searches keywords in both content (FTS/BM25) and metadata fields (ILIKE).
         
         Useful for searching across document content AND metadata like author, title, etc.
         """
@@ -902,10 +1066,15 @@ class pgVectorDB:
         self, 
         query: str, 
         filter: Dict[str, Any], 
-        k: int = 4
+        k: int = 4,
+        search_type: KeywordSearchType = KeywordSearchType.FTS,
+        # BM25-specific parameters
+        k1: float = 1.2,
+        b: float = 0.75,
+        text_config: str = 'english'
     ) -> List[QueryResult]:
         """
-        METHOD 5: MANDATORY metadata filtering FIRST, then keyword search.
+        METHOD 5: MANDATORY metadata filtering FIRST, then keyword search (FTS or BM25).
         
         Execution order (enforced via CTE):
         1. Filter documents by metadata criteria
@@ -1125,10 +1294,15 @@ class pgVectorDB:
         weights: Tuple[float, float] = (0.5, 0.5),
         label_filter: Optional[List[int]] = None,
         use_rrf: bool = False,
-        rrf_k: int = 60
+        rrf_k: int = 60,
+        keyword_type: KeywordSearchType = KeywordSearchType.FTS,
+        # BM25-specific parameters
+        bm25_k1: float = 1.2,
+        bm25_b: float = 0.75,
+        text_config: str = 'english'
     ) -> List[QueryResult]:
         """
-        METHOD 7: Combines keyword and semantic search using weighted fusion or RRF.
+        METHOD 7: Combines keyword (FTS or BM25) and semantic search using weighted fusion or RRF.
         
         Args:
             query: Search query
@@ -1157,7 +1331,10 @@ class pgVectorDB:
         
         try:
             semantic_results = await self.semantic_search(query, k=k*2, label_filter=label_filter)
-            keyword_results = await self.keyword_search(query, k=k*2)
+            keyword_results = await self.keyword_search(
+                query, k=k*2, search_type=keyword_type,
+                k1=bm25_k1, b=bm25_b, text_config=text_config
+            )
             
             if use_rrf:
                 return self._fuse_results_rrf(semantic_results, keyword_results, k, rrf_k)
@@ -1173,10 +1350,15 @@ class pgVectorDB:
         k: int = 4,
         weights: Tuple[float, float] = (0.5, 0.5),
         use_rrf: bool = False,
-        rrf_k: int = 60
+        rrf_k: int = 60,
+        keyword_type: KeywordSearchType = KeywordSearchType.FTS,
+        # BM25-specific parameters
+        bm25_k1: float = 1.2,
+        bm25_b: float = 0.75,
+        text_config: str = 'english'
     ) -> List[QueryResult]:
         """
-        METHOD 8: Filter by metadata, then combine keyword and semantic search.
+        METHOD 8: Filter by metadata, then combine keyword (FTS or BM25) and semantic search.
         
         Most comprehensive search: metadata filtering + hybrid (keyword + semantic).
         
@@ -1187,6 +1369,7 @@ class pgVectorDB:
             weights: (semantic_weight, keyword_weight) must sum to 1.0 (ignored if use_rrf=True)
             use_rrf: Use Reciprocal Rank Fusion instead of weighted scoring (default: False)
             rrf_k: RRF constant (default: 60)
+            keyword_type: 'fts' or 'bm25' for keyword search implementation
         """
         self._ensure_initialized()
         
@@ -1201,11 +1384,17 @@ class pgVectorDB:
         
         if not filter:
             logger.warning("No filter provided for ensemble_search, falling back to hybrid_search")
-            return await self.hybrid_search(query, k, weights, use_rrf=use_rrf, rrf_k=rrf_k)
+            return await self.hybrid_search(
+                query, k, weights, use_rrf=use_rrf, rrf_k=rrf_k,
+                keyword_type=keyword_type, bm25_k1=bm25_k1, bm25_b=bm25_b, text_config=text_config
+            )
         
         try:
             semantic_results = await self.metadata_semantic_search(query, filter, k=k*2)
-            keyword_results = await self.metadata_keyword_search(query, filter, k=k*2)
+            keyword_results = await self.metadata_keyword_search(
+                query, filter, k=k*2, search_type=keyword_type,
+                k1=bm25_k1, b=bm25_b, text_config=text_config
+            )
             
             if use_rrf:
                 return self._fuse_results_rrf(semantic_results, keyword_results, k, rrf_k)
