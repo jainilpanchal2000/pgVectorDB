@@ -39,7 +39,7 @@ import pandas as pd
 
 
 class BenchmarkDataset:
-    """Sample dataset with ground truth for benchmarking."""
+    """Comprehensive dataset with 200 documents and complex queries for realistic benchmarking."""
     
     def __init__(self):
         self.documents = self._create_documents()
@@ -47,97 +47,276 @@ class BenchmarkDataset:
         self.ground_truth = self._create_ground_truth()
     
     def _create_documents(self) -> List[Document]:
-        """Create 50 realistic documents across 5 categories."""
+        """Create 200 realistic documents across 8 categories with detailed content."""
         docs = []
         
-        # AI/ML Category (10 docs)
+        # AI/ML Category (30 docs)
         ai_ml_topics = [
-            "Neural networks and deep learning architectures",
-            "Machine learning model optimization techniques",
-            "Natural language processing with transformers",
-            "Computer vision and image recognition systems",
-            "Reinforcement learning for game AI",
-            "Transfer learning in deep neural networks",
-            "Generative AI and large language models",
-            "AutoML and neural architecture search",
-            "Explainable AI and model interpretability",
-            "Edge AI and model compression techniques"
+            "Neural networks and deep learning architectures for image classification",
+            "Machine learning model optimization using gradient descent and backpropagation",
+            "Natural language processing with transformer models like BERT and GPT",
+            "Computer vision and image recognition using convolutional neural networks",
+            "Reinforcement learning algorithms for game AI and robotics",
+            "Transfer learning in deep neural networks for domain adaptation",
+            "Generative AI and large language models for text generation",
+            "AutoML and neural architecture search for automated model design",
+            "Explainable AI and model interpretability using SHAP and LIME",
+            "Edge AI and model compression techniques for mobile deployment",
+            "Recurrent neural networks and LSTM for sequence prediction",
+            "Attention mechanisms and self-attention in transformer architectures",
+            "Few-shot learning and meta-learning for data-efficient AI",
+            "Adversarial machine learning and robustness testing",
+            "Federated learning for privacy-preserving distributed training",
+            "Graph neural networks for social network analysis",
+            "Time series forecasting with deep learning models",
+            "Multi-modal learning combining vision and language",
+            "Active learning strategies for efficient data labeling",
+            "Hyperparameter tuning and optimization techniques",
+            "Ensemble methods combining multiple models",
+            "Anomaly detection using autoencoders and isolation forests",
+            "Dimensionality reduction with PCA and t-SNE",
+            "Clustering algorithms k-means DBSCAN hierarchical",
+            "Decision trees random forests gradient boosting XGBoost",
+            "Support vector machines kernel methods",
+            "Bayesian optimization for model selection",
+            "Neural style transfer and image generation",
+            "Object detection YOLO Faster R-CNN",
+            "Semantic segmentation and instance segmentation models"
         ]
         
-        # Database Category (10 docs)
+        # Database Category (30 docs)
         database_topics = [
-            "PostgreSQL indexing strategies and query optimization",
-            "Vector databases for similarity search",
-            "NoSQL databases and document stores",
-            "Database sharding and horizontal scaling",
-            "ACID transactions and consistency models",
-            "Database replication and high availability",
-            "Time-series databases for IoT data",
-            "Graph databases and relationship queries",
-            "Database performance tuning and monitoring",
-            "Distributed databases and CAP theorem"
+            "PostgreSQL indexing strategies B-tree GiST GIN and query optimization techniques",
+            "Vector databases for similarity search and nearest neighbor retrieval",
+            "NoSQL databases MongoDB Cassandra document stores key-value stores",
+            "Database sharding and horizontal scaling for distributed systems",
+            "ACID transactions and consistency models in relational databases",
+            "Database replication and high availability with master-slave architecture",
+            "Time-series databases InfluxDB TimescaleDB for IoT sensor data",
+            "Graph databases Neo4j relationship queries and graph traversal",
+            "Database performance tuning query planning and monitoring",
+            "Distributed databases and CAP theorem eventual consistency",
+            "Column-oriented databases for analytical workloads",
+            "In-memory databases Redis Memcached for caching",
+            "Database normalization denormalization trade-offs",
+            "Full-text search engines Elasticsearch Solr",
+            "Database backup recovery disaster recovery strategies",
+            "SQL injection attacks prevention and parameterized queries",
+            "Database connection pooling and resource management",
+            "Multi-version concurrency control MVCC in PostgreSQL",
+            "Database partitioning strategies range hash list",
+            "Query optimization techniques join algorithms index selection",
+            "Database migrations and schema evolution",
+            "Data warehousing ETL processes star schema",
+            "OLTP vs OLAP database design patterns",
+            "Database security encryption authentication authorization",
+            "Stored procedures triggers and database programming",
+            "Database monitoring tools pgAdmin Datadog",
+            "Vector similarity search with pgvector extension",
+            "Database clustering Galera Cluster Patroni",
+            "Change data capture CDC for real-time sync",
+            "Database indexing for JSON JSONB fields"
         ]
         
-        # Web Development Category (10 docs)
+        # Web Development Category (30 docs)
         web_topics = [
-            "React and modern frontend frameworks",
-            "RESTful API design and best practices",
-            "GraphQL for efficient data fetching",
-            "Web application security and authentication",
-            "Server-side rendering with Next.js",
-            "WebSocket for real-time communication",
-            "Progressive Web Apps and offline functionality",
-            "Web performance optimization techniques",
-            "Microservices architecture for web apps",
-            "Web accessibility standards and WCAG"
+            "React hooks useState useEffect modern frontend development patterns",
+            "RESTful API design principles HTTP methods status codes",
+            "GraphQL schema design queries mutations subscriptions",
+            "Web application security JWT authentication OAuth2 sessions",
+            "Server-side rendering SSR with Next.js for SEO optimization",
+            "WebSocket protocol for real-time bidirectional communication",
+            "Progressive Web Apps PWA offline functionality service workers",
+            "Web performance optimization lazy loading code splitting",
+            "Microservices architecture API gateway service mesh",
+            "Web accessibility WCAG ARIA screen readers keyboard navigation",
+            "Vue.js composition API reactive state management",
+            "Angular dependency injection RxJS observables",
+            "TypeScript type safety interfaces generics decorators",
+            "CSS frameworks Tailwind Bootstrap responsive design",
+            "State management Redux Zustand Pinia patterns",
+            "Testing frameworks Jest Cypress integration tests",
+            "Build tools Webpack Vite Rollup bundling",
+            "Cross-origin resource sharing CORS policies",
+            "Content delivery networks CDN edge caching",
+            "Single page applications SPA routing navigation",
+            "Web components custom elements shadow DOM",
+            "Browser developer tools debugging performance profiling",
+            "HTTP/2 HTTP/3 QUIC protocol improvements",
+            "Web animations CSS transitions JavaScript libraries",
+            "Form validation client-side server-side",
+            "Internationalization i18n localization l10n",
+            "Error boundaries error handling logging",
+            "Web vitals LCP FID CLS metrics",
+            "API versioning backward compatibility",
+            "Rate limiting throttling debouncing techniques"
         ]
         
-        # DevOps Category (10 docs)
+        # DevOps Category (30 docs)
         devops_topics = [
-            "Docker containerization best practices",
-            "Kubernetes orchestration and deployment",
-            "CI/CD pipelines with GitHub Actions",
-            "Infrastructure as Code with Terraform",
-            "Monitoring and observability with Prometheus",
-            "Log aggregation and analysis systems",
-            "Cloud migration strategies and patterns",
-            "Automated testing in deployment pipelines",
-            "Service mesh and microservices networking",
-            "GitOps and declarative infrastructure"
+            "Docker containerization Dockerfile multi-stage builds best practices",
+            "Kubernetes orchestration deployments services ingress controllers",
+            "CI/CD pipelines GitHub Actions Jenkins automated testing deployment",
+            "Infrastructure as Code Terraform AWS CloudFormation configuration management",
+            "Monitoring and observability Prometheus Grafana metrics alerting",
+            "Log aggregation ELK stack Splunk centralized logging analysis",
+            "Cloud migration strategies lift-and-shift refactoring patterns",
+            "Automated testing unit tests integration tests end-to-end testing pipelines",
+            "Service mesh Istio Linkerd microservices networking traffic management",
+            "GitOps ArgoCD Flux declarative infrastructure continuous deployment",
+            "Container orchestration Docker Swarm vs Kubernetes comparison",
+            "Blue-green deployments canary releases rolling updates",
+            "Configuration management Ansible Puppet Chef",
+            "Secrets management HashiCorp Vault AWS Secrets Manager",
+            "Load balancing HAProxy NGINX reverse proxy",
+            "Auto-scaling horizontal pod autoscaler cluster autoscaler",
+            "Disaster recovery backup strategies RPO RTO",
+            "Observability tracing Jaeger OpenTelemetry distributed tracing",
+            "Container security vulnerability scanning image signing",
+            "Continuous integration build automation artifact management",
+            "Environment management dev staging production",
+            "Feature flags dark launches progressive rollouts",
+            "Incident management on-call runbooks postmortems",
+            "Performance testing load testing stress testing",
+            "Database migrations schema changes zero-downtime",
+            "API gateway Kong Traefik routing authentication",
+            "Serverless functions AWS Lambda event-driven architecture",
+            "Cost optimization cloud resource management tagging",
+            "Compliance automation security scanning policy enforcement",
+            "Service level objectives SLOs error budgets"
         ]
         
-        # Security Category (10 docs)
+        # Security Category (30 docs)
         security_topics = [
-            "OAuth2 and OpenID Connect authentication",
-            "SQL injection prevention techniques",
-            "Cross-site scripting (XSS) attack mitigation",
-            "Encryption at rest and in transit",
-            "Zero-trust security architecture",
-            "Penetration testing and vulnerability scanning",
-            "Security auditing and compliance (SOC2, GDPR)",
-            "API security and rate limiting",
-            "Secret management and key rotation",
-            "DDoS protection and mitigation strategies"
+            "OAuth2 OpenID Connect PKCE authorization code flow authentication",
+            "SQL injection prevention parameterized queries prepared statements ORM",
+            "Cross-site scripting XSS attack mitigation Content Security Policy",
+            "Encryption at rest AES-256 encryption in transit TLS SSL",
+            "Zero-trust security architecture least privilege network segmentation",
+            "Penetration testing vulnerability scanning ethical hacking OWASP",
+            "Security auditing compliance SOC2 HIPAA GDPR ISO27001",
+            "API security rate limiting API keys OAuth tokens",
+            "Secret management key rotation credential scanning",
+            "DDoS protection rate limiting WAF mitigation strategies",
+            "Multi-factor authentication MFA TOTP biometrics",
+            "Session management CSRF tokens secure cookies",
+            "Password hashing bcrypt Argon2 salting",
+            "Certificate management PKI SSL/TLS certificates",
+            "Network security firewalls VPN IPSec",
+            "Container security image scanning runtime protection",
+            "Intrusion detection IDS IPS SIEM systems",
+            "Security headers HSTS X-Frame-Options CSP",
+            "Access control RBAC ABAC authorization models",
+            "Threat modeling STRIDE DREAD risk assessment",
+            "Data masking tokenization PII protection",
+            "Security monitoring log analysis anomaly detection",
+            "Incident response forensics breach handling",
+            "Supply chain security dependency scanning SCA",
+            "API authentication bearer tokens JWT validation",
+            "Cryptography asymmetric symmetric hashing signing",
+            "Web application firewall WAF ModSecurity",
+            "Security testing SAST DAST IAST tools",
+            "Compliance automation policy as code",
+            "Identity and access management IAM SSO"
+        ]
+        
+        # Cloud Computing Category (25 docs)
+        cloud_topics = [
+            "AWS EC2 instance types auto-scaling elastic load balancing",
+            "Azure virtual machines resource groups ARM templates",
+            "Google Cloud Platform Compute Engine App Engine services",
+            "Serverless computing AWS Lambda Azure Functions event-driven",
+            "Cloud storage S3 Blob Storage object storage lifecycle",
+            "Cloud networking VPC subnets security groups routing",
+            "Managed databases RDS Aurora DynamoDB Cosmos DB",
+            "Container services ECS EKS AKS GKE",
+            "Cloud IAM roles policies service accounts",
+            "Cloud monitoring CloudWatch Azure Monitor stackdriver",
+            "CDN CloudFront Azure CDN edge locations",
+            "Message queues SQS SNS Service Bus Pub/Sub",
+            "Cloud migration assessment planning execution",
+            "Multi-cloud hybrid cloud strategies vendor lock-in",
+            "Cloud cost optimization reserved instances spot instances",
+            "Infrastructure as code CloudFormation Terraform ARM",
+            "Cloud backup disaster recovery region failover",
+            "API management API Gateway APIM",
+            "Cloud security best practices encryption compliance",
+            "DevOps on cloud CI/CD pipelines automation",
+            "Cloud-native applications twelve-factor app methodology",
+            "Container registry ECR ACR GCR image management",
+            "Cloud logging centralized logs audit trails",
+            "Cloud automation Lambda functions automation scripts",
+            "Cloud governance policies tagging cost allocation"
+        ]
+        
+        # Data Science Category (25 docs)
+        data_science_topics = [
+            "Exploratory data analysis pandas numpy visualization techniques",
+            "Statistical hypothesis testing t-tests ANOVA chi-square",
+            "Feature engineering selection extraction transformation",
+            "Data cleaning missing values outliers normalization",
+            "A/B testing experimental design statistical significance",
+            "Predictive modeling regression classification algorithms",
+            "Model evaluation metrics accuracy precision recall F1",
+            "Cross-validation k-fold stratified time-series splits",
+            "Imbalanced data SMOTE undersampling oversampling",
+            "Data visualization matplotlib seaborn plotly dashboards",
+            "Big data processing Spark Hadoop MapReduce",
+            "ETL pipelines data integration data quality",
+            "Data warehousing Snowflake Redshift BigQuery",
+            "Stream processing Kafka Flink real-time analytics",
+            "Natural language processing text mining sentiment analysis",
+            "Recommendation systems collaborative filtering content-based",
+            "Time series analysis ARIMA forecasting seasonality",
+            "Causal inference propensity scores matching",
+            "Bayesian statistics probabilistic modeling MCMC",
+            "Survival analysis Cox proportional hazards Kaplan-Meier",
+            "Principal component analysis dimensionality reduction",
+            "Network analysis social graphs community detection",
+            "Geospatial analysis GIS mapping spatial statistics",
+            "Experiment tracking MLflow Weights Biases",
+            "Data governance lineage quality metadata management"
         ]
         
         categories = [
-            ("ai_ml", ai_ml_topics, "high"),
-            ("database", database_topics, "medium"),
-            ("web_dev", web_topics, "medium"),
-            ("devops", devops_topics, "high"),
-            ("security", security_topics, "critical")
+            ("ai_ml", ai_ml_topics, "high", 2018),
+            ("database", database_topics, "medium", 2019),
+            ("web_dev", web_topics, "medium", 2020),
+            ("devops", devops_topics, "high", 2021),
+            ("security", security_topics, "critical", 2022),
+            ("cloud", cloud_topics, "high", 2020),
+            ("data_science", data_science_topics, "medium", 2019),
+            ("mobile_dev", [
+                "iOS Swift SwiftUI UIKit mobile app development",
+                "Android Kotlin Jetpack Compose Material Design",
+                "React Native cross-platform mobile development",
+                "Flutter Dart widgets state management",
+                "Mobile CI/CD Fastlane automated testing deployment",
+                "Push notifications FCM APNs messaging",
+                "Mobile analytics Firebase Analytics crash reporting",
+                "App store optimization ASO keywords ratings",
+                "Mobile security encryption data protection",
+                "Offline-first architecture local storage sync",
+                "Mobile performance optimization battery life",
+                "Deep linking universal links app navigation",
+                "Mobile testing XCTest Espresso UI automation",
+                "App architecture MVVM MVP Clean Architecture",
+                "Mobile databases Realm SQLite CoreData"
+            ], "medium", 2021)
         ]
         
         doc_id = 0
-        for category, topics, priority in categories:
+        for category, topics, priority, base_year in categories:
             for i, topic in enumerate(topics):
                 docs.append(Document(
-                    page_content=f"{topic}. This document provides comprehensive information about {topic.lower()}.",
+                    page_content=f"{topic}. This comprehensive technical document covers {topic.lower()} with detailed explanations, best practices, implementation patterns, common pitfalls, performance considerations, and real-world use cases for production environments.",
                     metadata={
                         "doc_id": doc_id,
                         "category": category,
                         "priority": priority,
-                        "year": 2020 + (i % 5)
+                        "year": base_year + (i % 6),
+                        "author": f"Expert_{(i % 5) + 1}",
+                        "difficulty": ["beginner", "intermediate", "advanced", "expert"][i % 4]
                     }
                 ))
                 doc_id += 1
@@ -145,52 +324,121 @@ class BenchmarkDataset:
         return docs
     
     def _create_queries(self) -> List[str]:
-        """Create test queries."""
+        """Create complex and realistic test queries."""
         return [
-            "neural networks deep learning",           # AI/ML
-            "vector database similarity search",       # Database
-            "React frontend development",              # Web Dev
-            "Docker Kubernetes deployment",            # DevOps
-            "OAuth authentication security",           # Security
-            "machine learning optimization",           # AI/ML
-            "PostgreSQL query optimization",           # Database
-            "API design best practices",               # Web Dev
-            "CI/CD pipeline automation",               # DevOps
-            "encryption data security"                 # Security
+            # Complex multi-term queries
+            "how to implement transformer models with attention mechanisms for natural language processing",
+            "PostgreSQL vector similarity search indexing strategies and performance optimization techniques",
+            "React hooks useState useEffect server-side rendering Next.js SEO optimization",
+            "Kubernetes deployment strategies blue-green canary rolling updates with Docker containers",
+            "OAuth2 authorization code flow PKCE security best practices JWT token validation",
+            
+            # Technical deep-dive queries
+            "deep learning neural network architectures CNN RNN LSTM for image classification",
+            "database sharding horizontal scaling replication high availability distributed systems",
+            "microservices architecture API gateway service mesh monitoring observability",
+            "CI/CD pipeline automation GitHub Actions Jenkins testing deployment strategies",
+            "web application security XSS CSRF SQL injection prevention authentication",
+            
+            # Specific technology queries
+            "transfer learning fine-tuning pre-trained models BERT GPT for NLP tasks",
+            "NoSQL MongoDB Cassandra vs relational databases PostgreSQL MySQL comparison",
+            "GraphQL schema design queries mutations subscriptions versus REST API",
+            "Infrastructure as Code Terraform AWS CloudFormation configuration management",
+            "encryption AES-256 TLS SSL certificate management PKI security",
+            
+            # Problem-solving queries
+            "machine learning model overfitting regularization cross-validation techniques",
+            "database performance tuning slow queries index optimization monitoring",
+            "React state management Redux Zustand context API best practices",
+            "container orchestration Kubernetes vs Docker Swarm production deployment",
+            "penetration testing vulnerability scanning OWASP security audit compliance",
+            
+            # Advanced technical queries
+            "federated learning privacy-preserving distributed machine learning training",
+            "time-series database InfluxDB TimescaleDB sensor data IoT real-time analytics",
+            "Progressive Web Apps PWA service workers offline functionality caching",
+            "serverless computing AWS Lambda event-driven architecture cost optimization",
+            "zero-trust security architecture network segmentation least privilege access"
         ]
     
     def _create_ground_truth(self) -> List[List[str]]:
-        """Define ground truth (relevant doc IDs) for each query."""
+        """Define ground truth (relevant doc IDs) for each complex query."""
         return [
-            # Query 0: "neural networks deep learning"
-            ["doc_0", "doc_1", "doc_5"],
+            # Query 0: transformer models attention NLP
+            ["doc_2", "doc_11", "doc_17"],
             
-            # Query 1: "vector database similarity search"
-            ["doc_11", "doc_10"],
+            # Query 1: PostgreSQL vector similarity indexing
+            ["doc_30", "doc_31", "doc_39", "doc_56"],
             
-            # Query 2: "React frontend development"
-            ["doc_20", "doc_24"],
+            # Query 2: React hooks SSR Next.js
+            ["doc_60", "doc_64", "doc_72"],
             
-            # Query 3: "Docker Kubernetes deployment"
-            ["doc_30", "doc_31", "doc_38"],
+            # Query 3: Kubernetes deployment Docker
+            ["doc_90", "doc_91", "doc_100"],
             
-            # Query 4: "OAuth authentication security"
-            ["doc_40", "doc_43"],
+            # Query 4: OAuth2 PKCE JWT security
+            ["doc_120", "doc_127", "doc_144"],
             
-            # Query 5: "machine learning optimization"
-            ["doc_1", "doc_7"],
+            # Query 5: deep learning CNN RNN LSTM
+            ["doc_0", "doc_3", "doc_10"],
             
-            # Query 6: "PostgreSQL query optimization"
-            ["doc_10", "doc_18"],
+            # Query 6: database sharding replication distributed
+            ["doc_33", "doc_35", "doc_39"],
             
-            # Query 7: "API design best practices"
-            ["doc_21", "doc_27"],
+            # Query 7: microservices API gateway service mesh
+            ["doc_68", "doc_98"],
             
-            # Query 8: "CI/CD pipeline automation"
-            ["doc_32", "doc_37"],
+            # Query 8: CI/CD GitHub Actions Jenkins
+            ["doc_92", "doc_97"],
             
-            # Query 9: "encryption data security"
-            ["doc_43", "doc_48"]
+            # Query 9: web security XSS CSRF SQL injection
+            ["doc_63", "doc_121", "doc_122"],
+            
+            # Query 10: transfer learning BERT GPT NLP
+            ["doc_2", "doc_5", "doc_6"],
+            
+            # Query 11: NoSQL MongoDB PostgreSQL comparison
+            ["doc_32", "doc_30"],
+            
+            # Query 12: GraphQL schema vs REST
+            ["doc_62", "doc_61"],
+            
+            # Query 13: Terraform CloudFormation IaC
+            ["doc_93", "doc_145"],
+            
+            # Query 14: encryption TLS SSL PKI
+            ["doc_123", "doc_143"],
+            
+            # Query 15: ML overfitting regularization
+            ["doc_1", "doc_19", "doc_176"],
+            
+            # Query 16: database performance tuning
+            ["doc_30", "doc_38", "doc_39"],
+            
+            # Query 17: React state management Redux
+            ["doc_74", "doc_60"],
+            
+            # Query 18: Kubernetes Docker Swarm comparison
+            ["doc_90", "doc_91", "doc_100"],
+            
+            # Query 19: penetration testing OWASP security
+            ["doc_125", "doc_126"],
+            
+            # Query 20: federated learning privacy
+            ["doc_14", "doc_8"],
+            
+            # Query 21: time-series database InfluxDB IoT
+            ["doc_36", "doc_183"],
+            
+            # Query 22: PWA service workers offline
+            ["doc_66", "doc_189"],
+            
+            # Query 23: serverless Lambda event-driven
+            ["doc_153", "doc_96"],
+            
+            # Query 24: zero-trust architecture security
+            ["doc_124", "doc_138"]
         ]
 
 
@@ -253,7 +501,7 @@ async def main():
     
     print(f"   - Documents: {len(dataset.documents)}")
     print(f"   - Queries: {len(dataset.queries)}")
-    print(f"   - Categories: ai_ml, database, web_dev, devops, security")
+    print(f"   - Categories: ai_ml, database, web_dev, devops, security, cloud, data_science, mobile_dev")
     
     # 3. Add documents and build indexes
     print("\n🔨 Step 3: Building indexes...")
@@ -273,7 +521,7 @@ async def main():
     
     # 4. Define search methods to benchmark
     print("\n🔍 Step 4: Benchmarking all search methods...")
-    print("   Testing K=5 across 10 queries\n")
+    print(f"   Testing K=5 across {len(dataset.queries)} complex queries\n")
     
     k = 5
     methods = []
@@ -443,9 +691,9 @@ async def main():
     
     # 8. Export results
     print("\n💾 Exporting results...")
-    df.to_csv("benchmark_results.csv", index=False)
-    df.to_json("benchmark_results.json", orient="records", indent=2)
-    print("   ✓ Results saved to benchmark_results.csv and benchmark_results.json")
+    df.to_csv("eval/benchmark_results.csv", index=False)
+    df.to_json("eval/benchmark_results.json", orient="records", indent=2)
+    print("   ✓ Results saved to eval/benchmark_results.csv and eval/benchmark_results.json")
     
     print("\n" + "=" * 80)
     print("✅ Benchmark Complete!")
