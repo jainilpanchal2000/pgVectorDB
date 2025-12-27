@@ -130,6 +130,25 @@ class DistanceMetric(str, Enum):
     INNER_PRODUCT = "inner_product"
 
 
+# ==================== Security Constants ====================
+# Allowlist for BM25 text search configurations (PostgreSQL text search configs)
+ALLOWED_TEXT_CONFIGS = frozenset([
+    'simple', 'arabic', 'armenian', 'basque', 'catalan', 'danish', 'dutch',
+    'english', 'finnish', 'french', 'german', 'greek', 'hindi', 'hungarian',
+    'indonesian', 'irish', 'italian', 'lithuanian', 'nepali', 'norwegian',
+    'portuguese', 'romanian', 'russian', 'serbian', 'spanish', 'swedish',
+    'tamil', 'turkish', 'yiddish'
+])
+
+# Allowlist for query parameters
+VALID_QUERY_PARAMS = frozenset([
+    'ivfflat.probes',
+    'hnsw.ef_search',
+    'diskann.query_search_list_size',
+    'diskann.query_rescore'
+])
+
+
 # ==================== Custom Exceptions ====================
 class RetrievalSystemError(Exception):
     """Base exception for retrieval system errors."""
@@ -240,6 +259,7 @@ class pgVectorDB:
         self.embedding_model = embedding_model
         self.connection_string = connection_string
         self.schema_name = schema_name
+        self._validate_schema_name(schema_name)  # Security: validate before SQL use
         self.index_type = IndexType(index_type) if isinstance(index_type, str) else index_type
         
         # Create engine with connection pooling
@@ -275,6 +295,13 @@ class pgVectorDB:
             raise ValidationError("connection_string must be a non-empty string")
         if not connection_string.startswith("postgresql"):
             raise ValidationError("connection_string must be a valid PostgreSQL connection string")
+    
+    def _validate_schema_name(self, schema_name: str) -> None:
+        """Validate schema name to prevent SQL injection."""
+        if not schema_name or not isinstance(schema_name, str):
+            raise ValidationError("schema_name must be a non-empty string")
+        if not re.match(r'^[a-zA-Z0-9_]+$', schema_name):
+            raise ValidationError("schema_name must contain only alphanumeric characters and underscores")
 
     def _get_embedding_dimension(self) -> int:
         """Automatically detect embedding dimension."""
@@ -1078,8 +1105,11 @@ class pgVectorDB:
             return
             
         for param, value in self._query_params.items():
-            # Use SET LOCAL for transaction-scoped settings
-            await conn.execute(text(f"SET LOCAL {param} = {value}"))
+            # Validate parameter is in allowlist (security)
+            if param not in VALID_QUERY_PARAMS:
+                raise ValidationError(f"Unknown query parameter: {param}")
+            # Use SET LOCAL for transaction-scoped settings with parameterized value
+            await conn.execute(text(f"SET LOCAL {param} = :value"), {"value": value})
 
     async def build_bm25_index(
         self,
@@ -1106,6 +1136,12 @@ class pgVectorDB:
             raise ValidationError("k1 must be between 0.1 and 10.0")
         if not 0.0 <= b <= 1.0:
             raise ValidationError("b must be between 0.0 and 1.0")
+        
+        # Validate text_config against allowlist to prevent SQL injection
+        if text_config.lower() not in ALLOWED_TEXT_CONFIGS:
+            raise ValidationError(
+                f"text_config must be one of: {', '.join(sorted(ALLOWED_TEXT_CONFIGS))}"
+            )
         
         try:
             index_name = f"idx_{self.table_name}_bm25"
@@ -1414,42 +1450,6 @@ class pgVectorDB:
                 ]
         except Exception as e:
             raise DatabaseError(f"BM25 search failed: {e}") from e
-
-    async def keyword_search(
-        self, 
-        query: str, 
-        k: int = 4,
-        search_type: KeywordSearchType = KeywordSearchType.FTS,
-        # BM25-specific parameters (only used when search_type='bm25')
-        k1: float = 1.2,
-        b: float = 0.75,
-        text_config: str = 'english'
-    ) -> List[QueryResult]:
-        """
-        METHOD 1: Pure keyword search using FTS or BM25.
-        
-        Args:
-            query: Search query text
-            k: Number of results to return
-            search_type: 'fts' for PostgreSQL ts_rank or 'bm25' for native BM25
-            k1: BM25 term frequency saturation (only for BM25, default: 1.2)
-            b: BM25 length normalization (only for BM25, default: 0.75)
-            text_config: Text search configuration (only for BM25, default: 'english')
-        
-        Returns documents ranked by keyword relevance.
-        
-        **FTS vs BM25:**
-        - FTS: PostgreSQL's ts_rank, simple and fast
-        - BM25: Industry-standard (Elasticsearch, Lucene), better ranking quality
-        """
-        self._ensure_initialized()
-        self._validate_search_params(query, k)
-        
-        # Route to appropriate search implementation
-        if search_type == KeywordSearchType.BM25:
-            return await self._keyword_search_bm25(query, k, k1, b, text_config)
-        else:
-            return await self._keyword_search_fts(query, k)
 
     async def keyword_search(
         self, 

@@ -1446,66 +1446,58 @@ embeddings_list = embeddings.embed_documents(contents)
 ## Project Structure
 
 ```
-Prod_RAG/
-├── src/                         # Core source code
-│   ├── __init__.py             # Package exports
-│   ├── core.py                 # pgVectorDB class (~3100 lines)
-│   └── evaluation.py           # Evaluation metrics
-├── test/                        # Comprehensive test suite
-│   └── test_suite.py           # 10+ test functions (~929 lines)
-├── eval/                        # Optimization & benchmarking tools
-│   ├── benchmark_all_methods.py  # Search method comparisons
-│   ├── optimize_k.py            # K-value optimization
-```bash
-.
-├── config
+pgVectorDB/
+├── config/
 │   ├── .env.example       # Configuration template
 │   └── .env               # Your local configuration (gitignored)
-├── docker
-│   ├── Dockerfile         # Custom image definition
+├── docker/
+│   ├── Dockerfile         # Custom PostgreSQL 17 image with extensions
 │   ├── docker-compose.yml # Container orchestration
-│   └── init.sql           # Database initialization
-├── eval                   # Evaluation framework
-│   ├── data               # Benchmark datasets
-│   ├── results            # Benchmark outputs (JSON/CSV)
-│   └── scripts            # Benchmark execution scripts
+│   ├── init.sql           # Database initialization (extensions)
+│   └── README.md          # Docker deployment guide
+├── docs/
+│   └── CONFIGURATION.md   # Full configuration guide
+├── eval/                  # Evaluation framework
+│   ├── data/              # Benchmark datasets
+│   ├── results/           # Benchmark outputs (JSON/CSV)
+│   └── scripts/           # Benchmark execution scripts
 │       ├── benchmark_all_methods.py
 │       ├── generate_synthetic_dataset.py
 │       ├── optimize_k.py
 │       └── test_metrics_correctness.py
-├── scripts
+├── notebooks/             # Jupyter notebooks
+│   └── demo.ipynb         # Feature demonstration (if available)
+├── scripts/
 │   └── test_connection.py # Connection verification
-├── src
+├── src/
+│   ├── __init__.py        # Package exports
 │   ├── config.py          # Configuration management
-│   ├── core.py            # Main pgVectorDB class
+│   ├── core.py            # Main pgVectorDB class (~3200 lines)
 │   └── metrics.py         # RAG evaluation metrics
-├── tests                  # Unit tests
+├── test/                  # Comprehensive test suite
+│   ├── test_suite.py      # 40+ test cases (~1100 lines)
+│   └── test_bedrock_standalone.py
 ├── .gitignore
 ├── README.md
 ├── requirements.txt
 └── TODO.md                # Project roadmap
 ```
 
-See [STRUCTURE.md](STRUCTURE.md) for detailed folder descriptions.
-
 ---
 
 ## Examples
 
 ### Complete Walkthrough
-See [notebooks/demo.ipynb](notebooks/demo.ipynb) for a complete feature demonstration.
+Check [notebooks/](notebooks/) for demonstration notebooks if available.
 
 ### Evaluation Metrics
-See [notebooks/eval_demo.ipynb](notebooks/eval_demo.ipynb) for evaluation examples.
+See [src/metrics.py](src/metrics.py) for the RAG evaluation implementation.
 
 ### K-Value Optimization
 Run [eval/scripts/optimize_k.py](eval/scripts/optimize_k.py) to find optimal K values.
 
 ### Docker Deployment
 See [docker/README.md](docker/README.md) for containerized deployment guide.
-
-### Additional Examples
-Check [examples/](examples/) folder for more usage examples.
 
 ---
 
