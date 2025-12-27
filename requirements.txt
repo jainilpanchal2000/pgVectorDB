@@ -1,37 +1,39 @@
 # Core dependencies
-langchain>=0.1.0
-langchain-core>=0.1.0
-langchain-postgres>=0.0.1
-langchain-huggingface>=0.0.1
-langchain-aws>=0.1.0  # For AWS Bedrock embeddings
+langchain
+langchain-core
+langchain-postgres
+langchain-huggingface
+langchain-community
+langchain-aws # For AWS Bedrock embeddings
+pydantic
 
 # AWS (for Bedrock embeddings)
-boto3>=1.28.0
-botocore>=1.31.0
+boto3
+botocore
 
 # Database
-sqlalchemy>=2.0.0
-asyncpg>=0.29.0
-psycopg2-binary>=2.9.0
+sqlalchemy
+asyncpg
+psycopg2-binary
 
 # Embeddings & ML
-sentence-transformers>=2.2.0
-torch>=2.0.0
-transformers>=4.30.0
+sentence-transformers
+torch
+transformers
 
 # Data processing
-numpy>=1.24.0
-pandas>=2.0.0
+numpy
+pandas
 
 # Utilities
-python-dotenv>=1.0.0
-pydantic>=2.0.0
+python-dotenv
+pydantic
 
 # Development dependencies
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-flake8>=6.0.0
-mypy>=1.0.0
-jupyter>=1.0.0
-ipykernel>=6.25.0
+pytest
+pytest-asyncio
+black
+flake8
+mypy
+jupyter
+ipykernel

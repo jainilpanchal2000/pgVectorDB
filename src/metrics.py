@@ -158,7 +158,7 @@ class RAGEvaluator:
         
         # Precision & Recall
         true_positives = len(retrieved_set & relevant_set)
-        precision = true_positives / len(retrieved_set) if retrieved_set else 0.0
+        precision = true_positives / self.k
         recall = true_positives / len(relevant_set) if relevant_set else 0.0
         
         # F1

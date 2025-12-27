@@ -33,3 +33,7 @@ ai_env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Allow eval folder
+!eval/
+!eval/**/*

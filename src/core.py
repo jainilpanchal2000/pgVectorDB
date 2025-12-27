@@ -87,6 +87,7 @@ import uuid
 import logging
 from typing import Dict, List, Optional, Tuple, TypedDict, Any, Literal
 from enum import Enum
+import re
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -227,6 +228,8 @@ class pgVectorDB:
             pool_size: Connection pool size (default: 5)
             max_overflow: Max overflow connections (default: 10)
             
+        **Security Note:** `collection_name` must be alphanumeric (plus underscores). Special characters are not allowed to prevent SQL injection in index names.
+            
         Raises:
             ValidationError: If inputs are invalid
             DatabaseError: If connection fails
@@ -255,6 +258,7 @@ class pgVectorDB:
         self._vector_store: Optional[PGVectorStore] = None
         self.vector_size = self._get_embedding_dimension()
         self._index_built = False
+        self._query_params: Dict[str, Any] = {}  # Store tuning params
         
         logger.info(
             f"pgVectorDB initialized: '{collection_name}' with {self.index_type.value} "
@@ -265,6 +269,8 @@ class pgVectorDB:
         """Validate initialization parameters."""
         if not collection_name or not isinstance(collection_name, str):
             raise ValidationError("collection_name must be a non-empty string")
+        if not re.match(r'^[a-zA-Z0-9_]+$', collection_name):
+            raise ValidationError("collection_name must contain only alphanumeric characters and underscores")
         if not connection_string or not isinstance(connection_string, str):
             raise ValidationError("connection_string must be a non-empty string")
         if not connection_string.startswith("postgresql"):
@@ -1041,34 +1047,39 @@ class pgVectorDB:
             DiskANN: query_search_list_size - Additional candidates (default: 100)
             DiskANN: query_rescore - Elements to rescore, 0 to disable (default: 50)
         """
-        try:
-            async with self.sqlalchemy_engine.connect() as conn:
-                if self.index_type == IndexType.IVFFLAT and probes is not None:
-                    if probes <= 0:
-                        raise ValidationError("probes must be positive")
-                    await conn.execute(text(f"SET ivfflat.probes = {probes}"))
-                    logger.info(f"IVFFlat: probes={probes}")
-                
-                elif self.index_type == IndexType.HNSW and ef_search is not None:
-                    if ef_search <= 0:
-                        raise ValidationError("ef_search must be positive")
-                    await conn.execute(text(f"SET hnsw.ef_search = {ef_search}"))
-                    logger.info(f"HNSW: ef_search={ef_search}")
-                
-                elif self.index_type == IndexType.DISKANN:
-                    if query_search_list_size is not None:
-                        if query_search_list_size <= 0:
-                            raise ValidationError("query_search_list_size must be positive")
-                        await conn.execute(text(f"SET diskann.query_search_list_size = {query_search_list_size}"))
-                    if query_rescore is not None:
-                        if query_rescore < 0:
-                            raise ValidationError("query_rescore must be non-negative")
-                        await conn.execute(text(f"SET diskann.query_rescore = {query_rescore}"))
-                    logger.info(f"DiskANN: search_list={query_search_list_size}, rescore={query_rescore}")
-                
-                await conn.commit()
-        except Exception as e:
-            raise DatabaseError(f"Failed to set query parameters: {e}") from e
+        # Store params to be applied before each search
+        if probes is not None:
+            if probes <= 0:
+                raise ValidationError("probes must be positive")
+            self._query_params["ivfflat.probes"] = probes
+            logger.info(f"Set ivfflat.probes = {probes}")
+
+        if ef_search is not None:
+            if ef_search <= 0:
+                raise ValidationError("ef_search must be positive")
+            self._query_params["hnsw.ef_search"] = ef_search
+            logger.info(f"Set hnsw.ef_search = {ef_search}")
+
+        if query_search_list_size is not None:
+            if query_search_list_size <= 0:
+                raise ValidationError("query_search_list_size must be positive")
+            self._query_params["diskann.query_search_list_size"] = query_search_list_size
+            logger.info(f"Set diskann.query_search_list_size = {query_search_list_size}")
+
+        if query_rescore is not None:
+            if query_rescore < 0:
+                raise ValidationError("query_rescore must be non-negative")
+            self._query_params["diskann.query_rescore"] = query_rescore
+            logger.info(f"Set diskann.query_rescore = {query_rescore}")
+
+    async def _apply_query_params(self, conn: Any) -> None:
+        """Apply stored query parameters to the current connection."""
+        if not self._query_params:
+            return
+            
+        for param, value in self._query_params.items():
+            # Use SET LOCAL for transaction-scoped settings
+            await conn.execute(text(f"SET LOCAL {param} = {value}"))
 
     async def build_bm25_index(
         self,
@@ -1320,16 +1331,29 @@ class pgVectorDB:
         Uses traditional PostgreSQL full-text search with tsvector/tsquery.
         """
         try:
+            # Construct OR-based query for higher recall
+            # plainto_tsquery uses AND logic which fails for long boolean queries
+            # We split words and join with | for OR logic
+            sanitized_words = [w for w in query.split() if w.isalnum()]
+            if not sanitized_words:
+                # Fallback for purely special char query or empty
+                ts_query_str = ""
+            else:
+                ts_query_str = " | ".join(sanitized_words)
+
             full_query = text(f"""
                 SELECT "langchain_id", "content", "langchain_metadata", 
-                       ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
+                       ts_rank(content_tsvector, to_tsquery('english', :query)) as rank
                 FROM "{self.schema_name}"."{self.table_name}"
-                WHERE content_tsvector @@ plainto_tsquery('english', :query)
+                WHERE content_tsvector @@ to_tsquery('english', :query)
                 ORDER BY rank DESC LIMIT :k
             """)
             
             async with self.sqlalchemy_engine.connect() as conn:
-                result = await conn.execute(full_query, {"query": query, "k": k})
+                if not ts_query_str:
+                    return []
+                    
+                result = await conn.execute(full_query, {"query": ts_query_str, "k": k})
                 return [
                     QueryResult(
                         id=str(row[0]),
@@ -1363,13 +1387,17 @@ class pgVectorDB:
         """
         try:
             index_name = f"idx_{self.table_name}_bm25"
+            # Schema-qualify the index name to ensure it's found even if schema not in search_path
+            qualified_index = f'"{self.schema_name}"."{index_name}"'
             
-            # <@> returns negative scores, negate for consistency
+            # <@> returns negative scores (lower is better), so we negate it
+            # to return positive relevance scores (higher is better).
+            # Postgres index scans for <@> require ASC order (default).
             full_query = text(f"""
                 SELECT "langchain_id", "content", "langchain_metadata", 
-                       -(content <@> to_bm25query(:query, '{index_name}')) as score
+                       -(content <@> to_bm25query(:query, '{qualified_index}')) as score
                 FROM "{self.schema_name}"."{self.table_name}"
-                ORDER BY content <@> to_bm25query(:query, '{index_name}')
+                ORDER BY content <@> to_bm25query(:query, '{qualified_index}') ASC
                 LIMIT :k
             """)
             
@@ -1416,6 +1444,46 @@ class pgVectorDB:
         """
         self._ensure_initialized()
         self._validate_search_params(query, k)
+        
+        # Route to appropriate search implementation
+        if search_type == KeywordSearchType.BM25:
+            return await self._keyword_search_bm25(query, k, k1, b, text_config)
+        else:
+            return await self._keyword_search_fts(query, k)
+
+    async def keyword_search(
+        self, 
+        query: str, 
+        k: int = 4,
+        filter: Optional[Dict[str, Any]] = None,
+        search_type: KeywordSearchType = KeywordSearchType.FTS,
+        # BM25-specific parameters (only used when search_type='bm25')
+        k1: float = 1.2,
+        b: float = 0.75,
+        text_config: str = 'english'
+    ) -> List[QueryResult]:
+        """
+        METHOD 1: Keyword search using FTS or BM25.
+        
+        Args:
+            query: Search query text
+            k: Number of results to return
+            filter: Optional metadata filter
+            search_type: 'fts' for PostgreSQL ts_rank or 'bm25' for native BM25
+            k1: BM25 term frequency saturation (only for BM25, default: 1.2)
+            b: BM25 length normalization (only for BM25, default: 0.75)
+            text_config: Text search configuration (only for BM25, default: 'english')
+        
+        Returns documents ranked by keyword relevance.
+        """
+        self._ensure_initialized()
+        self._validate_search_params(query, k)
+        
+        # If filter is provided, route to metadata_keyword_search
+        if filter:
+            return await self.metadata_keyword_search(
+                query, filter, k, search_type, k1, b, text_config
+            )
         
         # Route to appropriate search implementation
         if search_type == KeywordSearchType.BM25:
@@ -1484,20 +1552,26 @@ class pgVectorDB:
         self, 
         query: str, 
         k: int = 4,
-        label_filter: Optional[List[int]] = None
+        label_filter: Optional[List[int]] = None,
+        filter: Optional[Dict[str, Any]] = None
     ) -> List[QueryResult]:
         """
-        METHOD 3: Pure semantic search using vector embeddings.
+        METHOD 3: Semantic search using vector embeddings.
         
         Args:
             query: Search query string
             k: Number of results
             label_filter: Optional labels for DiskANN filtering (uses && operator)
+            filter: Optional metadata filter dict (e.g. {"category": "ai"})
         
         Returns documents ranked by semantic similarity (cosine distance).
         """
         self._ensure_initialized()
         self._validate_search_params(query, k)
+        
+        # If filter is provided, route to metadata_semantic_search
+        if filter:
+            return await self.metadata_semantic_search(query, filter, k)
         
         try:
             embedding = self.embedding_model.embed_query(query)
@@ -1601,7 +1675,8 @@ class pgVectorDB:
         self, 
         query: str, 
         k: int = 4,
-        label_filter: Optional[List[int]] = None
+        label_filter: Optional[List[int]] = None,
+        filter: Optional[Dict[str, Any]] = None
     ) -> List[Tuple[QueryResult, float]]:
         """
         Semantic search returning (document, score) tuples for debugging/tuning.
@@ -1610,6 +1685,7 @@ class pgVectorDB:
             query: Search query string
             k: Number of results
             label_filter: Optional labels for DiskANN filtering
+            filter: Optional metadata filter
         
         Returns:
             List of (QueryResult, score) tuples where score is the distance
@@ -1619,7 +1695,7 @@ class pgVectorDB:
             >>> for doc, score in results:
             ...     print(f"Score: {score:.4f} - {doc['content'][:50]}")
         """
-        results = await self.semantic_search(query, k, label_filter)
+        results = await self.semantic_search(query, k, label_filter, filter=filter)
         return [(result, result['score']) for result in results]
 
     async def metadata_filter(
@@ -2092,7 +2168,8 @@ class pgVectorDB:
         self, 
         query: str, 
         k: int = 4,
-        threshold: float = 0.3
+        threshold: float = 0.3,
+        filter: Optional[Dict[str, Any]] = None
     ) -> List[QueryResult]:
         """
         METHOD 9: Fuzzy text matching using trigram similarity.
@@ -2104,6 +2181,7 @@ class pgVectorDB:
             query: Search query string
             k: Number of results
             threshold: Minimum similarity score (0.0-1.0, default: 0.3)
+            filter: Optional metadata filter
         
         Returns:
             Documents ranked by trigram similarity score
@@ -2114,6 +2192,10 @@ class pgVectorDB:
         """
         self._ensure_initialized()
         self._validate_search_params(query, k)
+        
+        # If filter is provided, route to metadata_trigram_search
+        if filter:
+            return await self.metadata_trigram_search(query, filter, k, threshold)
         
         if threshold < 0.0 or threshold > 1.0:
             raise ValidationError("threshold must be between 0.0 and 1.0")
@@ -2283,6 +2365,10 @@ class pgVectorDB:
         """Build a single filter condition with proper type handling."""
         param_name = f"param_{counter}"
         counter += 1
+        
+        # Security validation: Ensure key contains only alphanumeric chars and underscores
+        if not re.match(r'^[a-zA-Z0-9_]+$', key):
+            raise ValidationError(f"Invalid metadata key: '{key}'. Keys must be alphanumeric.")
         
         is_numeric = isinstance(value, (int, float))
         if operator == "$between" and isinstance(value, (list, tuple)) and len(value) > 0:

@@ -1,0 +1,90 @@
+{
+  "k_values": [
+    1,
+    3,
+    5,
+    10,
+    20,
+    50
+  ],
+  "results": {
+    "1": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "map": 0.0,
+      "mrr": 0.0,
+      "ndcg": 0.0,
+      "hit_rate": 0.0
+    },
+    "3": {
+      "precision": 0.047619047619047616,
+      "recall": 0.03571428571428571,
+      "f1_score": 0.04081632653061224,
+      "map": 0.01984126984126984,
+      "mrr": 0.047619047619047616,
+      "ndcg": 0.03937158023538613,
+      "hit_rate": 0.09523809523809523
+    },
+    "5": {
+      "precision": 0.0380952380952381,
+      "recall": 0.051587301587301584,
+      "f1_score": 0.04382638010956595,
+      "map": 0.023809523809523808,
+      "mrr": 0.05952380952380952,
+      "ndcg": 0.042376292808478974,
+      "hit_rate": 0.14285714285714285
+    },
+    "10": {
+      "precision": 0.023809523809523808,
+      "recall": 0.06349206349206349,
+      "f1_score": 0.03463203463203463,
+      "map": 0.025793650793650792,
+      "mrr": 0.06746031746031746,
+      "ndcg": 0.04899801564232543,
+      "hit_rate": 0.19047619047619047
+    },
+    "20": {
+      "precision": 0.03571428571428572,
+      "recall": 0.22222222222222218,
+      "f1_score": 0.06153846153846154,
+      "map": 0.039087721983380244,
+      "mrr": 0.08945231938929418,
+      "ndcg": 0.10409133893025257,
+      "hit_rate": 0.5238095238095238
+    },
+    "50": {
+      "precision": 0.034285714285714294,
+      "recall": 0.5238095238095237,
+      "f1_score": 0.06435884934178451,
+      "map": 0.055053895806612824,
+      "mrr": 0.10285649341675292,
+      "ndcg": 0.19042638892467276,
+      "hit_rate": 0.9523809523809523
+    }
+  },
+  "recommendations": {
+    "max_precision": [
+      3,
+      0.047619047619047616
+    ],
+    "max_recall": [
+      50,
+      0.5238095238095237
+    ],
+    "best_f1": [
+      50,
+      0.06435884934178451
+    ],
+    "best_ndcg": [
+      50,
+      0.19042638892467276
+    ],
+    "best_mrr": [
+      50,
+      0.10285649341675292
+    ],
+    "optimal_balanced": 50,
+    "summary": "\nK-Value Recommendations:\n========================\n\n\ud83d\udcca Metric-Specific Best K:\n  \u2022 Max Precision (Quality):  K=3 (P=0.048)\n  \u2022 Max Recall (Coverage):    K=50 (R=0.524)\n  \u2022 Best F1 (Balance):        K=50 (F1=0.064)\n  \u2022 Best NDCG (Ranking):      K=50 (NDCG=0.190)\n  \u2022 Best MRR (First Result):  K=50 (MRR=0.103)\n\n\ud83c\udfaf Recommended K by Use Case:\n  \u2022 FAQ/Q&A (First answer matters):         K=50\n  \u2022 General RAG (Balanced):                 K=50\n  \u2022 Research/Analysis (Comprehensive):      K=50\n  \u2022 LLM with limited context (Quality):     K=3\n\n\u26a1 Optimal Balanced Choice: K=50\n   - Precision: 0.034\n   - Recall: 0.524\n   - F1: 0.064\n   - NDCG: 0.190\n"
+  }
+}

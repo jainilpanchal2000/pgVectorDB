@@ -1,7 +1,7 @@
 ﻿"""Production RAG System - Simple imports"""
 
 from .core import pgVectorDB, IndexType, KeywordSearchType, StorageLayout, DistanceMetric
-from .evaluation import (
+from .metrics import (
     RAGEvaluator,
     EvaluationDataset,
     EvaluationResult,

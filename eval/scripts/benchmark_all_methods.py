@@ -29,23 +29,44 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from langchain_core.documents import Document
 from src.core import pgVectorDB, IndexType, KeywordSearchType
-from src.evaluation import RAGEvaluator, EvaluationResult
+from src.metrics import RAGEvaluator, EvaluationResult
 from src.config import Config
 import pandas as pd
 
 
 class BenchmarkDataset:
-    """Comprehensive dataset with 200 documents and complex queries for realistic benchmarking."""
+    """Comprehensive dataset with documents and queries for realistic benchmarking."""
     
-    def __init__(self):
-        self.documents = self._create_documents()
-        self.queries = self._create_queries()
-        self.ground_truth = self._create_ground_truth()
-    
+    def __init__(self, filepath: str = "eval/data/benchmark_dataset_1k.json"):
+        if Path(filepath).exists():
+            print(f"   Using external dataset: {filepath}")
+            self._load_from_file(filepath)
+        else:
+            print("   Generating default small dataset (internally defined)")
+            self.documents = self._create_documents()
+            self.queries = self._create_queries()
+            self.ground_truth = self._create_ground_truth()
+            
+    def _load_from_file(self, filepath: str):
+        import json
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        self.documents = []
+        for doc_data in data['documents']:
+            self.documents.append(Document(
+                page_content=doc_data['page_content'],
+                metadata=doc_data['metadata']
+            ))
+            
+        self.queries = data['queries']
+        self.ground_truth = data['ground_truth']
+        # self.query_metadata = data.get('query_metadata')
+
     def _create_documents(self) -> List[Document]:
         """Create 200 realistic documents across 8 categories with detailed content."""
         docs = []
@@ -526,134 +547,129 @@ async def main():
     
     # 4. Define search methods to benchmark
     print("\n🔍 Step 4: Benchmarking all search methods...")
-    print(f"   Testing K=5 across {len(dataset.queries)} complex queries\n")
     
-    k = 5
-    methods = []
-    
-    # Method 1: FTS keyword search
-    methods.append({
-        "name": "1. Keyword (FTS)",
-        "search_fn": lambda q, k: rag.keyword_search(q, k, search_type=KeywordSearchType.FTS)
-    })
-    
-    # Method 2: BM25 keyword search
-    methods.append({
-        "name": "2. Keyword (BM25)",
-        "search_fn": lambda q, k: rag.keyword_search(q, k, search_type=KeywordSearchType.BM25)
-    })
-    
-    # Method 3: Semantic search
-    methods.append({
-        "name": "3. Semantic",
-        "search_fn": lambda q, k: rag.semantic_search(q, k)
-    })
-    
-    # Method 4: Hybrid (FTS + Semantic, weighted)
-    methods.append({
-        "name": "4. Hybrid (FTS + Semantic)",
-        "search_fn": lambda q, k: rag.hybrid_search(
-            q, k, weights=(0.5, 0.5), 
-            keyword_type=KeywordSearchType.FTS
-        )
-    })
-    
-    # Method 5: Hybrid (BM25 + Semantic, weighted)
-    methods.append({
-        "name": "5. Hybrid (BM25 + Semantic)",
-        "search_fn": lambda q, k: rag.hybrid_search(
-            q, k, weights=(0.5, 0.5),
-            keyword_type=KeywordSearchType.BM25
-        )
-    })
-    
-    # Method 6: Hybrid (BM25 + Semantic, RRF)
-    methods.append({
-        "name": "6. Hybrid (BM25 + Semantic + RRF)",
-        "search_fn": lambda q, k: rag.hybrid_search(
-            q, k, use_rrf=True,
-            keyword_type=KeywordSearchType.BM25
-        )
-    })
-    
-    # Method 7: Metadata + Semantic (high priority only)
-    methods.append({
-        "name": "7. Metadata + Semantic",
-        "search_fn": lambda q, k: rag.metadata_semantic_search(
-            q, {"priority": {"$in": ["high", "critical"]}}, k
-        )
-    })
-    
-    # Method 8: Ensemble (BM25 + Semantic + RRF + Metadata)
-    methods.append({
-        "name": "8. Ensemble (Full)",
-        "search_fn": lambda q, k: rag.ensemble_search(
-            q, {"priority": {"$in": ["high", "critical", "medium"]}}, k,
-            use_rrf=True, keyword_type=KeywordSearchType.BM25
-        )
-    })
-    
-    # Method 9: Trigram (fuzzy matching)
-    methods.append({
-        "name": "9. Trigram (Fuzzy)",
-        "search_fn": lambda q, k: rag.trigram_search(q, k, threshold=0.1)
-    })
-    
-    # Method 10: Metadata + Trigram
-    methods.append({
-        "name": "10. Metadata + Trigram",
-        "search_fn": lambda q, k: rag.metadata_trigram_search(
-            q, {"category": {"$in": ["ai_ml", "database", "web_dev", "devops", "security"]}}, 
-            k, threshold=0.1
-        )
-    })
-    
-    # 5. Run benchmarks
-    evaluator = RAGEvaluator(k=k)
+    k_values = [5, 20]
     results_data = []
-    
-    for method in methods:
-        print(f"   Testing: {method['name']}...", end=" ")
+
+    for k in k_values:
+        print(f"\n   Testing K={k} across {len(dataset.queries)} complex queries")
+        print("   " + "-" * 50)
         
-        try:
-            retrieved, latency = await benchmark_method(
-                rag, method['name'], dataset.queries, k, method['search_fn']
+        methods = []
+        
+        # Method 1: FTS keyword search
+        methods.append({
+            "name": f"1. Keyword (FTS) @{k}",
+            "search_fn": lambda q, k=k: rag.keyword_search(q, k, search_type=KeywordSearchType.FTS)
+        })
+        
+        # Method 2: BM25 keyword search
+        methods.append({
+            "name": f"2. Keyword (BM25) @{k}",
+            "search_fn": lambda q, k=k: rag.keyword_search(q, k, search_type=KeywordSearchType.BM25)
+        })
+        
+        # Method 3: Semantic search
+        methods.append({
+            "name": f"3. Semantic @{k}",
+            "search_fn": lambda q, k=k: rag.semantic_search(q, k)
+        })
+        
+        # Method 4: Hybrid (FTS + Semantic, weighted)
+        methods.append({
+            "name": f"4. Hybrid (FTS + Semantic) @{k}",
+            "search_fn": lambda q, k=k: rag.hybrid_search(
+                q, k, weights=(0.5, 0.5), 
+                keyword_type=KeywordSearchType.FTS
             )
-            
-            # Evaluate
-            eval_result = evaluator.evaluate(
-                dataset.queries,
-                retrieved,
-                dataset.ground_truth
+        })
+        
+        # Method 5: Hybrid (BM25 + Semantic, weighted)
+        methods.append({
+            "name": f"5. Hybrid (BM25 + Semantic) @{k}",
+            "search_fn": lambda q, k=k: rag.hybrid_search(
+                q, k, weights=(0.5, 0.5),
+                keyword_type=KeywordSearchType.BM25
             )
+        })
+        
+        # Method 6: Hybrid (BM25 + Semantic, RRF)
+        methods.append({
+            "name": f"6. Hybrid (BM25 + Semantic + RRF) @{k}",
+            "search_fn": lambda q, k=k: rag.hybrid_search(
+                q, k, use_rrf=True,
+                keyword_type=KeywordSearchType.BM25
+            )
+        })
+        
+        # Method 7: Metadata + Semantic (high priority only)
+        methods.append({
+            "name": f"7. Metadata + Semantic @{k}",
+            "search_fn": lambda q, k=k: rag.metadata_semantic_search(
+                q, {"priority": {"$in": ["high", "critical"]}}, k
+            )
+        })
+        
+        # Method 8: Ensemble (BM25 + Semantic + RRF + Metadata)
+        methods.append({
+            "name": f"8. Ensemble (Full) @{k}",
+            "search_fn": lambda q, k=k: rag.ensemble_search(
+                q, {"priority": {"$in": ["high", "critical", "medium"]}}, k,
+                use_rrf=True, keyword_type=KeywordSearchType.BM25
+            )
+        })
+        
+        # Method 9: Trigram (fuzzy matching)
+        methods.append({
+            "name": f"9. Trigram (Fuzzy) @{k}",
+            "search_fn": lambda q, k=k: rag.trigram_search(q, k, threshold=0.1)
+        })
+        
+        # Method 10: Metadata + Trigram
+        methods.append({
+            "name": f"10. Metadata + Trigram @{k}",
+            "search_fn": lambda q, k=k: rag.metadata_trigram_search(
+                q, {"category": {"$in": ["ai_ml", "database", "web_dev", "devops", "security"]}}, 
+                k, threshold=0.1
+            )
+        })
+        
+        # 5. Run benchmarks
+        evaluator = RAGEvaluator(k=k)
+        
+        for method in methods:
+            print(f"   Testing: {method['name']}...", end=" ")
             
-            results_data.append({
-                "Method": method['name'],
-                "Precision@5": f"{eval_result.precision:.3f}",
-                "Recall@5": f"{eval_result.recall:.3f}",
-                "F1@5": f"{eval_result.f1_score:.3f}",
-                "MAP@5": f"{eval_result.map_score:.3f}",
-                "MRR": f"{eval_result.mrr_score:.3f}",
-                "NDCG@5": f"{eval_result.ndcg_score:.3f}",
-                "Hit Rate": f"{eval_result.hit_rate:.3f}",
-                "Latency (ms)": f"{latency:.1f}"
-            })
-            
-            print(f"✓ (P={eval_result.precision:.3f}, {latency:.1f}ms)")
-            
-        except Exception as e:
-            print(f"✗ Error: {e}")
-            results_data.append({
-                "Method": method['name'],
-                "Precision@5": "ERROR",
-                "Recall@5": "ERROR",
-                "F1@5": "ERROR",
-                "MAP@5": "ERROR",
-                "MRR": "ERROR",
-                "NDCG@5": "ERROR",
-                "Hit Rate": "ERROR",
-                "Latency (ms)": "ERROR"
-            })
+            try:
+                retrieved, latency = await benchmark_method(
+                    rag, method['name'], dataset.queries, k, method['search_fn']
+                )
+                
+                # Evaluate
+                eval_result = evaluator.evaluate(
+                    dataset.queries,
+                    retrieved,
+                    dataset.ground_truth
+                )
+                
+                results_data.append({
+                    "Method": method['name'],
+                    "K": k,
+                    "Precision@K": f"{eval_result.precision:.3f}",
+                    "Recall@K": f"{eval_result.recall:.3f}",
+                    "F1@K": f"{eval_result.f1_score:.3f}",
+                    "MAP@K": f"{eval_result.map_score:.3f}",
+                    "MRR": f"{eval_result.mrr_score:.3f}",
+                    "NDCG@K": f"{eval_result.ndcg_score:.3f}",
+                    "Hit Rate": f"{eval_result.hit_rate:.3f}",
+                    "Latency (ms)": f"{latency:.1f}"
+                })
+                
+                print(f"✓ (Recall={eval_result.recall:.3f}, {latency:.1f}ms)")
+                
+            except Exception as e:
+                print(f"✗ Error: {e}")
+    
     
     # 6. Display results
     print("\n" + "=" * 80)
@@ -696,9 +712,9 @@ async def main():
     
     # 8. Export results
     print("\n💾 Exporting results...")
-    df.to_csv("eval/benchmark_results.csv", index=False)
-    df.to_json("eval/benchmark_results.json", orient="records", indent=2)
-    print("   ✓ Results saved to eval/benchmark_results.csv and eval/benchmark_results.json")
+    df.to_csv("eval/results/benchmark_results.csv", index=False)
+    df.to_json("eval/results/benchmark_results.json", orient="records", indent=2)
+    print("   ✓ Results saved to eval/results/benchmark_results.csv and eval/results/benchmark_results.json")
     
     print("\n" + "=" * 80)
     print("✅ Benchmark Complete!")

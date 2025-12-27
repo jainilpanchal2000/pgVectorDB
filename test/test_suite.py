@@ -40,6 +40,7 @@ from langchain_core.documents import Document
 from src.core import (
     pgVectorDB,
     IndexType,
+    KeywordSearchType,
     DistanceMetric,
     StorageLayout,
     ValidationError,
@@ -809,6 +810,29 @@ async def test_error_handling(embeddings):
         results.add_fail("InitializationError Test", str(e))
 
 
+async def test_security_validation(embeddings):
+    """Test security validation validation."""
+    print("\n" + "=" * 80)
+    print("🔒 SECURITY VALIDATION TESTS")
+    print("=" * 80)
+    
+    # Test invalid collection name
+    try:
+        rag = pgVectorDB(
+            collection_name="test; DROP TABLE",
+            embedding_model=embeddings,
+            connection_string=CONNECTION_STRING,
+            schema_name=SCHEMA_NAME,
+            index_type=IndexType.HNSW
+        )
+        results.add_fail("Security Validation", "Should raise ValidationError for invalid name")
+    except ValidationError:
+        results.add_pass("Security Validation (Invalid Name)")
+        print("   ✓ Correctly rejected 'test; DROP TABLE'")
+    except Exception as e:
+        results.add_fail("Security Validation", f"Raised wrong exception: {type(e).__name__}")
+
+
 async def test_performance(embeddings):
     """Test performance benchmarks."""
     print("\n" + "=" * 80)
@@ -851,6 +875,48 @@ async def test_performance(embeddings):
         
     except Exception as e:
         results.add_fail("Performance Tests", str(e))
+
+
+async def test_bm25_scoring_fix(embeddings):
+    """Test verification of BM25 positive scoring."""
+    print("\n" + "=" * 80)
+    print("🔒 BM25 SCORING FIX VERIFICATION")
+    print("=" * 80)
+    
+    try:
+        rag = pgVectorDB(
+            collection_name="test_bm25_fix",
+            embedding_model=embeddings,
+            connection_string=CONNECTION_STRING,
+            schema_name=SCHEMA_NAME,
+            index_type=IndexType.HNSW
+        )
+        await rag.initialize(overwrite_existing=True)
+        
+        # Add minimal doc set
+        docs = [
+            Document(page_content="PostgreSQL database is great", metadata={"id": 1}),
+            Document(page_content="Something else entirely", metadata={"id": 2})
+        ]
+        await rag.add_documents(docs)
+        await rag.build_bm25_index()
+        
+        # Verify Positive Score
+        # BM25 <@> operator returns negative numbers (-1.5), we want to ensure we get positive (1.5)
+        res = await rag.keyword_search("database", k=1, search_type=KeywordSearchType.BM25)
+        
+        if res and res[0]['score'] > 0:
+            results.add_pass("BM25 Positive Score Check")
+            print(f"   ✓ Correctly received positive score: {res[0]['score']}")
+        elif res:
+            results.add_fail("BM25 Positive Score Check", f"Received negative score: {res[0]['score']}")
+        else:
+            results.add_fail("BM25 Positive Score Check", "No results found")
+            
+        await rag.close()
+        
+    except Exception as e:
+        results.add_fail("BM25 Scoring Fix", str(e))
 
 
 # ==================== Main Test Runner ====================
@@ -980,7 +1046,10 @@ async def run_all_tests(args):
         await test_data_export_import(embeddings)
         await test_langchain_integration(embeddings)
         await test_error_handling(embeddings)
+        await test_error_handling(embeddings)
+        await test_security_validation(embeddings)
         await test_performance(embeddings)
+        await test_bm25_scoring_fix(embeddings)
         
     except Exception as e:
         logger.error(f"Critical error: {e}")

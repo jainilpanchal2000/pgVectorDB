@@ -16,11 +16,18 @@ The script will:
 """
 
 import asyncio
+import sys
+from pathlib import Path
 from typing import List
+
+# Add parent directory to path to import src
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
+
 from src.core import pgVectorDB, IndexType
-from src.evaluation import (
+from src.config import Config
+from src.metrics import (
     create_sample_evaluation_dataset,
     KValueAnalysis
 )
@@ -68,14 +75,12 @@ async def main():
     # 1. Setup
     print("\n📦 Step 1: Setting up RAG system...")
     
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    embeddings = Config.get_embeddings()
     
     rag = pgVectorDB(
         collection_name="k_value_optimization",
         embedding_model=embeddings,
-        connection_string="postgresql+asyncpg://user:root@localhost:9002/postgres",
+        connection_string=Config.get_connection_string(),
         index_type=IndexType.HNSW
     )
     
@@ -136,7 +141,7 @@ async def main():
     
     # 7. Export results
     print("\n💾 Step 6: Exporting results...")
-    analyzer.export_results("k_value_analysis_results.json")
+    analyzer.export_results("eval/results/k_value_analysis_results.json")
     
     print("\n" + "=" * 80)
     print("INTERPRETATION GUIDE")

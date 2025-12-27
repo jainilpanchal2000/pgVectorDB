@@ -519,6 +519,9 @@ async def main():
 asyncio.run(main())
 ```
 
+> [!IMPORTANT]
+> **Security Note**: `collection_name` must contain only alphanumeric characters and underscores to prevent SQL injection in index names. Special characters will cause a `ValidationError`.
+
 ---
 
 ## 🗂️ Multi-Table Architecture (One Schema, Multiple Collections)
@@ -1263,7 +1266,7 @@ def generate_test_documents(num_docs: int = 100) -> tuple[List[Document], List[L
 Compare the performance of all 10 search methods using the benchmarking tool:
 
 ```bash
-python eval/benchmark_all_methods.py
+python eval/scripts/benchmark_all_methods.py
 ```
 
 This tool:
@@ -1453,30 +1456,34 @@ Prod_RAG/
 ├── eval/                        # Optimization & benchmarking tools
 │   ├── benchmark_all_methods.py  # Search method comparisons
 │   ├── optimize_k.py            # K-value optimization
-│   ├── benchmark_results.csv    # Benchmark data (CSV)
-│   └── benchmark_results.json   # Benchmark data (JSON)
-├── notebooks/                   # Interactive demos
-│   ├── demo.ipynb              # Complete walkthrough
-│   └── eval_demo.ipynb         # Evaluation examples
-├── scripts/                     # Utility scripts
-│   └── test_connection.py      # Connection & requirements tester
-├── docker/                      # Docker deployment
-│   ├── Dockerfile              # Python container
-│   ├── docker-compose.yml      # Multi-container setup
-│   ├── init.sql                # Database initialization
-│   └── README.md               # Docker guide
-├── config/                      # Configuration files
-│   ├── .env                    # Environment variables
-│   └── .env.example            # Template
-├── examples/                    # Example scripts
-│   └── README.md               # Examples guide
-├── scripts/                     # Utility scripts
-│   └── README.md               # Scripts guide
-├── docs/                        # Extended documentation
-│   └── README.md               # Documentation index
-├── requirements.txt             # Python dependencies
-├── README.md                    # Main documentation (this file)
-└── STRUCTURE.md                 # Detailed folder structure
+```bash
+.
+├── config
+│   ├── .env.example       # Configuration template
+│   └── .env               # Your local configuration (gitignored)
+├── docker
+│   ├── Dockerfile         # Custom image definition
+│   ├── docker-compose.yml # Container orchestration
+│   └── init.sql           # Database initialization
+├── eval                   # Evaluation framework
+│   ├── data               # Benchmark datasets
+│   ├── results            # Benchmark outputs (JSON/CSV)
+│   └── scripts            # Benchmark execution scripts
+│       ├── benchmark_all_methods.py
+│       ├── generate_synthetic_dataset.py
+│       ├── optimize_k.py
+│       └── test_metrics_correctness.py
+├── scripts
+│   └── test_connection.py # Connection verification
+├── src
+│   ├── config.py          # Configuration management
+│   ├── core.py            # Main pgVectorDB class
+│   └── metrics.py         # RAG evaluation metrics
+├── tests                  # Unit tests
+├── .gitignore
+├── README.md
+├── requirements.txt
+└── TODO.md                # Project roadmap
 ```
 
 See [STRUCTURE.md](STRUCTURE.md) for detailed folder descriptions.
@@ -1492,7 +1499,7 @@ See [notebooks/demo.ipynb](notebooks/demo.ipynb) for a complete feature demonstr
 See [notebooks/eval_demo.ipynb](notebooks/eval_demo.ipynb) for evaluation examples.
 
 ### K-Value Optimization
-Run [eval/optimize_k.py](eval/optimize_k.py) to find optimal K values.
+Run [eval/scripts/optimize_k.py](eval/scripts/optimize_k.py) to find optimal K values.
 
 ### Docker Deployment
 See [docker/README.md](docker/README.md) for containerized deployment guide.
@@ -2005,8 +2012,8 @@ When adding new features:
 
 ## Version
 
-**Current Version:** 0.0.2  
-**Last Updated:** December 26, 2025  
+**Current Version:** 0.0.1  
+**Last Updated:** December 27, 2025  
 **Main Class:** `pgVectorDB`
 
 
