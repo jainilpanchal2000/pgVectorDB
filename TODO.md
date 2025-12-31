@@ -43,6 +43,21 @@ How to use this file:
 
 ---
 
+- [ ] **Universal Keyword Search: BM25 + FTS + Metadata (universal_keyword_search)** — parity and predictable ranking
+	- Files: `src/core.py`, `test/test_suite.py`, `docs/CONFIGURATION.md`
+	- Goal: `universal_keyword_search` should support both FTS and BM25 ranking for content and combine metadata field matches (ILIKE) in a predictable way.
+	- Subtasks:
+		- [ ] Add explicit branching for `search_type == KeywordSearchType.BM25` in `universal_keyword_search()`.
+		- [ ] When `metadata_fields` are provided with BM25, design a combination strategy:
+			- Option 1: Use BM25 for content scoring and include metadata ILIKE conditions in WHERE, ordering by BM25 score (simple).
+			- Option 2: Perform BM25 scoring for content and add a small bonus score for metadata ILIKE matches, then order by combined score (fusion).
+		- [ ] Add tests covering: (a) FTS path with metadata_fields, (b) BM25 path without metadata_fields, (c) BM25 + metadata_fields path verifying deterministic ranking.
+		- [ ] Document expected behavior in `docs/CONFIGURATION.md` with example SQL snippets.
+	- Acceptance:
+		- [ ] `universal_keyword_search(..., search_type=KeywordSearchType.BM25)` uses BM25 scoring for content.
+		- [ ] When `metadata_fields` are provided, metadata matches are included and the ordering is reproducible and documented.
+
+
 ## Medium Priority — Defaults, Tests, and Validation
 
 - [ ] **Default Tuning Config**
