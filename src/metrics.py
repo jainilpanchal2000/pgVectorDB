@@ -116,7 +116,7 @@ class RAGEvaluator:
         Returns:
             EvaluationResult with all computed metrics
         """
-        if len(queries) != len(retrieved_results) != len(ground_truth):
+        if not (len(queries) == len(retrieved_results) == len(ground_truth)):
             raise ValueError("Queries, results, and ground truth must have same length")
         
         # Compute metrics
@@ -153,12 +153,17 @@ class RAGEvaluator:
         Returns:
             Dictionary with metrics for this query
         """
-        retrieved_set = set(retrieved_docs[:self.k])
+        retrieved_k = retrieved_docs[:self.k]
+        retrieved_set = set(retrieved_k)
         relevant_set = set(relevant_docs)
-        
+
         # Precision & Recall
         true_positives = len(retrieved_set & relevant_set)
-        precision = true_positives / self.k
+        if self.k == 0:
+            precision = 0.0
+        else:
+            precision = true_positives / self.k
+
         recall = true_positives / len(relevant_set) if relevant_set else 0.0
         
         # F1
@@ -216,7 +221,7 @@ class RAGEvaluator:
             precision_at_k = true_positives / self.k
             precisions.append(precision_at_k)
         
-        return np.mean(precisions)
+        return np.mean(precisions) if precisions else 0.0
     
     def _compute_recall(
         self,
@@ -248,7 +253,7 @@ class RAGEvaluator:
             recall_at_k = true_positives / len(relevant_set)
             recalls.append(recall_at_k)
         
-        return np.mean(recalls)
+        return np.mean(recalls) if recalls else 0.0
     
     def _compute_f1(self, precision: float, recall: float) -> float:
         """
@@ -277,7 +282,7 @@ class RAGEvaluator:
             ap = self._average_precision(retrieved, relevant)
             average_precisions.append(ap)
         
-        return np.mean(average_precisions)
+        return np.mean(average_precisions) if average_precisions else 0.0
     
     def _average_precision(
         self,
@@ -324,7 +329,7 @@ class RAGEvaluator:
             rr = self._reciprocal_rank(retrieved, relevant)
             reciprocal_ranks.append(rr)
         
-        return np.mean(reciprocal_ranks)
+        return np.mean(reciprocal_ranks) if reciprocal_ranks else 0.0
     
     def _reciprocal_rank(
         self,
@@ -371,7 +376,7 @@ class RAGEvaluator:
             ndcg = self._ndcg_at_k(retrieved, relevant)
             ndcg_scores.append(ndcg)
         
-        return np.mean(ndcg_scores)
+        return np.mean(ndcg_scores) if ndcg_scores else 0.0
     
     def _ndcg_at_k(
         self,
