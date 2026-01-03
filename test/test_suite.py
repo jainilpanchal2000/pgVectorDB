@@ -2,7 +2,7 @@
 Complete Test Suite for Production RAG System
 ==============================================
 
-Comprehensive testing of all pgVectorDB functionality:
+Comprehensive testing of all pgVectorDB v2.2.0 functionality:
 - Initialization (3 index types: HNSW, IVFFlat, DiskANN)
 - Document operations (CRUD, batch, metadata)
 - All 11 search methods
@@ -14,6 +14,7 @@ Comprehensive testing of all pgVectorDB functionality:
 - Error handling
 - Performance benchmarks
 - Embedding provider testing (HuggingFace, Bedrock)
+- Extension availability checking
 
 Usage:
     python test/test_suite.py
@@ -37,16 +38,21 @@ import time
 import logging
 from typing import List
 from langchain_core.documents import Document
-from src.core import (
+
+# Import from new modular structure (v2.2.0)
+from src import (
     pgVectorDB,
     IndexType,
     KeywordSearchType,
     DistanceMetric,
     StorageLayout,
     ValidationError,
-    InitializationError
+    InitializationError,
+    ExtensionManager,
+    Config,
 )
-from src.config import Config, get_test_config
+from src.config import get_test_config
+
 
 # Configure logging
 logging.basicConfig(
@@ -297,6 +303,76 @@ async def test_initialization(embeddings):
         results.add_pass("DiskANN Initialization")
     except Exception as e:
         results.add_fail("DiskANN Initialization", str(e))
+
+
+async def test_extension_manager(embeddings):
+    """Test ExtensionManager for checking extension availability."""
+    print("\n" + "=" * 80)
+    print("🔌 EXTENSION MANAGER TESTS")
+    print("=" * 80)
+    
+    from sqlalchemy.ext.asyncio import create_async_engine
+    
+    engine = create_async_engine(CONNECTION_STRING, pool_pre_ping=True)
+    
+    try:
+        # Test extension checking
+        ext_manager = ExtensionManager(engine)
+        status = await ext_manager.check_extensions()
+        
+        # pgvector should always be available (required)
+        assert 'pgvector' in status, "pgvector should be in status"
+        results.add_pass("Extension Status Check")
+        
+        # Test feature availability
+        features = ext_manager.get_feature_availability()
+        assert "HNSW index" in features
+        assert "IVFFlat index" in features
+        assert "DiskANN index" in features
+        assert "BM25 search" in features
+        results.add_pass("Feature Availability Matrix")
+        
+        # Test require methods (should not raise if extensions exist, or raise with helpful message)
+        try:
+            if ext_manager.has_vectorscale:
+                ext_manager.require_vectorscale("test")
+                results.add_pass("require_vectorscale (available)")
+            else:
+                try:
+                    ext_manager.require_vectorscale("test")
+                    results.add_fail("require_vectorscale (not available)", "Should have raised")
+                except InitializationError as e:
+                    assert "vectorscale" in str(e).lower()
+                    results.add_pass("require_vectorscale (not available - raises correctly)")
+        except Exception as e:
+            results.add_fail("require_vectorscale", str(e))
+        
+        try:
+            if ext_manager.has_pg_textsearch:
+                ext_manager.require_pg_textsearch("test")
+                results.add_pass("require_pg_textsearch (available)")
+            else:
+                try:
+                    ext_manager.require_pg_textsearch("test")
+                    results.add_fail("require_pg_textsearch (not available)", "Should have raised")
+                except InitializationError as e:
+                    assert "pg_textsearch" in str(e).lower()
+                    results.add_pass("require_pg_textsearch (not available - raises correctly)")
+        except Exception as e:
+            results.add_fail("require_pg_textsearch", str(e))
+        
+        # Log extension status for debugging
+        print(f"\n  Extension Status:")
+        print(f"    pgvector: {'✅' if ext_manager.has_pgvector else '❌'} (v{ext_manager.pgvector_version or 'N/A'})")
+        print(f"    vectorscale: {'✅' if ext_manager.has_vectorscale else '❌'} (v{ext_manager.vectorscale_version or 'N/A'})")
+        print(f"    pg_textsearch: {'✅' if ext_manager.has_pg_textsearch else '❌'} (v{ext_manager.pg_textsearch_version or 'N/A'})")
+        
+    except Exception as e:
+        results.add_fail("Extension Manager", str(e))
+    finally:
+        await engine.dispose()
+
+
 
 
 async def test_document_operations(embeddings):
@@ -1001,6 +1077,65 @@ async def test_embedding_providers():
             results.add_fail("AWS Bedrock Embeddings", error_msg)
 
 
+
+async def test_tuning_and_exact_search(embeddings):
+    """Test iterative scan limits and exact search toggle."""
+    print("\n" + "=" * 80)
+    print("⚙️ TUNING & EXACT SEARCH TESTS")
+    print("=" * 80)
+    
+    docs, _ = generate_test_documents(50)
+    
+    try:
+        rag = pgVectorDB(
+            collection_name="test_tuning",
+            embedding_model=embeddings,
+            connection_string=CONNECTION_STRING,
+            schema_name=SCHEMA_NAME,
+            index_type=IndexType.HNSW
+        )
+        await rag.initialize(overwrite_existing=True)
+        await rag.add_documents(docs)
+        await rag.build_index()
+        
+        # Test 1: Set Iterative Scan Params
+        try:
+            await rag.set_query_params(
+                ef_search=100,
+                iterative_scan="relaxed_order",
+                max_scan_tuples=1000,
+                scan_mem_multiplier=2
+            )
+            # Ensure it doesn't crash search
+            await rag.semantic_search("test", k=5)
+            results.add_pass("Set Iterative Scan Params")
+        except Exception as e:
+            results.add_fail("Set Iterative Scan Params", str(e))
+            
+        # Test 2: Exact Search Toggle
+        try:
+            # Exact search (Index Scan OFF)
+            exact_res = await rag.semantic_search("programming", k=10, use_exact_search=True)
+            assert len(exact_res) == 10
+            results.add_pass("Exact Search Toggle")
+        except Exception as e:
+            results.add_fail("Exact Search Toggle", str(e))
+
+        # Test 3: DiskANN Build Params (API check only)
+        try:
+             await rag.set_diskann_build_params(
+                 force_parallel_workers=2,
+                 min_vectors_for_parallel_build=100
+             )
+             results.add_pass("Set DiskANN Build Params (API)")
+        except Exception as e:
+             results.add_fail("Set DiskANN Build Params (API)", str(e))
+        
+        await rag.close()
+    except Exception as e:
+        results.add_fail("Tuning & Exact Search", str(e))
+
+
 async def run_all_tests(args):
     """Run complete test suite."""
     print("\n" + "=" * 80)
@@ -1038,7 +1173,9 @@ async def run_all_tests(args):
     try:
         # Run all test suites
         await test_initialization(embeddings)
+        await test_extension_manager(embeddings)  # v2.2.0: Test extension checking
         await test_document_operations(embeddings)
+
         await test_all_search_methods(embeddings)
         await test_filter_operators(embeddings)
         await test_index_operations(embeddings)
@@ -1049,7 +1186,12 @@ async def run_all_tests(args):
         await test_error_handling(embeddings)
         await test_security_validation(embeddings)
         await test_performance(embeddings)
+
+        # Specialized Feature & Regression Tests
+        # (These are separate because the main suites above focus on general coverage,
+        # while these target specific bug fixes or new configuration toggles)
         await test_bm25_scoring_fix(embeddings)
+        await test_tuning_and_exact_search(embeddings)
         
     except Exception as e:
         logger.error(f"Critical error: {e}")

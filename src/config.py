@@ -1,264 +1,99 @@
-"""
-Configuration Module for RAG System
-====================================
-
-Manages environment-specific configurations for:
-- Embedding models (HuggingFace, AWS Bedrock)
-- Database connections (Local vs Remote)
-- Test vs Production environments
-"""
-
-import os
-from enum import Enum
-from typing import Optional
-from pathlib import Path
-from dotenv import load_dotenv
-
-# Load environment variables
-config_dir = Path(__file__).parent.parent / "config"
-env_file = config_dir / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-
-
-class EmbeddingProvider(str, Enum):
-    """Supported embedding providers."""
-    HUGGINGFACE = "huggingface"
-    BEDROCK = "bedrock"
-
-
-class Environment(str, Enum):
-    """Deployment environment."""
-    LOCAL = "local"
-    REMOTE = "remote"
-    TEST = "test"
-
+from typing import Dict, Any, Optional
 
 class Config:
-    """Central configuration for RAG system."""
+    """Default configuration for pgVectorDB.
     
-    # ============================================================================
-    # Embedding Configuration
-    # ============================================================================
+    All defaults are carefully chosen based on official documentation:
+    - pgvector v0.8.0: https://github.com/pgvector/pgvector
+    - pgvectorscale: https://github.com/timescale/pgvectorscale  
+    - pg_textsearch: https://github.com/timescale/pg_textsearch
+    """
     
-    EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "huggingface")
+    # ==================== Vector Index Defaults ====================
     
-    # HuggingFace settings
-    HUGGINGFACE_MODEL: str = os.getenv(
-        "HUGGINGFACE_MODEL", 
-        "sentence-transformers/all-MiniLM-L6-v2"
-    )
-    HUGGINGFACE_DEVICE: str = os.getenv("HUGGINGFACE_DEVICE", "cpu")
+    # HNSW defaults (pgvector)
+    DEFAULT_HNSW_M = 16                    # Max connections per layer
+    DEFAULT_HNSW_EF_CONSTRUCTION = 64      # Construction candidate list size
+    DEFAULT_HNSW_EF_SEARCH = 40            # Query candidate list size
     
-    # AWS Bedrock settings
-    BEDROCK_MODEL_ID: str = os.getenv(
-        "BEDROCK_MODEL_ID",
-        "amazon.titan-embed-text-v1"
-    )
-    BEDROCK_PROVIDER: Optional[str] = os.getenv("BEDROCK_PROVIDER")  # e.g., "amazon", "cohere", "anthropic"
-    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
-    AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY: Optional[str] = os.getenv("AWS_SECRET_ACCESS_KEY")
-    AWS_SESSION_TOKEN: Optional[str] = os.getenv("AWS_SESSION_TOKEN")
+    # IVFFlat defaults (pgvector)
+    DEFAULT_IVFFLAT_LISTS = 100            # Will be auto-calculated if None
+    DEFAULT_IVFFLAT_PROBES = 10            # Number of lists to search
     
-    # ============================================================================
-    # Database Configuration
-    # ============================================================================
+    # DiskANN defaults (pgvectorscale)
+    DEFAULT_DISKANN_NUM_NEIGHBORS = 50     # Connections per node
+    DEFAULT_DISKANN_SEARCH_LIST_SIZE = 100 # Search candidate list size
+    DEFAULT_DISKANN_MAX_ALPHA = 1.2        # Graph diversity factor
+    DEFAULT_DISKANN_QUERY_RESCORE = 50     # Candidates to rescore
+    DEFAULT_DISKANN_STORAGE_LAYOUT = "memory_optimized"  # SBQ compression
     
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "local")
+    # DiskANN parallel build defaults
+    DEFAULT_DISKANN_FORCE_PARALLEL_WORKERS = None       # Use PG default
+    DEFAULT_DISKANN_MIN_VECTORS_FOR_PARALLEL = 100000   # Min vectors for parallel
+    DEFAULT_DISKANN_PARALLEL_FLUSH_INTERVAL = 0.1       # 10% of vectors
     
-    # Local database (for tests and local development)
-    LOCAL_DB_HOST: str = os.getenv("LOCAL_DB_HOST", "localhost")
-    LOCAL_DB_PORT: int = int(os.getenv("LOCAL_DB_PORT", "9002"))
-    LOCAL_DB_NAME: str = os.getenv("LOCAL_DB_NAME", "postgres")
-    LOCAL_DB_USER: str = os.getenv("LOCAL_DB_USER", "user")
-    LOCAL_DB_PASSWORD: str = os.getenv("LOCAL_DB_PASSWORD", "root")
+    # ==================== Iterative Scan Defaults (pgvector 0.8+) ====================
     
-    # Remote database (for production)
-    REMOTE_DB_HOST: str = os.getenv("REMOTE_DB_HOST", "")
-    REMOTE_DB_PORT: int = int(os.getenv("REMOTE_DB_PORT", "5432"))
-    REMOTE_DB_NAME: str = os.getenv("REMOTE_DB_NAME", "postgres")
-    REMOTE_DB_USER: str = os.getenv("REMOTE_DB_USER", "user")
-    REMOTE_DB_PASSWORD: str = os.getenv("REMOTE_DB_PASSWORD", "root")
+    DEFAULT_ITERATIVE_SCAN_MODE = "relaxed_order"  # Better recall
+    DEFAULT_MAX_SCAN_TUPLES = 20000        # HNSW max tuples to visit
+    DEFAULT_SCAN_MEM_MULTIPLIER = 2        # HNSW memory multiplier
+    DEFAULT_IVFFLAT_MAX_PROBES = 100       # IVFFlat max probes
     
-    # ============================================================================
-    # Index Configuration
-    # ============================================================================
+    # ==================== BM25 Defaults (pg_textsearch) ====================
     
-    DEFAULT_INDEX_TYPE: str = os.getenv("DEFAULT_INDEX_TYPE", "hnsw")
-    DEFAULT_DISTANCE_METRIC: str = os.getenv("DEFAULT_DISTANCE_METRIC", "cosine")
+    DEFAULT_BM25_K1 = 1.2                  # Term frequency saturation (0.1-10.0)
+    DEFAULT_BM25_B = 0.75                  # Length normalization (0.0-1.0)
+    DEFAULT_BM25_TEXT_CONFIG = "english"   # PostgreSQL text search config
     
-    # ============================================================================
-    # Performance Configuration
-    # ============================================================================
+    # ==================== Batch Processing Defaults ====================
     
-    CONNECTION_POOL_MIN_SIZE: int = int(os.getenv("CONNECTION_POOL_MIN_SIZE", "2"))
-    CONNECTION_POOL_MAX_SIZE: int = int(os.getenv("CONNECTION_POOL_MAX_SIZE", "10"))
-    BATCH_SIZE: int = int(os.getenv("BATCH_SIZE", "100"))
+    DEFAULT_BATCH_SIZE = 100               # Documents per batch
+    DEFAULT_BULK_LOAD_THRESHOLD = 10000    # Use COPY above this threshold
     
-    # ============================================================================
-    # Helper Methods
-    # ============================================================================
+    # ==================== Connection Pool Defaults ====================
     
-    @classmethod
-    def get_connection_string(cls, force_local: bool = False) -> str:
-        """
-        Get database connection string based on environment.
-        
-        Args:
-            force_local: Force local connection (used in tests)
-            
-        Returns:
-            PostgreSQL connection string
-        """
-        if force_local or cls.ENVIRONMENT == "test":
-            # Always use local for tests
-            host = cls.LOCAL_DB_HOST
-            port = cls.LOCAL_DB_PORT
-            name = cls.LOCAL_DB_NAME
-            user = cls.LOCAL_DB_USER
-            password = cls.LOCAL_DB_PASSWORD
-        elif cls.ENVIRONMENT == "remote" and cls.REMOTE_DB_HOST:
-            # Use remote for production
-            host = cls.REMOTE_DB_HOST
-            port = cls.REMOTE_DB_PORT
-            name = cls.REMOTE_DB_NAME
-            user = cls.REMOTE_DB_USER
-            password = cls.REMOTE_DB_PASSWORD
-        else:
-            # Default to local
-            host = cls.LOCAL_DB_HOST
-            port = cls.LOCAL_DB_PORT
-            name = cls.LOCAL_DB_NAME
-            user = cls.LOCAL_DB_USER
-            password = cls.LOCAL_DB_PASSWORD
-        
-        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+    DEFAULT_POOL_SIZE = 5
+    DEFAULT_MAX_OVERFLOW = 10
     
-    @classmethod
-    def get_embeddings(cls):
-        """
-        Get configured embedding model instance.
-        
-        Returns:
-            Embeddings instance (HuggingFaceEmbeddings or BedrockEmbeddings)
-        """
-        provider = cls.EMBEDDING_PROVIDER.lower()
-        
-        if provider == "bedrock":
-            try:
-                from langchain_aws import BedrockEmbeddings
-            except ImportError:
-                raise ImportError(
-                    "langchain-aws not installed. Install with: pip install langchain-aws boto3"
-                )
-            
-            import boto3
-            
-            # Prepare kwargs
-            kwargs = {}
-            
-            # Set model_id (can be simple name or ARN)
-            kwargs["model_id"] = cls.BEDROCK_MODEL_ID
-            
-            # Determine provider
-            # Priority: 1) Explicit BEDROCK_PROVIDER, 2) Extract from model_id/ARN
-            if cls.BEDROCK_PROVIDER:
-                # User explicitly provided provider
-                provider_name = cls.BEDROCK_PROVIDER
-            else:
-                # Try to extract from model_id or ARN
-                model_id = cls.BEDROCK_MODEL_ID
-                
-                if model_id.startswith("arn:"):
-                    # ARN format: arn:aws:bedrock:region:account:foundation-model/model-name
-                    # Extract model name after last /
-                    model_name = model_id.split("/")[-1]
-                else:
-                    # Simple model ID
-                    model_name = model_id
-                
-                # Extract provider from model name (e.g., "amazon.titan-embed-text-v1" -> "amazon")
-                if "." in model_name:
-                    provider_name = model_name.split(".")[0]
-                else:
-                    raise ValueError(
-                        f"Cannot extract provider from model_id: {model_id}. "
-                        "Please set BEDROCK_PROVIDER in config/.env (e.g., 'amazon', 'cohere', 'anthropic')"
-                    )
-            
-            # Set provider (required for BedrockEmbeddings)
-            kwargs["provider"] = provider_name
-            
-            # Create boto3 client for bedrock-runtime
-            client_kwargs = {
-                "service_name": "bedrock-runtime",
-                "region_name": cls.AWS_REGION
-            }
-            
-            # Add credentials if explicitly provided
-            if cls.AWS_ACCESS_KEY_ID and cls.AWS_SECRET_ACCESS_KEY:
-                session = boto3.Session(
-                    aws_access_key_id=cls.AWS_ACCESS_KEY_ID,
-                    aws_secret_access_key=cls.AWS_SECRET_ACCESS_KEY,
-                    aws_session_token=cls.AWS_SESSION_TOKEN,
-                    region_name=cls.AWS_REGION
-                )
-                kwargs["client"] = session.client("bedrock-runtime")
-            else:
-                # Use default credentials (from ~/.aws/credentials or IAM role)
-                kwargs["client"] = boto3.client(**client_kwargs)
-            
-            return BedrockEmbeddings(**kwargs)
-        
-        else:  # Default to HuggingFace
-            from langchain_huggingface import HuggingFaceEmbeddings
-            
-            return HuggingFaceEmbeddings(
-                model_name=cls.HUGGINGFACE_MODEL,
-                model_kwargs={"device": cls.HUGGINGFACE_DEVICE}
-            )
+    # ==================== Extension Version Minimums ====================
     
-    @classmethod
-    def print_config(cls):
-        """Print current configuration (excluding secrets)."""
-        print("=" * 80)
-        print("CURRENT CONFIGURATION")
-        print("=" * 80)
-        print(f"\n🔧 Environment: {cls.ENVIRONMENT}")
-        print(f"📊 Embedding Provider: {cls.EMBEDDING_PROVIDER}")
-        
-        if cls.EMBEDDING_PROVIDER.lower() == "bedrock":
-            print(f"   - Model ID: {cls.BEDROCK_MODEL_ID}")
-            print(f"   - AWS Region: {cls.AWS_REGION}")
-            print(f"   - Credentials: {'✓ Configured' if cls.AWS_ACCESS_KEY_ID else '✗ Using default'}")
-        else:
-            print(f"   - Model: {cls.HUGGINGFACE_MODEL}")
-            print(f"   - Device: {cls.HUGGINGFACE_DEVICE}")
-        
-        print(f"\n💾 Database:")
-        if cls.ENVIRONMENT == "test":
-            print(f"   - Connection: LOCAL (forced for tests)")
-        elif cls.ENVIRONMENT == "remote" and cls.REMOTE_DB_HOST:
-            print(f"   - Connection: REMOTE")
-            print(f"   - Host: {cls.REMOTE_DB_HOST}:{cls.REMOTE_DB_PORT}")
-        else:
-            print(f"   - Connection: LOCAL")
-            print(f"   - Host: {cls.LOCAL_DB_HOST}:{cls.LOCAL_DB_PORT}")
-        
-        print(f"   - Database: {cls.LOCAL_DB_NAME if cls.ENVIRONMENT != 'remote' else cls.REMOTE_DB_NAME}")
-        print(f"   - User: {cls.LOCAL_DB_USER if cls.ENVIRONMENT != 'remote' else cls.REMOTE_DB_USER}")
-        
-        print(f"\n⚡ Performance:")
-        print(f"   - Pool Size: {cls.CONNECTION_POOL_MIN_SIZE}-{cls.CONNECTION_POOL_MAX_SIZE}")
-        print(f"   - Batch Size: {cls.BATCH_SIZE}")
-        print("=" * 80 + "\n")
+    MIN_VECTOR_VERSION = "0.5.0"           # Required for basic features
+    MIN_VECTOR_VERSION_ITERATIVE = "0.8.0" # Required for iterative scans
+    MIN_VECTORSCALE_VERSION = "0.2.0"      # Required for DiskANN
+    MIN_PG_TEXTSEARCH_VERSION = "0.3.0"    # Required for BM25
+    
+    # ==================== Quality Thresholds ====================
+    
+    DEFAULT_RECALL_THRESHOLD = 0.95        # Minimum acceptable recall
+    DEFAULT_TRIGRAM_THRESHOLD = 0.3        # Minimum trigram similarity
+    
+    # ==================== RRF Defaults ====================
+    
+    DEFAULT_RRF_K = 60                     # RRF constant
+    DEFAULT_HYBRID_WEIGHTS = (0.5, 0.5)    # (semantic, keyword) weights
 
 
-# Convenience function for tests
-def get_test_config():
-    """Get configuration forced to local database (for tests)."""
+def get_test_config() -> Dict[str, Any]:
+    """Get configuration for testing."""
     return {
-        "connection_string": Config.get_connection_string(force_local=True),
-        "embeddings": Config.get_embeddings()
+        "db_host": "localhost",
+        "db_port": 5432,
+        "db_name": "test_pgvectordb",
+        "db_user": "postgres",
+        "db_password": "postgres",
+        "pool_size": 2,
+        "max_overflow": 2,
+    }
+
+
+def get_production_config() -> Dict[str, Any]:
+    """Get recommended production configuration."""
+    return {
+        "pool_size": 10,
+        "max_overflow": 20,
+        "hnsw_ef_search": 100,
+        "ivfflat_probes": 20,
+        "diskann_query_rescore": 200,
+        "maintenance_work_mem": "4GB",
+        "max_parallel_maintenance_workers": 4,
     }
