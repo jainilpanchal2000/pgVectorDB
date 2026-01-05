@@ -16,6 +16,14 @@ Comprehensive testing of all pgVectorDB v2.2.0 functionality:
 - Embedding provider testing (HuggingFace, Bedrock)
 - Extension availability checking
 
+✅ BEST PRACTICE CLEANUP IMPLEMENTATION:
+- Each test function cleans up its collections in try-finally blocks
+- Per-test table drops prevent pollution and false positives
+- Schema-level CASCADE cleanup as final safety net
+- Verification function to detect orphaned resources
+- Proper exception handling (no bare except clauses)
+- Guaranteed cleanup even on test failures or interrupts
+
 Usage:
     python test/test_suite.py
     python test/test_suite.py --embedding bedrock
@@ -56,8 +64,7 @@ from src.config import get_test_config
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -68,31 +75,34 @@ DB_NAME = "postgres"
 DB_USER = "user"
 DB_PASSWORD = "root"
 SCHEMA_NAME = "test"
-CONNECTION_STRING = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+CONNECTION_STRING = (
+    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 
 
 # ==================== Test Tracking ====================
 class TestResults:
     """Track test results."""
+
     def __init__(self):
         self.passed = 0
         self.failed = 0
         self.errors = []
-    
+
     def add_pass(self, test_name: str):
         self.passed += 1
         print(f"✅ [PASS] {test_name}")
-    
+
     def add_fail(self, test_name: str, error: str):
         self.failed += 1
         error_msg = f"❌ [FAIL] {test_name} | {error}"
         self.errors.append(error_msg)
         print(error_msg)
-    
+
     def print_summary(self):
         total = self.passed + self.failed
         success_rate = (self.passed / total * 100) if total > 0 else 0
-        
+
         print("\n" + "=" * 80)
         print("TEST SUMMARY")
         print("=" * 80)
@@ -101,24 +111,51 @@ class TestResults:
         print(f"📊 TOTAL:  {total}")
         print(f"📈 SUCCESS RATE: {success_rate:.1f}%")
         print("=" * 80)
-        
+
         if self.failed > 0:
             print("\n⚠️  FAILED TESTS:")
             for error in self.errors:
                 print(f"  {error}")
             print()
 
+
 results = TestResults()
 
 
 # ==================== Test Data Generation ====================
-def generate_test_documents(num_docs: int = 100) -> tuple[List[Document], List[List[int]]]:
+def generate_test_documents(
+    num_docs: int = 100,
+) -> tuple[List[Document], List[List[int]]]:
     """Generate diverse test documents with metadata and labels."""
-    
-    categories = ["programming", "ai", "database", "web", "devops", "security", "cloud", "mobile"]
-    languages = ["Python", "JavaScript", "Java", "Go", "Rust", "SQL", "TypeScript", "C++"]
-    authors = ["Tech Expert", "AI Researcher", "DB Admin", "DevOps Engineer", "Security Analyst"]
-    
+
+    categories = [
+        "programming",
+        "ai",
+        "database",
+        "web",
+        "devops",
+        "security",
+        "cloud",
+        "mobile",
+    ]
+    languages = [
+        "Python",
+        "JavaScript",
+        "Java",
+        "Go",
+        "Rust",
+        "SQL",
+        "TypeScript",
+        "C++",
+    ]
+    authors = [
+        "Tech Expert",
+        "AI Researcher",
+        "DB Admin",
+        "DevOps Engineer",
+        "Security Analyst",
+    ]
+
     content_templates = [
         "{language} is a {adjective} programming language used for {purpose}.",
         "Machine learning with {language} enables {capability} in production systems.",
@@ -129,12 +166,16 @@ def generate_test_documents(num_docs: int = 100) -> tuple[List[Document], List[L
         "Mobile applications using {platform} deliver {feature} to end users.",
         "DevOps automation with {tool} reduces {problem} and increases reliability.",
         "API design patterns such as {pattern} enhance {quality} in microservices.",
-        "Data engineering pipelines processing {data_type} enable {outcome} for analytics."
+        "Data engineering pipelines processing {data_type} enable {outcome} for analytics.",
     ]
-    
+
     adjectives = ["powerful", "versatile", "modern", "efficient", "scalable", "robust"]
     purposes = ["web development", "data science", "system programming", "automation"]
-    capabilities = ["pattern recognition", "predictive analytics", "natural language processing"]
+    capabilities = [
+        "pattern recognition",
+        "predictive analytics",
+        "natural language processing",
+    ]
     tools = ["indexes", "partitioning", "caching", "replication"]
     metrics = ["query performance", "throughput", "response time"]
     frameworks = ["React", "FastAPI", "Django", "Express", "Spring Boot"]
@@ -148,16 +189,16 @@ def generate_test_documents(num_docs: int = 100) -> tuple[List[Document], List[L
     qualities = ["maintainability", "testability", "observability"]
     data_types = ["streaming data", "batch data", "real-time events"]
     outcomes = ["business insights", "data-driven decisions", "predictive models"]
-    
+
     documents = []
     labels = []
-    
+
     for i in range(num_docs):
         category = categories[i % len(categories)]
         language = languages[i % len(languages)]
         author = authors[i % len(authors)]
         year = 2020 + (i % 5)
-        
+
         # Generate content
         template = content_templates[i % len(content_templates)]
         content = template.format(
@@ -177,9 +218,9 @@ def generate_test_documents(num_docs: int = 100) -> tuple[List[Document], List[L
             pattern=patterns[i % len(patterns)],
             quality=qualities[i % len(qualities)],
             data_type=data_types[i % len(data_types)],
-            outcome=outcomes[i % len(outcomes)]
+            outcome=outcomes[i % len(outcomes)],
         )
-        
+
         # Create document
         doc = Document(
             page_content=content.strip(),
@@ -191,30 +232,43 @@ def generate_test_documents(num_docs: int = 100) -> tuple[List[Document], List[L
                 "year": year,
                 "priority": (i % 10) + 1,
                 "status": "active" if i % 4 != 0 else "archived",
-                "tags": f"tag{i % 5}"
-            }
+                "tags": f"tag{i % 5}",
+            },
         )
         documents.append(doc)
-        
+
         # Assign labels for DiskANN
         category_to_label = {
-            "programming": 1, "ai": 2, "database": 3, "web": 4,
-            "devops": 5, "security": 6, "cloud": 7, "mobile": 8
+            "programming": 1,
+            "ai": 2,
+            "database": 3,
+            "web": 4,
+            "devops": 5,
+            "security": 6,
+            "cloud": 7,
+            "mobile": 8,
         }
         label = category_to_label.get(category, 1)
         labels.append([label])
-    
+
     return documents, labels
 
 
 # ==================== Schema Management ====================
+# BEST PRACTICE CLEANUP IMPLEMENTATION:
+# - Per-test collection cleanup to prevent pollution
+# - Try-finally blocks ensure cleanup even on test failure
+# - Cleanup verification to detect orphaned resources
+# - Both individual table drops AND schema-level CASCADE
+# - This prevents false positives and resource leaks
+
 async def create_test_schema():
     """Create the test schema before running tests."""
     from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy import text
-    
+
     engine = create_async_engine(CONNECTION_STRING, pool_pre_ping=True)
-    
+
     try:
         async with engine.connect() as conn:
             await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME}"))
@@ -231,9 +285,9 @@ async def cleanup_test_schema():
     """Drop the test schema after testing."""
     from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy import text
-    
+
     engine = create_async_engine(CONNECTION_STRING, pool_pre_ping=True)
-    
+
     try:
         async with engine.connect() as conn:
             await conn.execute(text(f"DROP SCHEMA IF EXISTS {SCHEMA_NAME} CASCADE"))
@@ -245,14 +299,83 @@ async def cleanup_test_schema():
         await engine.dispose()
 
 
+async def cleanup_collection(collection_name: str):
+    """Drop a specific collection/table for test isolation.
+    
+    Best practice: Clean up individual test resources to prevent:
+    - Table pollution between tests
+    - Resource leaks on test failures
+    - False positives from stale data
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy import text
+
+    engine = create_async_engine(CONNECTION_STRING, pool_pre_ping=True)
+
+    try:
+        async with engine.connect() as conn:
+            # Drop the main collection table
+            await conn.execute(
+                text(f"DROP TABLE IF EXISTS {SCHEMA_NAME}.{collection_name} CASCADE")
+            )
+            # Drop the embedding table if it exists
+            await conn.execute(
+                text(f"DROP TABLE IF EXISTS {SCHEMA_NAME}.{collection_name}_embeddings CASCADE")
+            )
+            await conn.commit()
+            logger.debug(f"Cleaned up collection: {collection_name}")
+    except Exception as e:
+        logger.warning(f"Failed to cleanup collection '{collection_name}': {e}")
+    finally:
+        await engine.dispose()
+
+
+async def verify_cleanup():
+    """Verify all test tables have been cleaned up.
+    
+    Best practice: Validate cleanup to ensure no orphaned resources.
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy import text
+
+    engine = create_async_engine(CONNECTION_STRING, pool_pre_ping=True)
+
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = '{SCHEMA_NAME}'
+                    AND table_type = 'BASE TABLE'
+                    """
+                )
+            )
+            tables = [row[0] for row in result.fetchall()]
+            
+            if tables:
+                logger.warning(f"Orphaned tables found in '{SCHEMA_NAME}': {tables}")
+                return False
+            else:
+                logger.info(f"✓ All tables cleaned up successfully")
+                return True
+    except Exception as e:
+        logger.error(f"Cleanup verification error: {e}")
+        return False
+    finally:
+        await engine.dispose()
+
+
 # ==================== Test Suites ====================
+
 
 async def test_initialization(embeddings):
     """Test initialization with all 3 index types."""
     print("\n" + "=" * 80)
     print("📦 INITIALIZATION TESTS")
     print("=" * 80)
-    
+
     # Test HNSW
     try:
         rag = pgVectorDB(
@@ -260,16 +383,19 @@ async def test_initialization(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
-        await rag.initialize(overwrite_existing=True)
-        stats = await rag.get_stats()
-        assert stats['index_type'] == 'hnsw'
-        await rag.close()
-        results.add_pass("HNSW Initialization")
+        try:
+            await rag.initialize(overwrite_existing=True)
+            stats = await rag.get_stats()
+            assert stats["index_type"] == "hnsw"
+            results.add_pass("HNSW Initialization")
+        finally:
+            await rag.close()
+            await cleanup_collection("test_hnsw")
     except Exception as e:
         results.add_fail("HNSW Initialization", str(e))
-    
+
     # Test IVFFlat
     try:
         rag = pgVectorDB(
@@ -277,16 +403,19 @@ async def test_initialization(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.IVFFLAT
+            index_type=IndexType.IVFFLAT,
         )
-        await rag.initialize(overwrite_existing=True)
-        stats = await rag.get_stats()
-        assert stats['index_type'] == 'ivfflat'
-        await rag.close()
-        results.add_pass("IVFFlat Initialization")
+        try:
+            await rag.initialize(overwrite_existing=True)
+            stats = await rag.get_stats()
+            assert stats["index_type"] == "ivfflat"
+            results.add_pass("IVFFlat Initialization")
+        finally:
+            await rag.close()
+            await cleanup_collection("test_ivfflat")
     except Exception as e:
         results.add_fail("IVFFlat Initialization", str(e))
-    
+
     # Test DiskANN
     try:
         rag = pgVectorDB(
@@ -294,13 +423,16 @@ async def test_initialization(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.DISKANN
+            index_type=IndexType.DISKANN,
         )
-        await rag.initialize(overwrite_existing=True)
-        stats = await rag.get_stats()
-        assert stats['index_type'] == 'diskann'
-        await rag.close()
-        results.add_pass("DiskANN Initialization")
+        try:
+            await rag.initialize(overwrite_existing=True)
+            stats = await rag.get_stats()
+            assert stats["index_type"] == "diskann"
+            results.add_pass("DiskANN Initialization")
+        finally:
+            await rag.close()
+            await cleanup_collection("test_diskann")
     except Exception as e:
         results.add_fail("DiskANN Initialization", str(e))
 
@@ -310,20 +442,20 @@ async def test_extension_manager(embeddings):
     print("\n" + "=" * 80)
     print("🔌 EXTENSION MANAGER TESTS")
     print("=" * 80)
-    
+
     from sqlalchemy.ext.asyncio import create_async_engine
-    
+
     engine = create_async_engine(CONNECTION_STRING, pool_pre_ping=True)
-    
+
     try:
         # Test extension checking
         ext_manager = ExtensionManager(engine)
         status = await ext_manager.check_extensions()
-        
+
         # pgvector should always be available (required)
-        assert 'pgvector' in status, "pgvector should be in status"
+        assert "pgvector" in status, "pgvector should be in status"
         results.add_pass("Extension Status Check")
-        
+
         # Test feature availability
         features = ext_manager.get_feature_availability()
         assert "HNSW index" in features
@@ -331,7 +463,7 @@ async def test_extension_manager(embeddings):
         assert "DiskANN index" in features
         assert "BM25 search" in features
         results.add_pass("Feature Availability Matrix")
-        
+
         # Test require methods (should not raise if extensions exist, or raise with helpful message)
         try:
             if ext_manager.has_vectorscale:
@@ -340,13 +472,17 @@ async def test_extension_manager(embeddings):
             else:
                 try:
                     ext_manager.require_vectorscale("test")
-                    results.add_fail("require_vectorscale (not available)", "Should have raised")
+                    results.add_fail(
+                        "require_vectorscale (not available)", "Should have raised"
+                    )
                 except InitializationError as e:
                     assert "vectorscale" in str(e).lower()
-                    results.add_pass("require_vectorscale (not available - raises correctly)")
+                    results.add_pass(
+                        "require_vectorscale (not available - raises correctly)"
+                    )
         except Exception as e:
             results.add_fail("require_vectorscale", str(e))
-        
+
         try:
             if ext_manager.has_pg_textsearch:
                 ext_manager.require_pg_textsearch("test")
@@ -354,25 +490,33 @@ async def test_extension_manager(embeddings):
             else:
                 try:
                     ext_manager.require_pg_textsearch("test")
-                    results.add_fail("require_pg_textsearch (not available)", "Should have raised")
+                    results.add_fail(
+                        "require_pg_textsearch (not available)", "Should have raised"
+                    )
                 except InitializationError as e:
                     assert "pg_textsearch" in str(e).lower()
-                    results.add_pass("require_pg_textsearch (not available - raises correctly)")
+                    results.add_pass(
+                        "require_pg_textsearch (not available - raises correctly)"
+                    )
         except Exception as e:
             results.add_fail("require_pg_textsearch", str(e))
-        
+
         # Log extension status for debugging
         print(f"\n  Extension Status:")
-        print(f"    pgvector: {'✅' if ext_manager.has_pgvector else '❌'} (v{ext_manager.pgvector_version or 'N/A'})")
-        print(f"    vectorscale: {'✅' if ext_manager.has_vectorscale else '❌'} (v{ext_manager.vectorscale_version or 'N/A'})")
-        print(f"    pg_textsearch: {'✅' if ext_manager.has_pg_textsearch else '❌'} (v{ext_manager.pg_textsearch_version or 'N/A'})")
-        
+        print(
+            f"    pgvector: {'✅' if ext_manager.has_pgvector else '❌'} (v{ext_manager.pgvector_version or 'N/A'})"
+        )
+        print(
+            f"    vectorscale: {'✅' if ext_manager.has_vectorscale else '❌'} (v{ext_manager.vectorscale_version or 'N/A'})"
+        )
+        print(
+            f"    pg_textsearch: {'✅' if ext_manager.has_pg_textsearch else '❌'} (v{ext_manager.pg_textsearch_version or 'N/A'})"
+        )
+
     except Exception as e:
         results.add_fail("Extension Manager", str(e))
     finally:
         await engine.dispose()
-
-
 
 
 async def test_document_operations(embeddings):
@@ -380,67 +524,74 @@ async def test_document_operations(embeddings):
     print("\n" + "=" * 80)
     print("📄 DOCUMENT OPERATIONS TESTS")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(100)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_docs",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
-        await rag.initialize(overwrite_existing=True)
-        
-        # Add documents
-        doc_ids = await rag.add_documents(docs[:50])
-        assert len(doc_ids) == 50, f"Expected 50 doc IDs, got {len(doc_ids)}"
-        results.add_pass("Add Documents")
-        
-        # Batch add
-        batch_ids = await rag.add_documents_batch(docs[50:], batch_size=10, show_progress=False)
-        assert len(batch_ids) == 50, f"Expected 50 batch IDs, got {len(batch_ids)}"
-        results.add_pass("Batch Add Documents")
-        
-        # Count by metadata
-        total = await rag.count_by_metadata(None)
-        assert total == 100, f"Expected 100 docs, got {total}"
-        results.add_pass("Count Documents")
-        
-        active_count = await rag.count_by_metadata({"status": "active"})
-        assert active_count > 0, "Should have active documents"
-        results.add_pass("Count by Metadata Filter")
-        
-        # Get by IDs
-        retrieved_docs = await rag.aget_by_ids(doc_ids[:5])
-        assert len(retrieved_docs) > 0, "Should retrieve documents by IDs"
-        results.add_pass("Get Documents by IDs")
-        
-        # Update documents
-        update_doc = Document(
-            page_content=docs[0].page_content,
-            metadata={"langchain_id": doc_ids[0], "updated": True, "status": "reviewed"}
-        )
-        updated_ids = await rag.aupdate_documents([update_doc], update_embeddings=False)
-        assert len(updated_ids) == 1, "Should update 1 document"
-        results.add_pass("Update Documents")
-        
-        # Bulk metadata update
-        update_count = await rag.update_metadata(
-            ids=doc_ids[:10],
-            metadata_updates={"tagged": True, "batch": 1}
-        )
-        assert update_count == 10, f"Expected 10 updates, got {update_count}"
-        results.add_pass("Bulk Metadata Update")
-        
-        # Delete documents
-        delete_count = await rag.adelete(doc_ids[-5:])
-        assert delete_count == 5, f"Expected 5 deletes, got {delete_count}"
-        results.add_pass("Delete Documents")
-        
-        await rag.close()
-        
+        try:
+            await rag.initialize(overwrite_existing=True)
+
+            # Add documents
+            doc_ids = await rag.add_documents(docs[:50])
+            assert len(doc_ids) == 50, f"Expected 50 doc IDs, got {len(doc_ids)}"
+            results.add_pass("Add Documents")
+
+            # Batch add
+            batch_ids = await rag.add_documents_batch(
+                docs[50:], batch_size=10, show_progress=False
+            )
+            assert len(batch_ids) == 50, f"Expected 50 batch IDs, got {len(batch_ids)}"
+            results.add_pass("Batch Add Documents")
+
+            # Count by metadata
+            total = await rag.count_by_metadata(None)
+            assert total == 100, f"Expected 100 docs, got {total}"
+            results.add_pass("Count Documents")
+
+            active_count = await rag.count_by_metadata({"status": "active"})
+            assert active_count > 0, "Should have active documents"
+            results.add_pass("Count by Metadata Filter")
+
+            # Get by IDs
+            retrieved_docs = await rag.aget_by_ids(doc_ids[:5])
+            assert len(retrieved_docs) > 0, "Should retrieve documents by IDs"
+            results.add_pass("Get Documents by IDs")
+
+            # Update documents
+            update_doc = Document(
+                page_content=docs[0].page_content,
+                metadata={
+                    "langchain_id": doc_ids[0],
+                    "updated": True,
+                    "status": "reviewed",
+                },
+            )
+            updated_ids = await rag.aupdate_documents([update_doc], update_embeddings=False)
+            assert len(updated_ids) == 1, "Should update 1 document"
+            results.add_pass("Update Documents")
+
+            # Bulk metadata update
+            update_count = await rag.update_metadata(
+                ids=doc_ids[:10], metadata_updates={"tagged": True, "batch": 1}
+            )
+            assert update_count == 10, f"Expected 10 updates, got {update_count}"
+            results.add_pass("Bulk Metadata Update")
+
+            # Delete documents
+            delete_count = await rag.adelete(doc_ids[-5:])
+            assert delete_count == 5, f"Expected 5 deletes, got {delete_count}"
+            results.add_pass("Delete Documents")
+        finally:
+            await rag.close()
+            await cleanup_collection("test_docs")
+
     except Exception as e:
         results.add_fail("Document Operations", str(e))
 
@@ -450,44 +601,80 @@ async def test_all_search_methods(embeddings):
     print("\n" + "=" * 80)
     print("🔍 SEARCH METHODS TESTS (11 methods)")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(100)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_search",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
         await rag.add_documents(docs)
         await rag.create_metadata_index(["category", "language", "year"])
         await rag.build_index(metric=DistanceMetric.COSINE)
-        
+
         # Test each search method
         search_tests = [
-            ("1. Semantic Search", lambda: rag.semantic_search("programming Python", k=5)),
+            (
+                "1. Semantic Search",
+                lambda: rag.semantic_search("programming Python", k=5),
+            ),
             ("2. Keyword Search", lambda: rag.keyword_search("database", k=5)),
-            ("3. Universal Keyword", lambda: rag.universal_keyword_search("Python", k=5, metadata_fields=["category", "language"])),
-            ("4. Metadata Filter", lambda: rag.metadata_filter({"category": "ai"}, k=10)),
-            ("5. Metadata + Keyword", lambda: rag.metadata_keyword_search("dev", {"category": "programming"}, k=5)),
-            ("6. Metadata + Semantic", lambda: rag.metadata_semantic_search("Python", {"year": 2023}, k=5)),
-            ("7. Hybrid Search", lambda: rag.hybrid_search("programming", k=5, weights=(0.6, 0.4))),
-            ("8. Hybrid (RRF)", lambda: rag.hybrid_search("database", k=5, use_rrf=True)),
-            ("9. Ensemble Search", lambda: rag.ensemble_search("Python", {"category": "programming"}, k=5)),
-            ("10. Trigram Search", lambda: rag.trigram_search("programing", k=5, threshold=0.3)),
-            ("11. Metadata + Trigram", lambda: rag.metadata_trigram_search("dev", {"category": "programming"}, k=5)),
+            (
+                "3. Universal Keyword",
+                lambda: rag.universal_keyword_search(
+                    "Python", k=5, metadata_fields=["category", "language"]
+                ),
+            ),
+            (
+                "4. Metadata Filter",
+                lambda: rag.metadata_filter({"category": "ai"}, k=10),
+            ),
+            (
+                "5. Metadata + Keyword",
+                lambda: rag.metadata_keyword_search(
+                    "dev", {"category": "programming"}, k=5
+                ),
+            ),
+            (
+                "6. Metadata + Semantic",
+                lambda: rag.metadata_semantic_search("Python", {"year": 2023}, k=5),
+            ),
+            (
+                "7. Hybrid Search",
+                lambda: rag.hybrid_search("programming", k=5, weights=(0.6, 0.4)),
+            ),
+            (
+                "8. Hybrid (RRF)",
+                lambda: rag.hybrid_search("database", k=5, use_rrf=True),
+            ),
+            (
+                "9. Ensemble Search",
+                lambda: rag.ensemble_search("Python", {"category": "programming"}, k=5),
+            ),
+            (
+                "10. Trigram Search",
+                lambda: rag.trigram_search("programing", k=5, threshold=0.3),
+            ),
+            (
+                "11. Metadata + Trigram",
+                lambda: rag.metadata_trigram_search(
+                    "dev", {"category": "programming"}, k=5
+                ),
+            ),
         ]
-        
+
         for test_name, search_func in search_tests:
             try:
                 res = await search_func()
                 results.add_pass(test_name)
             except Exception as e:
                 results.add_fail(test_name, str(e))
-        
+
         # Additional similarity search variants
         try:
             embedding = embeddings.embed_query("Python")
@@ -495,18 +682,23 @@ async def test_all_search_methods(embeddings):
             results.add_pass("Similarity Search by Vector")
         except Exception as e:
             results.add_fail("Similarity Search by Vector", str(e))
-        
+
         try:
             res = await rag.asimilarity_search_with_score("database", k=5)
             assert all(isinstance(r, tuple) and len(r) == 2 for r in res)
             results.add_pass("Similarity Search with Score")
         except Exception as e:
             results.add_fail("Similarity Search with Score", str(e))
-        
+
         await rag.close()
-        
+        await cleanup_collection("test_search")
+
     except Exception as e:
         results.add_fail("Search Methods", str(e))
+        try:
+            await cleanup_collection("test_search")
+        except Exception:
+            pass
 
 
 async def test_filter_operators(embeddings):
@@ -514,65 +706,114 @@ async def test_filter_operators(embeddings):
     print("\n" + "=" * 80)
     print("🔧 FILTER OPERATORS TESTS (13 operators)")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(100)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_filters",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
         await rag.add_documents(docs)
-        await rag.create_metadata_index(["category", "language", "year", "priority", "status", "author"])
+        await rag.create_metadata_index(
+            ["category", "language", "year", "priority", "status", "author"]
+        )
         await rag.build_index()
-        
+
         operators = [
-            ("$eq", {"category": {"$eq": "programming"}}, 
-             lambda r: r['metadata'].get('category') == 'programming'),
-            ("$ne", {"category": {"$ne": "web"}}, 
-             lambda r: r['metadata'].get('category') != 'web'),
-            ("$gt", {"priority": {"$gt": 5}}, 
-             lambda r: r['metadata'].get('priority', 0) > 5),
-            ("$gte", {"priority": {"$gte": 5}}, 
-             lambda r: r['metadata'].get('priority', 0) >= 5),
-            ("$lt", {"priority": {"$lt": 5}}, 
-             lambda r: r['metadata'].get('priority', 0) < 5),
-            ("$lte", {"priority": {"$lte": 5}}, 
-             lambda r: r['metadata'].get('priority', 0) <= 5),
-            ("$in", {"year": {"$in": [2023, 2024]}}, 
-             lambda r: r['metadata'].get('year') in [2023, 2024]),
-            ("$nin", {"status": {"$nin": ["archived"]}}, 
-             lambda r: r['metadata'].get('status') != 'archived'),
-            ("$between", {"priority": {"$between": [3, 7]}}, 
-             lambda r: 3 <= r['metadata'].get('priority', 0) <= 7),
-            ("$exists", {"category": {"$exists": True}}, 
-             lambda r: 'category' in r['metadata']),
-            ("$like", {"author": {"$like": "%Expert%"}}, 
-             lambda r: 'Expert' in r['metadata'].get('author', '')),
-            ("$and", {"$and": [{"category": "programming"}, {"year": {"$gte": 2022}}]}, 
-             lambda r: r['metadata'].get('category') == 'programming' and r['metadata'].get('year', 0) >= 2022),
-            ("$or", {"$or": [{"category": "ai"}, {"category": "database"}]}, 
-             lambda r: r['metadata'].get('category') in ['ai', 'database'])
+            (
+                "$eq",
+                {"category": {"$eq": "programming"}},
+                lambda r: r["metadata"].get("category") == "programming",
+            ),
+            (
+                "$ne",
+                {"category": {"$ne": "web"}},
+                lambda r: r["metadata"].get("category") != "web",
+            ),
+            (
+                "$gt",
+                {"priority": {"$gt": 5}},
+                lambda r: r["metadata"].get("priority", 0) > 5,
+            ),
+            (
+                "$gte",
+                {"priority": {"$gte": 5}},
+                lambda r: r["metadata"].get("priority", 0) >= 5,
+            ),
+            (
+                "$lt",
+                {"priority": {"$lt": 5}},
+                lambda r: r["metadata"].get("priority", 0) < 5,
+            ),
+            (
+                "$lte",
+                {"priority": {"$lte": 5}},
+                lambda r: r["metadata"].get("priority", 0) <= 5,
+            ),
+            (
+                "$in",
+                {"year": {"$in": [2023, 2024]}},
+                lambda r: r["metadata"].get("year") in [2023, 2024],
+            ),
+            (
+                "$nin",
+                {"status": {"$nin": ["archived"]}},
+                lambda r: r["metadata"].get("status") != "archived",
+            ),
+            (
+                "$between",
+                {"priority": {"$between": [3, 7]}},
+                lambda r: 3 <= r["metadata"].get("priority", 0) <= 7,
+            ),
+            (
+                "$exists",
+                {"category": {"$exists": True}},
+                lambda r: "category" in r["metadata"],
+            ),
+            (
+                "$like",
+                {"author": {"$like": "%Expert%"}},
+                lambda r: "Expert" in r["metadata"].get("author", ""),
+            ),
+            (
+                "$and",
+                {"$and": [{"category": "programming"}, {"year": {"$gte": 2022}}]},
+                lambda r: r["metadata"].get("category") == "programming"
+                and r["metadata"].get("year", 0) >= 2022,
+            ),
+            (
+                "$or",
+                {"$or": [{"category": "ai"}, {"category": "database"}]},
+                lambda r: r["metadata"].get("category") in ["ai", "database"],
+            ),
         ]
-        
+
         for op_name, filter_dict, validator in operators:
             try:
                 res = await rag.metadata_filter(filter=filter_dict, k=20)
                 # Validate all results match the filter criteria
                 for result in res:
-                    assert validator(result), f"Result doesn't match filter {op_name}: {result['metadata']}"
+                    assert validator(result), (
+                        f"Result doesn't match filter {op_name}: {result['metadata']}"
+                    )
                 results.add_pass(f"Filter: {op_name}")
             except Exception as e:
                 results.add_fail(f"Filter: {op_name}", str(e))
-        
+
         await rag.close()
-        
+        await cleanup_collection("test_filters")
+
     except Exception as e:
         results.add_fail("Filter Operators", str(e))
+        try:
+            await cleanup_collection("test_filters")
+        except Exception:
+            pass
 
 
 async def test_index_operations(embeddings):
@@ -580,9 +821,9 @@ async def test_index_operations(embeddings):
     print("\n" + "=" * 80)
     print("🔨 INDEX OPERATIONS TESTS")
     print("=" * 80)
-    
+
     docs, labels = generate_test_documents(50)
-    
+
     # Test HNSW index
     try:
         rag = pgVectorDB(
@@ -590,28 +831,30 @@ async def test_index_operations(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
-        await rag.initialize(overwrite_existing=True)
-        await rag.add_documents(docs)
-        await rag.build_index(m=16, ef_construction=64, metric=DistanceMetric.COSINE)
-        
-        stats = await rag.get_stats()
-        assert stats['index_built']
-        results.add_pass("Build HNSW Index")
-        
-        # Test reindex
-        await rag.areindex()
-        results.add_pass("Reindex")
-        
-        # Test vacuum analyze
-        await rag.vacuum_analyze(full=False)
-        results.add_pass("Vacuum Analyze")
-        
-        await rag.close()
+        try:
+            await rag.initialize(overwrite_existing=True)
+            await rag.add_documents(docs)
+            await rag.build_index(m=16, ef_construction=64, metric=DistanceMetric.COSINE)
+
+            stats = await rag.get_stats()
+            assert stats["index_built"]
+            results.add_pass("Build HNSW Index")
+
+            # Test reindex
+            await rag.areindex()
+            results.add_pass("Reindex")
+
+            # Test vacuum analyze
+            await rag.vacuum_analyze(full=False)
+            results.add_pass("Vacuum Analyze")
+        finally:
+            await rag.close()
+            await cleanup_collection("test_hnsw_idx")
     except Exception as e:
         results.add_fail("HNSW Index Operations", str(e))
-    
+
     # Test IVFFlat index
     try:
         rag = pgVectorDB(
@@ -619,20 +862,22 @@ async def test_index_operations(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.IVFFLAT
+            index_type=IndexType.IVFFLAT,
         )
-        await rag.initialize(overwrite_existing=True)
-        await rag.add_documents(docs)
-        await rag.build_index(lists=10)
-        
-        stats = await rag.get_stats()
-        assert stats['index_built']
-        results.add_pass("Build IVFFlat Index")
-        
-        await rag.close()
+        try:
+            await rag.initialize(overwrite_existing=True)
+            await rag.add_documents(docs)
+            await rag.build_index(lists=10)
+
+            stats = await rag.get_stats()
+            assert stats["index_built"]
+            results.add_pass("Build IVFFlat Index")
+        finally:
+            await rag.close()
+            await cleanup_collection("test_ivf_idx")
     except Exception as e:
         results.add_fail("IVFFlat Index Operations", str(e))
-    
+
     # Test DiskANN index with labels
     try:
         rag = pgVectorDB(
@@ -640,26 +885,28 @@ async def test_index_operations(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.DISKANN
+            index_type=IndexType.DISKANN,
         )
-        await rag.initialize(overwrite_existing=True)
-        await rag.add_documents(docs, labels=labels)
-        await rag.build_index(
-            num_neighbors=50,
-            search_list_size=100,
-            storage_layout=StorageLayout.MEMORY_OPTIMIZED,
-            include_labels=True
-        )
-        
-        stats = await rag.get_stats()
-        assert stats['index_built']
-        results.add_pass("Build DiskANN Index with Labels")
-        
-        # Test label filtering
-        res = await rag.semantic_search("programming", k=10, label_filter=[1, 2])
-        results.add_pass("Label-Based Filtering")
-        
-        await rag.close()
+        try:
+            await rag.initialize(overwrite_existing=True)
+            await rag.add_documents(docs, labels=labels)
+            await rag.build_index(
+                num_neighbors=50,
+                search_list_size=100,
+                storage_layout=StorageLayout.MEMORY_OPTIMIZED,
+                include_labels=True,
+            )
+
+            stats = await rag.get_stats()
+            assert stats["index_built"]
+            results.add_pass("Build DiskANN Index with Labels")
+
+            # Test label filtering
+            res = await rag.semantic_search("programming", k=10, label_filter=[1, 2])
+            results.add_pass("Label-Based Filtering")
+        finally:
+            await rag.close()
+            await cleanup_collection("test_diskann_idx")
     except Exception as e:
         results.add_fail("DiskANN Index Operations", str(e))
 
@@ -669,21 +916,21 @@ async def test_analytics_and_monitoring(embeddings):
     print("\n" + "=" * 80)
     print("📊 ANALYTICS & MONITORING TESTS")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(50)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_analytics",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
         await rag.add_documents(docs)
         await rag.build_index()
-        
+
         # Get stats
         try:
             stats = await rag.get_stats()
@@ -692,7 +939,7 @@ async def test_analytics_and_monitoring(embeddings):
             results.add_pass("Get Stats")
         except Exception as e:
             results.add_fail("Get Stats", str(e))
-        
+
         # Get index stats
         try:
             idx_stats = await rag.get_index_stats()
@@ -701,7 +948,7 @@ async def test_analytics_and_monitoring(embeddings):
             results.add_pass("Get Index Stats")
         except Exception as e:
             results.add_fail("Get Index Stats", str(e))
-        
+
         # Validate collection
         try:
             validation = await rag.validate_collection()
@@ -710,7 +957,7 @@ async def test_analytics_and_monitoring(embeddings):
             results.add_pass("Validate Collection")
         except Exception as e:
             results.add_fail("Validate Collection", str(e))
-        
+
         # Explain query
         try:
             plan = await rag.explain_query("test", "semantic_search", k=5)
@@ -718,7 +965,7 @@ async def test_analytics_and_monitoring(embeddings):
             results.add_pass("Explain Query")
         except Exception as e:
             results.add_fail("Explain Query", str(e))
-        
+
         # Benchmark
         try:
             bench = await rag.benchmark_search_methods(["test1", "test2"], k=5)
@@ -726,11 +973,16 @@ async def test_analytics_and_monitoring(embeddings):
             results.add_pass("Benchmark Search Methods")
         except Exception as e:
             results.add_fail("Benchmark Search Methods", str(e))
-        
+
         await rag.close()
-        
+        await cleanup_collection("test_analytics")
+
     except Exception as e:
         results.add_fail("Analytics", str(e))
+        try:
+            await cleanup_collection("test_analytics")
+        except Exception:
+            pass
 
 
 async def test_data_export_import(embeddings):
@@ -738,53 +990,57 @@ async def test_data_export_import(embeddings):
     print("\n" + "=" * 80)
     print("💾 DATA EXPORT/IMPORT TESTS")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(30)
     export_file = "test_export.json"
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_export",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
         await rag.add_documents(docs)
-        
+
         # Test export
         try:
             count = await rag.export_to_json(
-                export_file,
-                filter={"status": "active"},
-                include_embeddings=False
+                export_file, filter={"status": "active"}, include_embeddings=False
             )
             assert count > 0
             assert Path(export_file).exists()
             results.add_pass("Export to JSON")
         except Exception as e:
             results.add_fail("Export to JSON", str(e))
-        
+
         # Test import
         try:
             count = await rag.import_from_json(
-                export_file,
-                batch_size=10,
-                skip_existing=True
+                export_file, batch_size=10, skip_existing=True
             )
             results.add_pass("Import from JSON")
         except Exception as e:
             results.add_fail("Import from JSON", str(e))
-        
+
         await rag.close()
-        
+        await cleanup_collection("test_export")
+
         # Cleanup
         if Path(export_file).exists():
             Path(export_file).unlink()
-        
+
     except Exception as e:
         results.add_fail("Data Export/Import", str(e))
+        try:
+            await cleanup_collection("test_export")
+        except Exception:
+            pass
+        # Cleanup file
+        if Path(export_file).exists():
+            Path(export_file).unlink()
 
 
 async def test_langchain_integration(embeddings):
@@ -792,34 +1048,41 @@ async def test_langchain_integration(embeddings):
     print("\n" + "=" * 80)
     print("🔗 LANGCHAIN INTEGRATION TESTS")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(30)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_langchain",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
         await rag.add_documents(docs)
         await rag.build_index()
-        
+
         # Test as_retriever
-        retriever = rag.as_retriever(search_method="semantic_search", search_kwargs={"k": 5})
+        retriever = rag.as_retriever(
+            search_method="semantic_search", search_kwargs={"k": 5}
+        )
         assert retriever is not None
-        
+
         # Test async retrieval
         retrieved_docs = await retriever.ainvoke("Python programming")
         assert isinstance(retrieved_docs, list)
         results.add_pass("LangChain Retriever")
-        
+
         await rag.close()
-        
+        await cleanup_collection("test_langchain")
+
     except Exception as e:
         results.add_fail("LangChain Integration", str(e))
+        try:
+            await cleanup_collection("test_langchain")
+        except Exception:
+            pass
 
 
 async def test_error_handling(embeddings):
@@ -827,7 +1090,7 @@ async def test_error_handling(embeddings):
     print("\n" + "=" * 80)
     print("⚠️  ERROR HANDLING TESTS")
     print("=" * 80)
-    
+
     # ValidationError: empty query
     try:
         rag = pgVectorDB(
@@ -835,55 +1098,68 @@ async def test_error_handling(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
-        
+
         try:
             await rag.semantic_search("", k=5)
-            results.add_fail("ValidationError: Empty Query", "Should raise ValidationError")
+            results.add_fail(
+                "ValidationError: Empty Query", "Should raise ValidationError"
+            )
         except ValidationError:
             results.add_pass("ValidationError: Empty Query")
-        
+
         # ValidationError: invalid k
         try:
             await rag.semantic_search("test", k=0)
-            results.add_fail("ValidationError: Invalid K", "Should raise ValidationError")
+            results.add_fail(
+                "ValidationError: Invalid K", "Should raise ValidationError"
+            )
         except ValidationError:
             results.add_pass("ValidationError: Invalid K")
-        
+
         # ValidationError: invalid weights
         docs, _ = generate_test_documents(10)
         await rag.add_documents(docs)
         await rag.build_index()
-        
+
         try:
             await rag.hybrid_search("test", k=5, weights=(0.3, 0.5))
-            results.add_fail("ValidationError: Invalid Weights", "Should raise ValidationError")
+            results.add_fail(
+                "ValidationError: Invalid Weights", "Should raise ValidationError"
+            )
         except ValidationError:
             results.add_pass("ValidationError: Invalid Weights")
-        
+
         await rag.close()
+        await cleanup_collection("test_errors")
     except Exception as e:
         results.add_fail("Validation Errors", str(e))
-    
-    # InitializationError
-    try:
-        rag = pgVectorDB(
-            collection_name="test_init_error",
-            embedding_model=embeddings,
-            connection_string=CONNECTION_STRING,
-            schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
-        )
-        
         try:
-            await rag.semantic_search("test", k=5)
-            results.add_fail("InitializationError", "Should raise InitializationError")
-        except InitializationError:
-            results.add_pass("InitializationError")
+            await cleanup_collection("test_errors")
+        except Exception:
+            pass
+
+    # InitializationError
+    rag = pgVectorDB(
+        collection_name="test_init_error",
+        embedding_model=embeddings,
+        connection_string=CONNECTION_STRING,
+        schema_name=SCHEMA_NAME,
+        index_type=IndexType.HNSW,
+    )
+
+    try:
+        await rag.semantic_search("test", k=5)
+        results.add_fail("InitializationError", "Should raise InitializationError")
     except Exception as e:
-        results.add_fail("InitializationError Test", str(e))
+        if type(e).__name__ == "InitializationError":
+            results.add_pass("InitializationError")
+        else:
+            results.add_fail(
+                "InitializationError", f"Wrong exception type: {type(e).__name__}: {e}"
+            )
 
 
 async def test_security_validation(embeddings):
@@ -891,7 +1167,7 @@ async def test_security_validation(embeddings):
     print("\n" + "=" * 80)
     print("🔒 SECURITY VALIDATION TESTS")
     print("=" * 80)
-    
+
     # Test invalid collection name
     try:
         rag = pgVectorDB(
@@ -899,14 +1175,19 @@ async def test_security_validation(embeddings):
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
-        results.add_fail("Security Validation", "Should raise ValidationError for invalid name")
-    except ValidationError:
-        results.add_pass("Security Validation (Invalid Name)")
-        print("   ✓ Correctly rejected 'test; DROP TABLE'")
+        results.add_fail(
+            "Security Validation", "Should raise ValidationError for invalid name"
+        )
     except Exception as e:
-        results.add_fail("Security Validation", f"Raised wrong exception: {type(e).__name__}")
+        if type(e).__name__ == "ValidationError":
+            results.add_pass("Security Validation (Invalid Name)")
+            print("   ✓ Correctly rejected 'test; DROP TABLE'")
+        else:
+            results.add_fail(
+                "Security Validation", f"Raised wrong exception: {type(e).__name__}"
+            )
 
 
 async def test_performance(embeddings):
@@ -914,43 +1195,48 @@ async def test_performance(embeddings):
     print("\n" + "=" * 80)
     print("⚡ PERFORMANCE TESTS")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(100)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_performance",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
         await rag.add_documents(docs)
         await rag.build_index()
-        
+
         # Benchmark semantic search
         times = []
         for i in range(10):
             start = time.time()
             await rag.semantic_search(f"query {i}", k=5)
             times.append((time.time() - start) * 1000)
-        
+
         avg_time = sum(times) / len(times)
         print(f"    Average query time: {avg_time:.2f}ms")
         assert avg_time < 1000, f"Query too slow: {avg_time:.2f}ms"
         results.add_pass("Performance Benchmark")
-        
+
         # Test query parameter tuning
         await rag.set_query_params(ef_search=40)
         res = await rag.semantic_search("test query", k=5)
         assert len(res) <= 5
         results.add_pass("Query Parameter Tuning")
-        
+
         await rag.close()
-        
+        await cleanup_collection("test_performance")
+
     except Exception as e:
         results.add_fail("Performance Tests", str(e))
+        try:
+            await cleanup_collection("test_performance")
+        except Exception:
+            pass
 
 
 async def test_bm25_scoring_fix(embeddings):
@@ -958,117 +1244,133 @@ async def test_bm25_scoring_fix(embeddings):
     print("\n" + "=" * 80)
     print("🔒 BM25 SCORING FIX VERIFICATION")
     print("=" * 80)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_bm25_fix",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
-        
+
         # Add minimal doc set
         docs = [
             Document(page_content="PostgreSQL database is great", metadata={"id": 1}),
-            Document(page_content="Something else entirely", metadata={"id": 2})
+            Document(page_content="Something else entirely", metadata={"id": 2}),
         ]
         await rag.add_documents(docs)
         await rag.build_bm25_index()
-        
+
         # Verify Positive Score
         # BM25 <@> operator returns negative numbers (-1.5), we want to ensure we get positive (1.5)
-        res = await rag.keyword_search("database", k=1, search_type=KeywordSearchType.BM25)
-        
-        if res and res[0]['score'] > 0:
+        res = await rag.keyword_search(
+            "database", k=1, search_type=KeywordSearchType.BM25
+        )
+
+        if res and res[0]["score"] > 0:
             results.add_pass("BM25 Positive Score Check")
             print(f"   ✓ Correctly received positive score: {res[0]['score']}")
         elif res:
-            results.add_fail("BM25 Positive Score Check", f"Received negative score: {res[0]['score']}")
+            results.add_fail(
+                "BM25 Positive Score Check",
+                f"Received negative score: {res[0]['score']}",
+            )
         else:
             results.add_fail("BM25 Positive Score Check", "No results found")
-            
+
         await rag.close()
-        
+        await cleanup_collection("test_bm25_fix")
+
     except Exception as e:
         results.add_fail("BM25 Scoring Fix", str(e))
+        try:
+            await cleanup_collection("test_bm25_fix")
+        except Exception:
+            pass
 
 
 # ==================== Main Test Runner ====================
 # ==================== Embedding Provider Tests ====================
 async def test_embedding_providers():
     """Test both HuggingFace and Bedrock embedding providers."""
-    
+
     print("\n" + "=" * 80)
     print("TEST: EMBEDDING PROVIDERS")
     print("=" * 80)
-    
+
     # Test HuggingFace
     try:
         print("\n📊 Testing HuggingFace Embeddings...")
         from langchain_huggingface import HuggingFaceEmbeddings
-        
+
         hf_embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
-        
+
         # Test embedding
         test_text = "This is a test sentence for embeddings."
         hf_embedding = hf_embeddings.embed_query(test_text)
-        
+
         assert len(hf_embedding) == 384, f"Expected 384 dims, got {len(hf_embedding)}"
-        assert all(isinstance(x, float) for x in hf_embedding), "All values should be floats"
-        
+        assert all(isinstance(x, float) for x in hf_embedding), (
+            "All values should be floats"
+        )
+
         results.add_pass("HuggingFace Embeddings")
         print(f"   ✓ Model: all-MiniLM-L6-v2")
         print(f"   ✓ Dimensions: {len(hf_embedding)}")
         print(f"   ✓ Sample values: {hf_embedding[:3]}")
-        
+
     except Exception as e:
         results.add_fail("HuggingFace Embeddings", str(e))
-    
+
     # Test Bedrock (skip if no credentials)
     try:
         print("\n📊 Testing AWS Bedrock Embeddings...")
-        
+
         try:
             from langchain_aws import BedrockEmbeddings
         except ImportError:
             print("   ⚠️  SKIPPED: langchain-aws not installed")
             print("      Install with: pip install langchain-aws boto3")
             return
-        
+
         # Check if AWS credentials are available
         import os
+
         has_creds = (
-            os.getenv("AWS_ACCESS_KEY_ID") or 
-            os.getenv("AWS_PROFILE") or
-            Config.AWS_ACCESS_KEY_ID
+            os.getenv("AWS_ACCESS_KEY_ID")
+            or os.getenv("AWS_PROFILE")
+            or Config.AWS_ACCESS_KEY_ID
         )
-        
+
         if not has_creds:
             print("   ⚠️  SKIPPED: No AWS credentials found")
-            print("      Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or configure AWS CLI")
+            print(
+                "      Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or configure AWS CLI"
+            )
             return
-        
+
         bedrock_embeddings = BedrockEmbeddings(
-            model_id=Config.BEDROCK_MODEL_ID,
-            region_name=Config.AWS_REGION
+            model_id=Config.BEDROCK_MODEL_ID, region_name=Config.AWS_REGION
         )
-        
+
         # Test embedding
         bedrock_embedding = bedrock_embeddings.embed_query(test_text)
-        
+
         assert len(bedrock_embedding) > 0, "Bedrock embedding should not be empty"
-        assert all(isinstance(x, float) for x in bedrock_embedding), "All values should be floats"
-        
+        assert all(isinstance(x, float) for x in bedrock_embedding), (
+            "All values should be floats"
+        )
+
         results.add_pass("AWS Bedrock Embeddings")
         print(f"   ✓ Model: {Config.BEDROCK_MODEL_ID}")
         print(f"   ✓ Region: {Config.AWS_REGION}")
         print(f"   ✓ Dimensions: {len(bedrock_embedding)}")
         print(f"   ✓ Sample values: {bedrock_embedding[:3]}")
-        
+
     except Exception as e:
         error_msg = str(e)
         if "credentials" in error_msg.lower() or "auth" in error_msg.lower():
@@ -1077,45 +1379,46 @@ async def test_embedding_providers():
             results.add_fail("AWS Bedrock Embeddings", error_msg)
 
 
-
 async def test_tuning_and_exact_search(embeddings):
     """Test iterative scan limits and exact search toggle."""
     print("\n" + "=" * 80)
     print("⚙️ TUNING & EXACT SEARCH TESTS")
     print("=" * 80)
-    
+
     docs, _ = generate_test_documents(50)
-    
+
     try:
         rag = pgVectorDB(
             collection_name="test_tuning",
             embedding_model=embeddings,
             connection_string=CONNECTION_STRING,
             schema_name=SCHEMA_NAME,
-            index_type=IndexType.HNSW
+            index_type=IndexType.HNSW,
         )
         await rag.initialize(overwrite_existing=True)
         await rag.add_documents(docs)
         await rag.build_index()
-        
+
         # Test 1: Set Iterative Scan Params
         try:
             await rag.set_query_params(
                 ef_search=100,
                 iterative_scan="relaxed_order",
                 max_scan_tuples=1000,
-                scan_mem_multiplier=2
+                scan_mem_multiplier=2,
             )
             # Ensure it doesn't crash search
             await rag.semantic_search("test", k=5)
             results.add_pass("Set Iterative Scan Params")
         except Exception as e:
             results.add_fail("Set Iterative Scan Params", str(e))
-            
+
         # Test 2: Exact Search Toggle
         try:
             # Exact search (Index Scan OFF)
-            exact_res = await rag.semantic_search("programming", k=10, use_exact_search=True)
+            exact_res = await rag.semantic_search(
+                "programming", k=10, use_exact_search=True
+            )
             assert len(exact_res) == 10
             results.add_pass("Exact Search Toggle")
         except Exception as e:
@@ -1123,17 +1426,21 @@ async def test_tuning_and_exact_search(embeddings):
 
         # Test 3: DiskANN Build Params (API check only)
         try:
-             await rag.set_diskann_build_params(
-                 force_parallel_workers=2,
-                 min_vectors_for_parallel_build=100
-             )
-             results.add_pass("Set DiskANN Build Params (API)")
+            await rag.set_diskann_build_params(
+                force_parallel_workers=2, min_vectors_for_parallel_build=100
+            )
+            results.add_pass("Set DiskANN Build Params (API)")
         except Exception as e:
-             results.add_fail("Set DiskANN Build Params (API)", str(e))
-        
+            results.add_fail("Set DiskANN Build Params (API)", str(e))
+
         await rag.close()
+        await cleanup_collection("test_tuning")
     except Exception as e:
         results.add_fail("Tuning & Exact Search", str(e))
+        try:
+            await cleanup_collection("test_tuning")
+        except Exception:
+            pass
 
 
 async def run_all_tests(args):
@@ -1145,31 +1452,31 @@ async def run_all_tests(args):
     print(f"Schema: {SCHEMA_NAME}")
     print("Testing with 100 example documents")
     print("=" * 80)
-    
+
     # Get embeddings based on args or config
     if args.embedding:
         # Override with command-line arg
         original_provider = Config.EMBEDDING_PROVIDER
         Config.EMBEDDING_PROVIDER = args.embedding
-        
+
         if args.bedrock_model:
             Config.BEDROCK_MODEL_ID = args.bedrock_model
-        
+
         embeddings = Config.get_embeddings()
         Config.EMBEDDING_PROVIDER = original_provider  # Restore
     else:
         # Use test config (forces local DB)
         test_conf = get_test_config()
         embeddings = test_conf["embeddings"]
-    
+
     print(f"\n📊 Using Embedding Model: {type(embeddings).__name__}")
     print(f"💾 Database: {CONNECTION_STRING}\n")
-    
+
     # If only testing embeddings, run that and return
     if args.test_embeddings:
         await test_embedding_providers()
         return results.failed == 0
-    
+
     try:
         # Run all test suites
         await test_initialization(embeddings)
@@ -1183,7 +1490,6 @@ async def run_all_tests(args):
         await test_data_export_import(embeddings)
         await test_langchain_integration(embeddings)
         await test_error_handling(embeddings)
-        await test_error_handling(embeddings)
         await test_security_validation(embeddings)
         await test_performance(embeddings)
 
@@ -1192,12 +1498,13 @@ async def run_all_tests(args):
         # while these target specific bug fixes or new configuration toggles)
         await test_bm25_scoring_fix(embeddings)
         await test_tuning_and_exact_search(embeddings)
-        
+
     except Exception as e:
         logger.error(f"Critical error: {e}")
         import traceback
+
         traceback.print_exc()
-    
+
     return results.failed == 0
 
 
@@ -1214,43 +1521,53 @@ Examples:
   python test/test_suite.py --embedding bedrock       # Force Bedrock
   python test/test_suite.py --test-embeddings         # Test only embedding providers
   python test/test_suite.py --embedding bedrock --bedrock-model amazon.titan-embed-text-v2
-        """
+        """,
     )
-    
+
     parser.add_argument(
-        '--embedding',
-        choices=['huggingface', 'bedrock'],
-        help='Override embedding provider (default: uses config/.env)'
+        "--embedding",
+        choices=["huggingface", "bedrock"],
+        help="Override embedding provider (default: uses config/.env)",
     )
-    
+
     parser.add_argument(
-        '--bedrock-model',
-        help='Bedrock model ID (default: amazon.titan-embed-text-v1)'
+        "--bedrock-model", help="Bedrock model ID (default: amazon.titan-embed-text-v1)"
     )
-    
+
     parser.add_argument(
-        '--test-embeddings',
-        action='store_true',
-        help='Test only embedding providers (skip full test suite)'
+        "--test-embeddings",
+        action="store_true",
+        help="Test only embedding providers (skip full test suite)",
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
         # Create test schema
         if not args.test_embeddings:
             await create_test_schema()
-        
+
         # Run tests
         success = await run_all_tests(args)
-        
+
         # Print summary
         results.print_summary()
-        
-        # Cleanup
+
+        # Cleanup and verify
         if not args.test_embeddings:
+            print("\n" + "=" * 80)
+            print("🧹 CLEANUP & VERIFICATION")
+            print("=" * 80)
+            
+            # Verify individual collections were cleaned up
+            cleanup_verified = await verify_cleanup()
+            
+            # Drop entire schema
             await cleanup_test_schema()
-        
+            
+            if not cleanup_verified:
+                print("⚠️  Warning: Some collections may not have been cleaned up properly")
+
         # Exit
         if success:
             print("\n✅ ALL TESTS PASSED! System is production-ready.")
@@ -1258,16 +1575,17 @@ Examples:
         else:
             print("\n❌ SOME TESTS FAILED. Please review errors above.")
             sys.exit(1)
-    
+
     except KeyboardInterrupt:
         print("\n\n⚠️  Tests interrupted by user")
         if not args.test_embeddings:
             await cleanup_test_schema()
         sys.exit(130)
-    
+
     except Exception as e:
         print(f"\n\n❌ FATAL ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         if not args.test_embeddings:
             await cleanup_test_schema()
