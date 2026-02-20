@@ -194,7 +194,7 @@ class AnalyticsMixin:
 
     async def explain_query(
         self, query: str, search_method: str = "semantic_search", **search_kwargs
-    ) -> str:
+    ) -> List[str]:
         """
         Show PostgreSQL query execution plan for performance debugging.
 
@@ -259,10 +259,9 @@ class AnalyticsMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(explain_query, params)
                 plan_lines = [row[0] for row in result.fetchall()]
-                plan = "\n".join(plan_lines)
 
             logger.info(f"Generated EXPLAIN plan for {search_method}")
-            return plan
+            return plan_lines
         except Exception as e:
             raise DatabaseError(f"Failed to explain query: {e}") from e
 

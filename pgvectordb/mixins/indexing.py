@@ -681,6 +681,8 @@ class IndexingMixin:
 
     async def build_index_concurrent(
         self,
+        # Index type override
+        index_type: Optional[IndexType] = None,
         # HNSW parameters
         m: int = 16,
         ef_construction: int = 64,
@@ -719,7 +721,8 @@ class IndexingMixin:
         """
         self._ensure_initialized()
 
-        index_name = f"idx_{self.table_name}_{self.index_type.value}"
+        idx_type = index_type or self.index_type
+        index_name = f"idx_{self.table_name}_{idx_type.value}"
         qualified_table = build_qualified_name(self.schema_name, self.table_name)
 
         # Get operator class for distance metric
@@ -747,7 +750,7 @@ class IndexingMixin:
                 # Set autocommit for CONCURRENTLY (required)
                 await conn.execute(text("COMMIT"))
 
-                if self.index_type == IndexType.HNSW:
+                if idx_type == IndexType.HNSW:
                     await conn.execute(
                         text(f'''
                         CREATE INDEX CONCURRENTLY "{index_name}"
@@ -756,7 +759,7 @@ class IndexingMixin:
                     ''')
                     )
 
-                elif self.index_type == IndexType.IVFFLAT:
+                elif idx_type == IndexType.IVFFLAT:
                     if lists is None:
                         # Auto-calculate lists based on row count
                         result = await conn.execute(
@@ -777,7 +780,7 @@ class IndexingMixin:
                     ''')
                     )
 
-                elif self.index_type == IndexType.DISKANN:
+                elif idx_type == IndexType.DISKANN:
                     label_clause = ", labels" if include_labels else ""
                     await conn.execute(
                         text(f'''
@@ -793,9 +796,7 @@ class IndexingMixin:
                     )
 
             self._index_built = True
-            logger.info(
-                f"✓ Concurrent {self.index_type.value} index '{index_name}' created"
-            )
+            logger.info(f"✓ Concurrent {idx_type.value} index '{index_name}' created")
 
         except Exception as e:
             raise DatabaseError(f"Failed to build concurrent index: {e}") from e
@@ -1092,6 +1093,14 @@ class IndexingMixin:
         query_embedding = self.embedding_model.embed_query(query)
         qualified_table = build_qualified_name(self.schema_name, self.table_name)
 
+        # Embed the query vector directly in the SQL string to avoid asyncpg
+        # parameter substitution issues: asyncpg converts named params (:foo)
+        # to positional ($N), but `:query::vector(N)` is ambiguous — the `::`
+        # cast operator confuses the substitution, leaving a bare `:` that
+        # Postgres rejects.  The embedding is a list of floats so interpolation
+        # is safe (no SQL-injection risk).
+        query_literal = str(query_embedding)
+
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(
@@ -1099,14 +1108,14 @@ class IndexingMixin:
                         SELECT * FROM (
                             SELECT langchain_id, content, langchain_metadata, embedding
                             FROM {qualified_table}
-                            ORDER BY binary_quantize(embedding::vector({self.vector_size}))::bit({self.vector_size}) <~> 
-                                     binary_quantize(:query::vector({self.vector_size}))::bit({self.vector_size})
+                            ORDER BY binary_quantize(embedding::vector({self.vector_size}))::bit({self.vector_size}) <~>
+                                     binary_quantize('{query_literal}'::vector({self.vector_size}))::bit({self.vector_size})
                             LIMIT :rerank_top
                         ) subq
-                        ORDER BY embedding <=> :query::vector({self.vector_size})
+                        ORDER BY embedding <=> '{query_literal}'::vector({self.vector_size})
                         LIMIT :k
                     """),
-                    {"query": str(query_embedding), "rerank_top": rerank_top, "k": k},
+                    {"rerank_top": rerank_top, "k": k},
                 )
 
                 rows = result.fetchall()
