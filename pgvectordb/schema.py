@@ -158,6 +158,102 @@ def get_label_definitions_table(schema: str = "public") -> Table:
     )
 
 
+# ==================== Multimodal Table (v0.0.3) ====================
+
+def get_multimodal_table(
+    table_name: str,
+    schema: str,
+    spaces: list,
+    include_labels: bool = False,
+    include_content_hash: bool = False,
+    include_timestamps: bool = False,
+) -> Table:
+    """
+    Create a SQLAlchemy Table with multiple vector columns — one per VectorSpace.
+
+    Extends the standard vector table with additional ``embedding_{space.name}``
+    columns for multimodal search. The standard ``embedding`` column is ALSO
+    included for backward compatibility with single-embedding methods.
+
+    Args:
+        table_name: Name of the table
+        schema: Database schema name
+        spaces: List of VectorSpace instances defining additional embedding columns.
+            Each space adds a column named ``embedding_{space.name}`` with
+            dimensions matching the space.
+        include_labels: Include labels column for DiskANN filtering
+        include_content_hash: Include content hash for deduplication
+        include_timestamps: Include created_at and updated_at columns
+
+    Returns:
+        SQLAlchemy Table object with multiple vector columns
+
+    Example:
+        >>> from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace
+        >>> spaces = [
+        ...     TextSpace(name="description", field="content"),
+        ...     NumberSpace(name="price", field="price", min_value=0, max_value=1e6),
+        ...     CategorySpace(name="city", field="city", categories=["NYC", "LA"]),
+        ... ]
+        >>> table = get_multimodal_table("products", "public", spaces)
+    """
+    metadata = MetaData(schema=schema)
+
+    # Core columns (always present)
+    columns = [
+        Column("langchain_id", String, primary_key=True),
+        Column("content", Text, nullable=False),
+        Column("langchain_metadata", JSONB, server_default=text("'{}'::jsonb")),
+    ]
+
+    # Add a vector column per space
+    for space in spaces:
+        col_name = f"embedding_{space.name}"
+        dims = space.dimensions
+        if dims > 0 and VECTOR_TYPE_AVAILABLE and Vector is not None:
+            columns.append(
+                Column(col_name, Vector(dims), nullable=True)
+            )
+        else:
+            # Fallback or undetected dimensions (TextSpace before detect)
+            columns.append(
+                Column(col_name, Text, nullable=True)
+            )
+
+    # Optional: Labels column for DiskANN filtering
+    if include_labels:
+        columns.append(
+            Column("labels", ARRAY(String), nullable=True)
+        )
+
+    # Optional: Content hash for deduplication
+    if include_content_hash:
+        columns.append(
+            Column("content_hash", String(32), nullable=True)
+        )
+
+    # Optional: Timestamps for audit trail
+    if include_timestamps:
+        columns.extend([
+            Column("created_at", DateTime(timezone=True), server_default=func.now()),
+            Column("updated_at", DateTime(timezone=True), onupdate=func.now()),
+        ])
+
+    # tsvector column for full-text search
+    columns.append(
+        Column("content_tsvector", Text, nullable=True)
+    )
+
+    table = Table(
+        table_name,
+        metadata,
+        *columns,
+        extend_existing=True,
+    )
+
+    return table
+
+
 # ==================== Helper Functions ====================
 
 def quote_identifier(identifier: str) -> str:

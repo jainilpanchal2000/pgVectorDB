@@ -17,7 +17,7 @@ from typing import List, Dict, Any, Optional, Tuple, Union, Set
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from src.base import (
+from .base import (
     IndexType,
     KeywordSearchType,
     QueryResult,
@@ -50,7 +50,7 @@ class SearchMixin:
 
     def _validate_search_params(self, query: str, k: int) -> None:
         """Validate common search parameters."""
-        if not query or not isinstance(query, str):
+        if not query or not isinstance(query, str) or not query.strip():
             raise ValidationError("query must be a non-empty string")
         if k <= 0:
             raise ValidationError("k must be positive")

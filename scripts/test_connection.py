@@ -73,8 +73,8 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
     }
     
     try:
-        from src.core import pgVectorDB, IndexType
-        from src.config import Config
+        from pgvectordb import pgVectorDB, IndexType
+        from pgvectordb.config import Config
         
         # Get embedding model from config
         print_info("Initializing test embedding model from config...")
@@ -105,7 +105,9 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
         print_info(f"PostgreSQL version: {results['version']}")
         
         # Check extensions
-        extensions_to_check = ['vector', 'pg_trgm', 'vectorscale']
+        # (vectorscale and pg_textsearch are optional compiled extensions)
+        optional_exts = {'vectorscale', 'pg_textsearch'}
+        extensions_to_check = ['vector', 'pg_trgm', 'vectorscale', 'pg_textsearch']
         for ext in extensions_to_check:
             try:
                 ext_version = await conn.fetchval(
@@ -117,13 +119,13 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
                     print_success(f"Extension '{ext}' installed (version {ext_version})")
                 else:
                     results['extensions'][ext] = None
-                    if ext == 'vectorscale':
-                        print_warning(f"Extension '{ext}' not installed (optional for DiskANN)")
+                    if ext in optional_exts:
+                        print_warning(f"Extension '{ext}' not installed (optional)")
                     else:
                         print_error(f"Extension '{ext}' not installed")
             except Exception as e:
                 results['extensions'][ext] = None
-                if ext == 'vectorscale':
+                if ext in optional_exts:
                     print_warning(f"Extension '{ext}' not available (optional)")
                 else:
                     print_error(f"Extension '{ext}' check failed: {e}")
@@ -246,7 +248,7 @@ def test_embedding_model() -> Dict[str, Any]:
     print_header("Checking Embedding Model")
     
     try:
-        from src.config import Config
+        from pgvectordb.config import Config
         
         print_info(f"Loading embedding model from config...")
         print_info(f"Provider: {Config.EMBEDDING_PROVIDER}")
@@ -283,7 +285,7 @@ async def test_pgvectordb_import() -> Dict[str, Any]:
     print_header("Checking pgVectorDB")
     
     try:
-        from src.core import pgVectorDB, IndexType, StorageLayout, DistanceMetric
+        from pgvectordb import pgVectorDB, IndexType, StorageLayout, DistanceMetric
         
         results['import_success'] = True
         results['available_classes'] = ['pgVectorDB', 'IndexType', 'StorageLayout', 'DistanceMetric']
@@ -390,7 +392,7 @@ async def main():
     all_results['config'] = test_environment_config()
     
     # Get connection string
-    from src.config import Config
+    from pgvectordb.config import Config
     
     if args.conn:
         connection_string = args.conn

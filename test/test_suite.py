@@ -40,7 +40,7 @@ from typing import List
 from langchain_core.documents import Document
 
 # Import from new modular structure (v2.2.0)
-from src import (
+from pgvectordb import (
     pgVectorDB,
     IndexType,
     KeywordSearchType,
@@ -51,7 +51,7 @@ from src import (
     ExtensionManager,
     Config,
 )
-from src.config import get_test_config
+from pgvectordb.config import get_test_config
 
 
 # Configure logging
@@ -1192,12 +1192,16 @@ async def run_all_tests(args):
         # while these target specific bug fixes or new configuration toggles)
         await test_bm25_scoring_fix(embeddings)
         await test_tuning_and_exact_search(embeddings)
-        
+
+        # v0.0.3: Multi-embedding & Reranker Features
+        await test_multimodal_features(embeddings)
+        await test_reranking_features(embeddings)
+
     except Exception as e:
         logger.error(f"Critical error: {e}")
         import traceback
         traceback.print_exc()
-    
+
     return results.failed == 0
 
 
@@ -1253,11 +1257,10 @@ Examples:
         
         # Exit
         if success:
-            print("\n✅ ALL TESTS PASSED! System is production-ready.")
-            sys.exit(0)
+            print("\n🎉 All tests passed!")
         else:
-            print("\n❌ SOME TESTS FAILED. Please review errors above.")
-            sys.exit(1)
+            print("\n💥 Some tests failed. Check output above.")
+        sys.exit(0 if success else 1)
     
     except KeyboardInterrupt:
         print("\n\n⚠️  Tests interrupted by user")

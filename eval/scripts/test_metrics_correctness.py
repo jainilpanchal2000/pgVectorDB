@@ -6,7 +6,7 @@ from pathlib import Path
 # Add parent directory to path to import src
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.metrics import RAGEvaluator
+from pgvectordb.metrics import RAGEvaluator
 
 class TestRAGMetrics(unittest.TestCase):
     def setUp(self):

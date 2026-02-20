@@ -14,7 +14,7 @@ services:
       # Add these for better performance
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.utf8"
     volumes:
-      - pgLocalData:/var/lib/postgresql/data
+      - D:/pgVectorDB_Data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Auto-create extensions
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-postgres}"]
@@ -22,7 +22,3 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-
-volumes:
-  pgLocalData:
-    driver: local

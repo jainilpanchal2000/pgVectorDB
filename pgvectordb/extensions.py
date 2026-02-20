@@ -11,7 +11,7 @@ Extension Requirements:
     - **pg_textsearch** (OPTIONAL): Enables BM25 keyword search ranking
 
 Usage:
-    >>> from src.extensions import ExtensionManager
+    >>> from pgvectordb.extensions import ExtensionManager
     >>> ext_manager = ExtensionManager(engine)
     >>> await ext_manager.check_extensions()
     >>> 

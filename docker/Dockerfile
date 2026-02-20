@@ -1,12 +1,12 @@
 FROM pgvector/pgvector:pg17
 
 RUN apt-get update && apt-get install -y \
-    curl build-essential pkg-config libssl-dev git \
-    clang-16 libclang-16-dev postgresql-server-dev-17 \
-    && rm -rf /var/lib/apt/lists/*
+  curl build-essential pkg-config libssl-dev git \
+  clang-16 libclang-16-dev postgresql-server-dev-17 \
+  && rm -rf /var/lib/apt/lists/*
 
 ENV LIBCLANG_PATH=/usr/lib/llvm-16/lib \
-    LD_LIBRARY_PATH=/usr/lib/llvm-16/lib:$LD_LIBRARY_PATH
+  LD_LIBRARY_PATH=/usr/lib/llvm-16/lib
 
 # Install Rust + pgrx
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

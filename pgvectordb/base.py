@@ -12,7 +12,7 @@ This module contains foundational components used throughout pgVectorDB:
 - **Type Definitions**: QueryResult
 
 Usage:
-    >>> from src.base import IndexType, ValidationError, QueryResult
+    >>> from pgvectordb.base import IndexType, ValidationError, QueryResult
     >>> index = IndexType.HNSW
     >>> raise ValidationError("Invalid input")
 """
@@ -47,7 +47,7 @@ class IndexType(str, Enum):
             - Extension: Requires 'vectorscale' PostgreSQL extension
     
     Example:
-        >>> from src.base import IndexType
+        >>> from pgvectordb.base import IndexType
         >>> rag = pgVectorDB(
         ...     collection_name="docs",
         ...     index_type=IndexType.HNSW,  # Fast for small datasets
@@ -75,7 +75,7 @@ class KeywordSearchType(str, Enum):
             - Extension: Requires 'pg_textsearch' PostgreSQL extension
     
     Example:
-        >>> from src.base import KeywordSearchType
+        >>> from pgvectordb.base import KeywordSearchType
         >>> results = await rag.keyword_search(
         ...     "machine learning",
         ...     search_type=KeywordSearchType.BM25  # Better relevance ranking
@@ -103,7 +103,7 @@ class StorageLayout(str, Enum):
             - Best for: When query speed is critical
     
     Example:
-        >>> from src.base import StorageLayout
+        >>> from pgvectordb.base import StorageLayout
         >>> await rag.build_index(
         ...     storage_layout=StorageLayout.MEMORY_OPTIMIZED  # 75% less memory
         ... )
@@ -150,7 +150,7 @@ class DistanceMetric(str, Enum):
             - Range: 0 (identical) to 1 (no overlap)
     
     Example:
-        >>> from src.base import DistanceMetric
+        >>> from pgvectordb.base import DistanceMetric
         >>> await rag.build_index(metric=DistanceMetric.COSINE)
     """
     COSINE = "cosine"                    # <=> operator
@@ -183,7 +183,7 @@ class VectorPrecision(str, Enum):
             - Best for: Binary embeddings, Hamming distance
     
     Example:
-        >>> from src.base import VectorPrecision
+        >>> from pgvectordb.base import VectorPrecision
         >>> await rag.create_halfvec_table()  # Uses FLOAT16
     """
     FLOAT32 = "float32"     # Default: 4 bytes per dimension
@@ -213,7 +213,7 @@ class IterativeScanMode(str, Enum):
             - Recommended: For most filtered search use cases
     
     Example:
-        >>> from src.base import IterativeScanMode
+        >>> from pgvectordb.base import IterativeScanMode
         >>> await rag.set_iterative_scan(IterativeScanMode.RELAXED_ORDER)
     """
     OFF = "off"

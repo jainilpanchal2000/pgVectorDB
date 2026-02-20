@@ -1,0 +1,112 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pgvectordb"
+dynamic = ["version"]
+description = "Production-ready PostgreSQL vector database for RAG — multi-embedding, multimodal search, reranking, and more."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Jainil Panchal" },
+]
+keywords = ["vector-database", "rag", "pgvector", "embeddings", "search", "postgresql", "langchain"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    "langchain-core>=0.3,<3.0",
+    "langchain-postgres>=0.0.12,<1.0",
+    "sqlalchemy>=2.0,<3.0",
+    "asyncpg>=0.29,<1.0",
+    "pgvector>=0.3,<1.0",
+    "packaging>=23.0",
+    "numpy>=1.24",
+    "python-dotenv>=1.0",
+    "langchain-community>=0.2",
+    "langchain>=0.2",
+    "psycopg2-binary>=2.9",
+    "nest-asyncio>=1.5",
+]
+
+[project.optional-dependencies]
+huggingface = [
+    "langchain-huggingface>=0.1",
+    "sentence-transformers>=3.0",
+]
+aws = [
+    "langchain-aws>=0.2",
+    "boto3>=1.34",
+]
+rerankers = [
+    "sentence-transformers>=3.0",
+    "transformers>=4.40",
+    "torch>=2.0",
+]
+cohere = [
+    "cohere>=5.0",
+]
+all = [
+    "pgvectordb[huggingface,aws,rerankers,cohere]",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "black>=24.0",
+    "flake8>=7.0",
+    "mypy>=1.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/jainilpanchal/pgvectordb"
+Repository = "https://github.com/jainilpanchal/pgvectordb"
+Documentation = "https://github.com/jainilpanchal/pgvectordb#readme"
+
+[tool.hatch.version]
+path = "pgvectordb/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pgvectordb"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring a live database",
+    "unit: marks tests that run without a database connection",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+    "jupyter>=1.1.1",
+    "nbconvert>=7.17.0",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]

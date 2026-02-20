@@ -1,4 +1,4 @@
-﻿"""
+"""
 K-Value Optimization Example
 =============================
 
@@ -25,9 +25,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from langchain_core.documents import Document
 
-from src.core import pgVectorDB, IndexType
-from src.config import Config
-from src.metrics import (
+from pgvectordb import pgVectorDB, IndexType
+from pgvectordb.config import Config
+from pgvectordb.metrics import (
     create_sample_evaluation_dataset,
     KValueAnalysis
 )
@@ -73,7 +73,7 @@ async def main():
     print("=" * 80)
     
     # 1. Setup
-    print("\n📦 Step 1: Setting up RAG system...")
+    print("\n?? Step 1: Setting up RAG system...")
     
     embeddings = Config.get_embeddings()
     
@@ -87,7 +87,7 @@ async def main():
     await rag.initialize(overwrite_existing=True)
     
     # 2. Generate sample data
-    print("\n📝 Step 2: Generating sample documents...")
+    print("\n?? Step 2: Generating sample documents...")
     
     categories = ["programming", "ai", "database", "web", "devops", "security", "cloud", "mobile"]
     documents = []
@@ -109,12 +109,12 @@ async def main():
     await rag.build_index()
     
     # 3. Create evaluation dataset
-    print("\n🎯 Step 3: Creating evaluation dataset...")
+    print("\n?? Step 3: Creating evaluation dataset...")
     
     dataset = create_sample_evaluation_dataset()
     
     # 4. Test multiple K values
-    print("\n🔍 Step 4: Testing multiple K values...")
+    print("\n?? Step 4: Testing multiple K values...")
     print("   This may take a minute...\n")
     
     k_values_to_test = [1, 3, 5, 10, 20, 50]
@@ -126,7 +126,7 @@ async def main():
         retrieved_results_by_k[k] = results
     
     # 5. Analyze results
-    print("\n📊 Step 5: Analyzing results...\n")
+    print("\n?? Step 5: Analyzing results...\n")
     
     analyzer = KValueAnalysis()
     analyzer.analyze(
@@ -140,7 +140,7 @@ async def main():
     analyzer.print_recommendation()
     
     # 7. Export results
-    print("\n💾 Step 6: Exporting results...")
+    print("\n?? Step 6: Exporting results...")
     analyzer.export_results("eval/results/k_value_analysis_results.json")
     
     print("\n" + "=" * 80)
@@ -148,16 +148,16 @@ async def main():
     print("=" * 80)
     
     print("""
-📈 Understanding the Results:
+?? Understanding the Results:
 
 1. PRECISION@K (Quality)
-   - Higher K → Lower precision (more noise)
-   - Lower K → Higher precision (fewer results, more focused)
+   - Higher K ? Lower precision (more noise)
+   - Lower K ? Higher precision (fewer results, more focused)
    - Use Case: LLM with limited context needs high precision
 
 2. RECALL@K (Coverage)
-   - Higher K → Higher recall (find more relevant docs)
-   - Lower K → Lower recall (miss some relevant docs)
+   - Higher K ? Higher recall (find more relevant docs)
+   - Lower K ? Lower recall (miss some relevant docs)
    - Use Case: Research/analysis needs high recall
 
 3. F1@K (Balance)
@@ -175,34 +175,34 @@ async def main():
    - Critical for FAQ/Q&A systems
    - Use Case: User reads only first result
 
-💡 Recommendations by Use Case:
+?? Recommendations by Use Case:
 
-• FAQ/Customer Support (K=1-3)
+� FAQ/Customer Support (K=1-3)
   - High precision needed
   - First result critical
   - Example: "How do I reset password?"
 
-• General RAG Application (K=5-10)
+� General RAG Application (K=5-10)
   - Balanced precision/recall
   - Most common use case
   - Example: Technical documentation
 
-• Research/Analysis (K=20-50)
+� Research/Analysis (K=20-50)
   - High recall needed
   - Comprehensive coverage
   - Example: Literature review
 
-• Limited LLM Context (K=1-5)
+� Limited LLM Context (K=1-5)
   - Token limits constrain K
   - Need high precision
   - Example: GPT-3.5 (4K context)
 
-• Large LLM Context (K=10-50)
+� Large LLM Context (K=10-50)
   - Can handle more docs
   - Optimize for recall
   - Example: GPT-4 (32K context)
 
-📝 Next Steps:
+?? Next Steps:
 
 1. Review the analysis above
 2. Choose K based on your use case
@@ -211,7 +211,7 @@ async def main():
 5. Adjust K based on user feedback
 """)
     
-    print("✅ K-Value optimization complete!\n")
+    print("? K-Value optimization complete!\n")
 
 
 if __name__ == "__main__":

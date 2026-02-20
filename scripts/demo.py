@@ -43,7 +43,7 @@ async def main():
     # ==================== Step 1: Import and Check Extensions ====================
     print("\n📦 Step 1: Importing modules...")
     
-    from src import (
+    from pgvectordb import (
         pgVectorDB,
         IndexType,
         KeywordSearchType,

@@ -2,8 +2,8 @@
 pgVectorDB - Production PostgreSQL Vector Database
 ===================================================
 
-**Version:** 0.0.2
-**Status:** Production-Ready with Modular Architecture
+**Version:** 0.0.4
+**Status:** Production-Ready with Multi-Embedding Support
 
 A comprehensive PostgreSQL-based RAG (Retrieval-Augmented Generation) system with 
 advanced vector indexing, multiple search methods, and production utilities.
@@ -16,6 +16,7 @@ Module Structure
 - **config.py**: Configuration defaults and helpers
 - **metrics.py**: RAG evaluation metrics
 - **schema.py**: SQLAlchemy table definitions
+- **spaces.py**: Vector space abstractions for multi-embedding search
 
 Extension Requirements
 ----------------------
@@ -25,7 +26,7 @@ Extension Requirements
 
 Quick Start
 -----------
-    >>> from src import pgVectorDB, IndexType
+    >>> from pgvectordb import pgVectorDB, IndexType
     >>> rag = pgVectorDB(
     ...     collection_name="docs",
     ...     embedding_model=embeddings,
@@ -87,7 +88,48 @@ from .schema import (
     get_index_ops,
 )
 
-__version__ = "0.0.2"
+# Import spaces module (v0.0.3)
+try:
+    from .spaces import (
+        VectorSpace,
+        TextSpace,
+        NumberSpace,
+        CategorySpace,
+        RecencySpace,
+        NumberMode,
+        TimeUnit,
+        validate_spaces,
+        encode_document_spaces,
+        encode_query_spaces,
+    )
+except ImportError:
+    VectorSpace = None
+    TextSpace = None
+    NumberSpace = None
+    CategorySpace = None
+    RecencySpace = None
+    NumberMode = None
+    TimeUnit = None
+
+# Import rerankers module (v0.0.3)
+try:
+    from .rerankers import (
+        BaseReranker,
+        CrossEncoderReranker,
+        CohereReranker,
+        AWSBedrockReranker,
+        HuggingFaceReranker,
+        create_reranker,
+    )
+except ImportError:
+    BaseReranker = None
+    CrossEncoderReranker = None
+    CohereReranker = None
+    AWSBedrockReranker = None
+    HuggingFaceReranker = None
+    create_reranker = None
+
+__version__ = "0.0.4"
 
 __all__ = [
     # Core class
@@ -123,6 +165,7 @@ __all__ = [
     "Config",
     "get_test_config",
     "get_production_config",
+
     # Schema helpers
     "get_vector_table",
     "get_label_definitions_table",
@@ -130,5 +173,23 @@ __all__ = [
     "build_qualified_name",
     "get_distance_operator",
     "get_index_ops",
+    # Spaces (v0.0.3)
+    "VectorSpace",
+    "TextSpace",
+    "NumberSpace",
+    "CategorySpace",
+    "RecencySpace",
+    "NumberMode",
+    "TimeUnit",
+    "validate_spaces",
+    "encode_document_spaces",
+    "encode_query_spaces",
+    # Rerankers (v0.0.3)
+    "BaseReranker",
+    "CrossEncoderReranker",
+    "CohereReranker",
+    "AWSBedrockReranker",
+    "HuggingFaceReranker",
+    "create_reranker",
 ]
 
