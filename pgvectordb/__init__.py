@@ -1,11 +1,11 @@
-﻿"""
+"""
 pgVectorDB - Production PostgreSQL Vector Database
 ===================================================
 
 **Version:** 0.0.4
 **Status:** Production-Ready with Multi-Embedding Support
 
-A comprehensive PostgreSQL-based RAG (Retrieval-Augmented Generation) system with 
+A comprehensive PostgreSQL-based RAG (Retrieval-Augmented Generation) system with
 advanced vector indexing, multiple search methods, and production utilities.
 
 Module Structure
@@ -165,7 +165,6 @@ __all__ = [
     "Config",
     "get_test_config",
     "get_production_config",
-
     # Schema helpers
     "get_vector_table",
     "get_label_definitions_table",
@@ -192,4 +191,3 @@ __all__ = [
     "HuggingFaceReranker",
     "create_reranker",
 ]
-

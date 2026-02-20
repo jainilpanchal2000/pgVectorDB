@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """
 Shared pytest fixtures for pgVectorDB test suite.
 
@@ -21,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
+# noqa: E402
 import pytest
 import pytest_asyncio
 from langchain_core.documents import Document
@@ -53,11 +54,32 @@ def generate_test_documents(
 ) -> tuple[list[Document], list[list[int]]]:
     """Generate diverse test documents with metadata and DiskANN labels."""
     categories = [
-        "programming", "ai", "database", "web",
-        "devops", "security", "cloud", "mobile",
+        "programming",
+        "ai",
+        "database",
+        "web",
+        "devops",
+        "security",
+        "cloud",
+        "mobile",
     ]
-    languages = ["Python", "JavaScript", "Java", "Go", "Rust", "SQL", "TypeScript", "C++"]
-    authors = ["Tech Expert", "AI Researcher", "DB Admin", "DevOps Engineer", "Security Analyst"]
+    languages = [
+        "Python",
+        "JavaScript",
+        "Java",
+        "Go",
+        "Rust",
+        "SQL",
+        "TypeScript",
+        "C++",
+    ]
+    authors = [
+        "Tech Expert",
+        "AI Researcher",
+        "DB Admin",
+        "DevOps Engineer",
+        "Security Analyst",
+    ]
 
     content_templates = [
         "{language} is a {adjective} programming language used for {purpose}.",
@@ -73,27 +95,54 @@ def generate_test_documents(
     ]
 
     fill = {
-        "adjective":  ["powerful", "versatile", "modern", "efficient", "scalable", "robust"],
-        "purpose":    ["web development", "data science", "system programming", "automation"],
-        "capability": ["pattern recognition", "predictive analytics", "natural language processing"],
-        "tool":       ["indexes", "partitioning", "caching", "replication"],
-        "metric":     ["query performance", "throughput", "response time"],
-        "framework":  ["React", "FastAPI", "Django", "Express", "Spring Boot"],
-        "benefit":    ["scalability", "reliability", "flexibility", "performance"],
-        "practice":   ["input validation", "encryption", "authentication", "authorization"],
-        "threat":     ["SQL injection", "XSS", "CSRF", "DDoS"],
-        "platform":   ["React Native", "Flutter", "Swift", "Kotlin"],
-        "feature":    ["offline support", "push notifications", "real-time updates"],
-        "problem":    ["deployment time", "manual errors", "configuration drift"],
-        "pattern":    ["REST", "GraphQL", "gRPC", "WebSocket"],
-        "quality":    ["maintainability", "testability", "observability"],
-        "data_type":  ["streaming data", "batch data", "real-time events"],
-        "outcome":    ["business insights", "data-driven decisions", "predictive models"],
+        "adjective": [
+            "powerful",
+            "versatile",
+            "modern",
+            "efficient",
+            "scalable",
+            "robust",
+        ],
+        "purpose": [
+            "web development",
+            "data science",
+            "system programming",
+            "automation",
+        ],
+        "capability": [
+            "pattern recognition",
+            "predictive analytics",
+            "natural language processing",
+        ],
+        "tool": ["indexes", "partitioning", "caching", "replication"],
+        "metric": ["query performance", "throughput", "response time"],
+        "framework": ["React", "FastAPI", "Django", "Express", "Spring Boot"],
+        "benefit": ["scalability", "reliability", "flexibility", "performance"],
+        "practice": [
+            "input validation",
+            "encryption",
+            "authentication",
+            "authorization",
+        ],
+        "threat": ["SQL injection", "XSS", "CSRF", "DDoS"],
+        "platform": ["React Native", "Flutter", "Swift", "Kotlin"],
+        "feature": ["offline support", "push notifications", "real-time updates"],
+        "problem": ["deployment time", "manual errors", "configuration drift"],
+        "pattern": ["REST", "GraphQL", "gRPC", "WebSocket"],
+        "quality": ["maintainability", "testability", "observability"],
+        "data_type": ["streaming data", "batch data", "real-time events"],
+        "outcome": ["business insights", "data-driven decisions", "predictive models"],
     }
 
     cat_to_label = {
-        "programming": 1, "ai": 2, "database": 3, "web": 4,
-        "devops": 5, "security": 6, "cloud": 7, "mobile": 8,
+        "programming": 1,
+        "ai": 2,
+        "database": 3,
+        "web": 4,
+        "devops": 5,
+        "security": 6,
+        "cloud": 7,
+        "mobile": 8,
     }
 
     documents: list[Document] = []
@@ -111,19 +160,21 @@ def generate_test_documents(
             **{k: v[i % len(v)] for k, v in fill.items()},
         )
 
-        documents.append(Document(
-            page_content=content.strip(),
-            metadata={
-                "doc_id":   i,
-                "category": cat,
-                "language": lang,
-                "author":   author,
-                "year":     year,
-                "priority": (i % 10) + 1,
-                "status":   "active" if i % 4 != 0 else "archived",
-                "tags":     f"tag{i % 5}",
-            },
-        ))
+        documents.append(
+            Document(
+                page_content=content.strip(),
+                metadata={
+                    "doc_id": i,
+                    "category": cat,
+                    "language": lang,
+                    "author": author,
+                    "year": year,
+                    "priority": (i % 10) + 1,
+                    "status": "active" if i % 4 != 0 else "archived",
+                    "tags": f"tag{i % 5}",
+                },
+            )
+        )
         labels.append([cat_to_label.get(cat, 1)])
 
     return documents, labels
@@ -132,6 +183,7 @@ def generate_test_documents(
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def connection_string() -> str:
@@ -142,6 +194,7 @@ def connection_string() -> str:
 def embeddings():
     """Session-scoped HuggingFace embeddings (all-MiniLM-L6-v2, 384-dim)."""
     from langchain_huggingface import HuggingFaceEmbeddings
+
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 

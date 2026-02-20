@@ -26,6 +26,7 @@ pytestmark = pytest.mark.integration
 # Fixture: collection with 100 docs + HNSW index built
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def rag_with_data(db_schema, embeddings, connection_string, large_docs):
     """HNSW collection with 100 docs, metadata index and vector index built."""
@@ -39,7 +40,9 @@ async def rag_with_data(db_schema, embeddings, connection_string, large_docs):
     await inst.initialize(overwrite_existing=True)
     docs, _ = large_docs
     await inst.add_documents(docs)
-    await inst.create_metadata_index(["category", "language", "year", "priority", "status", "author"])
+    await inst.create_metadata_index(
+        ["category", "language", "year", "priority", "status", "author"]
+    )
     await inst.build_index(metric=DistanceMetric.COSINE)
     yield inst
     await inst.close()
@@ -48,6 +51,7 @@ async def rag_with_data(db_schema, embeddings, connection_string, large_docs):
 # ---------------------------------------------------------------------------
 # 1. Semantic Search
 # ---------------------------------------------------------------------------
+
 
 class TestSemanticSearch:
     async def test_returns_results(self, rag_with_data):
@@ -86,6 +90,7 @@ class TestSemanticSearch:
 # 2. Keyword Search (FTS)
 # ---------------------------------------------------------------------------
 
+
 class TestKeywordSearch:
     async def test_fts_returns_results(self, rag_with_data):
         res = await rag_with_data.keyword_search("database", k=5)
@@ -109,6 +114,7 @@ class TestKeywordSearch:
 # 3. Universal Keyword Search
 # ---------------------------------------------------------------------------
 
+
 class TestUniversalKeywordSearch:
     async def test_searches_content_and_metadata(self, rag_with_data):
         res = await rag_with_data.universal_keyword_search(
@@ -120,6 +126,7 @@ class TestUniversalKeywordSearch:
 # ---------------------------------------------------------------------------
 # 4. Metadata Filter
 # ---------------------------------------------------------------------------
+
 
 class TestMetadataFilter:
     async def test_simple_equality(self, rag_with_data):
@@ -136,6 +143,7 @@ class TestMetadataFilter:
 # 5. Metadata + Keyword
 # ---------------------------------------------------------------------------
 
+
 class TestMetadataKeywordSearch:
     async def test_basic(self, rag_with_data):
         res = await rag_with_data.metadata_keyword_search(
@@ -147,6 +155,7 @@ class TestMetadataKeywordSearch:
 # ---------------------------------------------------------------------------
 # 6. Metadata + Semantic
 # ---------------------------------------------------------------------------
+
 
 class TestMetadataSemanticSearch:
     async def test_basic(self, rag_with_data):
@@ -160,17 +169,14 @@ class TestMetadataSemanticSearch:
 # 7 & 8. Hybrid Search (weighted + RRF)
 # ---------------------------------------------------------------------------
 
+
 class TestHybridSearch:
     async def test_weighted(self, rag_with_data):
-        res = await rag_with_data.hybrid_search(
-            "programming", k=5, weights=(0.6, 0.4)
-        )
+        res = await rag_with_data.hybrid_search("programming", k=5, weights=(0.6, 0.4))
         assert len(res) > 0
 
     async def test_rrf(self, rag_with_data):
-        res = await rag_with_data.hybrid_search(
-            "database", k=5, use_rrf=True
-        )
+        res = await rag_with_data.hybrid_search("database", k=5, use_rrf=True)
         assert len(res) > 0
 
     async def test_result_has_score(self, rag_with_data):
@@ -183,6 +189,7 @@ class TestHybridSearch:
 # 9. Ensemble Search
 # ---------------------------------------------------------------------------
 
+
 class TestEnsembleSearch:
     async def test_basic(self, rag_with_data):
         res = await rag_with_data.ensemble_search(
@@ -194,6 +201,7 @@ class TestEnsembleSearch:
 # ---------------------------------------------------------------------------
 # 10. Trigram Search
 # ---------------------------------------------------------------------------
+
 
 class TestTrigramSearch:
     async def test_basic_trigram(self, rag_with_data):
@@ -211,6 +219,7 @@ class TestTrigramSearch:
 # Similarity search variants
 # ---------------------------------------------------------------------------
 
+
 class TestSimilarityVariants:
     async def test_similarity_by_vector(self, rag_with_data, embeddings):
         embedding = embeddings.embed_query("Python")
@@ -227,37 +236,84 @@ class TestSimilarityVariants:
 # All 13 Filter Operators
 # ---------------------------------------------------------------------------
 
+
 class TestFilterOperators:
-    @pytest.mark.parametrize("op_name,filter_dict,validator", [
-        ("$eq",      {"category": {"$eq": "programming"}},
-         lambda r: r["metadata"].get("category") == "programming"),
-        ("$ne",      {"category": {"$ne": "web"}},
-         lambda r: r["metadata"].get("category") != "web"),
-        ("$gt",      {"priority": {"$gt": 5}},
-         lambda r: r["metadata"].get("priority", 0) > 5),
-        ("$gte",     {"priority": {"$gte": 5}},
-         lambda r: r["metadata"].get("priority", 0) >= 5),
-        ("$lt",      {"priority": {"$lt": 5}},
-         lambda r: r["metadata"].get("priority", 0) < 5),
-        ("$lte",     {"priority": {"$lte": 5}},
-         lambda r: r["metadata"].get("priority", 0) <= 5),
-        ("$in",      {"year": {"$in": [2023, 2024]}},
-         lambda r: r["metadata"].get("year") in [2023, 2024]),
-        ("$nin",     {"status": {"$nin": ["archived"]}},
-         lambda r: r["metadata"].get("status") != "archived"),
-        ("$between", {"priority": {"$between": [3, 7]}},
-         lambda r: 3 <= r["metadata"].get("priority", 0) <= 7),
-        ("$exists",  {"category": {"$exists": True}},
-         lambda r: "category" in r["metadata"]),
-        ("$like",    {"author": {"$like": "%Expert%"}},
-         lambda r: "Expert" in r["metadata"].get("author", "")),
-        ("$and",     {"$and": [{"category": "programming"}, {"year": {"$gte": 2022}}]},
-         lambda r: r["metadata"].get("category") == "programming"
-                   and r["metadata"].get("year", 0) >= 2022),
-        ("$or",      {"$or": [{"category": "ai"}, {"category": "database"}]},
-         lambda r: r["metadata"].get("category") in ["ai", "database"]),
-    ])
-    async def test_filter_operator(self, rag_with_data, op_name, filter_dict, validator):
+    @pytest.mark.parametrize(
+        "op_name,filter_dict,validator",
+        [
+            (
+                "$eq",
+                {"category": {"$eq": "programming"}},
+                lambda r: r["metadata"].get("category") == "programming",
+            ),
+            (
+                "$ne",
+                {"category": {"$ne": "web"}},
+                lambda r: r["metadata"].get("category") != "web",
+            ),
+            (
+                "$gt",
+                {"priority": {"$gt": 5}},
+                lambda r: r["metadata"].get("priority", 0) > 5,
+            ),
+            (
+                "$gte",
+                {"priority": {"$gte": 5}},
+                lambda r: r["metadata"].get("priority", 0) >= 5,
+            ),
+            (
+                "$lt",
+                {"priority": {"$lt": 5}},
+                lambda r: r["metadata"].get("priority", 0) < 5,
+            ),
+            (
+                "$lte",
+                {"priority": {"$lte": 5}},
+                lambda r: r["metadata"].get("priority", 0) <= 5,
+            ),
+            (
+                "$in",
+                {"year": {"$in": [2023, 2024]}},
+                lambda r: r["metadata"].get("year") in [2023, 2024],
+            ),
+            (
+                "$nin",
+                {"status": {"$nin": ["archived"]}},
+                lambda r: r["metadata"].get("status") != "archived",
+            ),
+            (
+                "$between",
+                {"priority": {"$between": [3, 7]}},
+                lambda r: 3 <= r["metadata"].get("priority", 0) <= 7,
+            ),
+            (
+                "$exists",
+                {"category": {"$exists": True}},
+                lambda r: "category" in r["metadata"],
+            ),
+            (
+                "$like",
+                {"author": {"$like": "%Expert%"}},
+                lambda r: "Expert" in r["metadata"].get("author", ""),
+            ),
+            (
+                "$and",
+                {"$and": [{"category": "programming"}, {"year": {"$gte": 2022}}]},
+                lambda r: (
+                    r["metadata"].get("category") == "programming"
+                    and r["metadata"].get("year", 0) >= 2022
+                ),
+            ),
+            (
+                "$or",
+                {"$or": [{"category": "ai"}, {"category": "database"}]},
+                lambda r: r["metadata"].get("category") in ["ai", "database"],
+            ),
+        ],
+    )
+    async def test_filter_operator(
+        self, rag_with_data, op_name, filter_dict, validator
+    ):
         res = await rag_with_data.metadata_filter(filter=filter_dict, k=20)
         assert len(res) > 0, f"No results for operator {op_name}"
         for r in res:
@@ -270,8 +326,11 @@ class TestFilterOperators:
 # BM25 Positive-Score Regression
 # ---------------------------------------------------------------------------
 
+
 class TestBM25PositiveScore:
-    async def test_bm25_scores_are_positive(self, db_schema, embeddings, connection_string):
+    async def test_bm25_scores_are_positive(
+        self, db_schema, embeddings, connection_string
+    ):
         """
         BM25 <@> operator returns raw negative numbers; pgVectorDB must negate
         them so callers receive positive scores (higher = more relevant).

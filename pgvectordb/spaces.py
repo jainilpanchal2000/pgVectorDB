@@ -43,7 +43,7 @@ import math
 import time as _time
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 
@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 # ==================== Enums ====================
+
 
 class NumberMode(str, Enum):
     """
@@ -73,9 +74,10 @@ class NumberMode(str, Enum):
         ...     mode=NumberMode.MINIMUM  # Prefer lower prices
         ... )
     """
-    MINIMUM = "minimum"   # Lower is better (e.g., price)
-    MAXIMUM = "maximum"   # Higher is better (e.g., rating)
-    SIMILAR = "similar"   # Closest to query value is best
+
+    MINIMUM = "minimum"  # Lower is better (e.g., price)
+    MAXIMUM = "maximum"  # Higher is better (e.g., rating)
+    SIMILAR = "similar"  # Closest to query value is best
 
 
 class TimeUnit(str, Enum):
@@ -98,6 +100,7 @@ class TimeUnit(str, Enum):
         ...     time_unit=TimeUnit.DAY, period_value=7  # weekly decay
         ... )
     """
+
     SECOND = "second"
     MINUTE = "minute"
     HOUR = "hour"
@@ -117,6 +120,7 @@ class TimeUnit(str, Enum):
 
 
 # ==================== Abstract Base ====================
+
 
 class VectorSpace(ABC):
     """
@@ -247,6 +251,7 @@ class VectorSpace(ABC):
 
 # ==================== TextSpace ====================
 
+
 class TextSpace(VectorSpace):
     """
     Embed text fields using a LangChain embedding model.
@@ -355,7 +360,9 @@ class TextSpace(VectorSpace):
         text = str(value)
         return model.embed_query(text)
 
-    def encode_query(self, value: Any, embedding_model: Optional[Any] = None) -> List[float]:
+    def encode_query(
+        self, value: Any, embedding_model: Optional[Any] = None
+    ) -> List[float]:
         """
         Encode a search query into an embedding vector.
 
@@ -372,6 +379,7 @@ class TextSpace(VectorSpace):
 
 
 # ==================== NumberSpace ====================
+
 
 class NumberSpace(VectorSpace):
     """
@@ -518,6 +526,7 @@ class NumberSpace(VectorSpace):
 
 # ==================== CategorySpace ====================
 
+
 class CategorySpace(VectorSpace):
     """
     Encode categorical fields as one-hot vectors.
@@ -635,6 +644,7 @@ class CategorySpace(VectorSpace):
 
 # ==================== RecencySpace ====================
 
+
 class RecencySpace(VectorSpace):
     """
     Encode timestamps into vectors using exponential time-decay.
@@ -697,13 +707,13 @@ class RecencySpace(VectorSpace):
         """
         super().__init__(name=name, field=field)
         if period_value <= 0:
-            raise ValueError(
-                f"period_value must be > 0, got {period_value}"
-            )
+            raise ValueError(f"period_value must be > 0, got {period_value}")
         if dimensions < 1:
             raise ValueError(f"dimensions must be >= 1, got {dimensions}")
 
-        self.time_unit = TimeUnit(time_unit) if isinstance(time_unit, str) else time_unit
+        self.time_unit = (
+            TimeUnit(time_unit) if isinstance(time_unit, str) else time_unit
+        )
         self.period_value = float(period_value)
         self.tau = self.period_value * self.time_unit.to_seconds()
         self._dimensions = dimensions
@@ -814,6 +824,7 @@ class RecencySpace(VectorSpace):
 
 
 # ==================== Utility Functions ====================
+
 
 def validate_spaces(spaces: List[VectorSpace]) -> None:
     """

@@ -47,12 +47,13 @@ Version: 0.0.3
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 # ==================== Base Class ====================
+
 
 class BaseReranker(ABC):
     """
@@ -106,6 +107,7 @@ class BaseReranker(ABC):
 
 
 # ==================== CrossEncoderReranker ====================
+
 
 class CrossEncoderReranker(BaseReranker):
     """
@@ -207,6 +209,7 @@ class CrossEncoderReranker(BaseReranker):
 
 # ==================== CohereReranker ====================
 
+
 class CohereReranker(BaseReranker):
     """
     Cloud reranker using the Cohere Rerank API.
@@ -247,6 +250,7 @@ class CohereReranker(BaseReranker):
             )
 
         import os
+
         key = api_key or os.environ.get("COHERE_API_KEY")
         if not key:
             raise ValueError(
@@ -307,6 +311,7 @@ class CohereReranker(BaseReranker):
 
 # ==================== AWSBedrockReranker ====================
 
+
 class AWSBedrockReranker(BaseReranker):
     """
     Cloud reranker using AWS Bedrock's rerank endpoint (``amazon.rerank-v1:0``).
@@ -358,6 +363,7 @@ class AWSBedrockReranker(BaseReranker):
             session_kwargs["aws_session_token"] = aws_session_token
 
         import boto3
+
         session = boto3.Session(**session_kwargs) if session_kwargs else boto3.Session()
         self._client = session.client("bedrock-agent-runtime", region_name=region_name)
         logger.info(f"AWSBedrockReranker initialized: {model_id} in {region_name}")
@@ -423,10 +429,13 @@ class AWSBedrockReranker(BaseReranker):
         return results
 
     def __repr__(self) -> str:
-        return f"AWSBedrockReranker(model='{self.model_id}', region='{self.region_name}')"
+        return (
+            f"AWSBedrockReranker(model='{self.model_id}', region='{self.region_name}')"
+        )
 
 
 # ==================== HuggingFaceReranker ====================
+
 
 class HuggingFaceReranker(BaseReranker):
     """
@@ -545,7 +554,7 @@ class HuggingFaceReranker(BaseReranker):
 
         # Process in batches
         for i in range(0, len(all_pairs), self.batch_size):
-            batch = all_pairs[i:i + self.batch_size]
+            batch = all_pairs[i : i + self.batch_size]
             batch_scores = self._score_batch(batch)
             all_scores.extend(batch_scores)
 
@@ -564,6 +573,7 @@ class HuggingFaceReranker(BaseReranker):
 
 
 # ==================== Utility / Factory ====================
+
 
 def create_reranker(
     backend: str,
@@ -607,8 +617,7 @@ def create_reranker(
 
     if cls is None:
         raise ValueError(
-            f"Unknown reranker backend: '{backend}'. "
-            f"Supported: {list(backends.keys())}"
+            f"Unknown reranker backend: '{backend}'. Supported: {list(backends.keys())}"
         )
 
     return cls(**kwargs)

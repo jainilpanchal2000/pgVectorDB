@@ -19,7 +19,6 @@ Run:
 """
 
 import pytest
-import pytest_asyncio
 
 from pgvectordb import pgVectorDB, IndexType, DistanceMetric, StorageLayout
 
@@ -30,6 +29,7 @@ pytestmark = pytest.mark.integration
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_rag(index_type, collection_name, db_schema, embeddings, connection_string):
     return pgVectorDB(
@@ -44,6 +44,7 @@ def _make_rag(index_type, collection_name, db_schema, embeddings, connection_str
 # ---------------------------------------------------------------------------
 # create_metadata_index (GIN)
 # ---------------------------------------------------------------------------
+
 
 class TestMetadataIndex:
     async def test_create_gin_index(self, rag_hnsw, medium_docs):
@@ -62,16 +63,23 @@ class TestMetadataIndex:
 # HNSW index
 # ---------------------------------------------------------------------------
 
+
 class TestHNSWIndex:
     async def test_build_hnsw(self, rag_hnsw, medium_docs):
         docs, _ = medium_docs
         await rag_hnsw.add_documents(docs)
-        await rag_hnsw.build_index(m=16, ef_construction=64, metric=DistanceMetric.COSINE)
+        await rag_hnsw.build_index(
+            m=16, ef_construction=64, metric=DistanceMetric.COSINE
+        )
         stats = await rag_hnsw.get_stats()
         assert stats["index_built"], "HNSW index should be marked as built"
 
-    async def test_build_hnsw_l2(self, db_schema, embeddings, connection_string, small_docs):
-        rag = _make_rag(IndexType.HNSW, "test_hnsw_l2", db_schema, embeddings, connection_string)
+    async def test_build_hnsw_l2(
+        self, db_schema, embeddings, connection_string, small_docs
+    ):
+        rag = _make_rag(
+            IndexType.HNSW, "test_hnsw_l2", db_schema, embeddings, connection_string
+        )
         await rag.initialize(overwrite_existing=True)
         docs, _ = small_docs
         await rag.add_documents(docs)
@@ -105,9 +113,14 @@ class TestHNSWIndex:
 # IVFFlat index
 # ---------------------------------------------------------------------------
 
+
 class TestIVFFlatIndex:
-    async def test_build_ivfflat(self, db_schema, embeddings, connection_string, medium_docs):
-        rag = _make_rag(IndexType.IVFFLAT, "test_ivf_col", db_schema, embeddings, connection_string)
+    async def test_build_ivfflat(
+        self, db_schema, embeddings, connection_string, medium_docs
+    ):
+        rag = _make_rag(
+            IndexType.IVFFLAT, "test_ivf_col", db_schema, embeddings, connection_string
+        )
         await rag.initialize(overwrite_existing=True)
         docs, _ = medium_docs
         await rag.add_documents(docs)
@@ -121,8 +134,11 @@ class TestIVFFlatIndex:
 # DiskANN index
 # ---------------------------------------------------------------------------
 
+
 class TestDiskANNIndex:
-    async def test_build_diskann(self, db_schema, embeddings, connection_string, docs_and_labels):
+    async def test_build_diskann(
+        self, db_schema, embeddings, connection_string, docs_and_labels
+    ):
         """DiskANN requires vectorscale — skipped if absent."""
         from pgvectordb import ExtensionManager
         from sqlalchemy.ext.asyncio import create_async_engine
@@ -135,7 +151,13 @@ class TestDiskANNIndex:
         if not mgr.has_vectorscale:
             pytest.skip("vectorscale not installed — skipping DiskANN test")
 
-        rag = _make_rag(IndexType.DISKANN, "test_diskann_col", db_schema, embeddings, connection_string)
+        rag = _make_rag(
+            IndexType.DISKANN,
+            "test_diskann_col",
+            db_schema,
+            embeddings,
+            connection_string,
+        )
         await rag.initialize(overwrite_existing=True)
         docs, labels = docs_and_labels
         await rag.add_documents(docs, labels=labels)
@@ -165,8 +187,11 @@ class TestDiskANNIndex:
 # BM25 index
 # ---------------------------------------------------------------------------
 
+
 class TestBM25Index:
-    async def test_build_bm25(self, db_schema, embeddings, connection_string, small_docs):
+    async def test_build_bm25(
+        self, db_schema, embeddings, connection_string, small_docs
+    ):
         from pgvectordb import ExtensionManager
         from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -178,7 +203,9 @@ class TestBM25Index:
         if not mgr.has_pg_textsearch:
             pytest.skip("pg_textsearch not installed — skipping BM25 index test")
 
-        rag = _make_rag(IndexType.HNSW, "test_bm25_idx", db_schema, embeddings, connection_string)
+        rag = _make_rag(
+            IndexType.HNSW, "test_bm25_idx", db_schema, embeddings, connection_string
+        )
         await rag.initialize(overwrite_existing=True)
         docs, _ = small_docs
         await rag.add_documents(docs)
@@ -189,6 +216,7 @@ class TestBM25Index:
 # ---------------------------------------------------------------------------
 # Query parameter tuning
 # ---------------------------------------------------------------------------
+
 
 class TestQueryParams:
     async def test_set_ef_search(self, rag_hnsw, small_docs):
@@ -229,9 +257,18 @@ class TestQueryParams:
 # build_index_concurrent
 # ---------------------------------------------------------------------------
 
+
 class TestConcurrentIndex:
-    async def test_build_concurrent(self, db_schema, embeddings, connection_string, small_docs):
-        rag = _make_rag(IndexType.HNSW, "test_concurrent_idx", db_schema, embeddings, connection_string)
+    async def test_build_concurrent(
+        self, db_schema, embeddings, connection_string, small_docs
+    ):
+        rag = _make_rag(
+            IndexType.HNSW,
+            "test_concurrent_idx",
+            db_schema,
+            embeddings,
+            connection_string,
+        )
         await rag.initialize(overwrite_existing=True)
         docs, _ = small_docs
         await rag.add_documents(docs)

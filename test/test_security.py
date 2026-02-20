@@ -12,7 +12,6 @@ Run:
 """
 
 import pytest
-import pytest_asyncio
 
 from pgvectordb import (
     pgVectorDB,
@@ -31,7 +30,9 @@ pytestmark = pytest.mark.unit
 CONNECTION_STRING = "postgresql+asyncpg://user:root@localhost:9002/postgres"
 
 
-def _make_rag(collection_name: str = "sec_test", schema_name: str = "test", embeddings=None):
+def _make_rag(
+    collection_name: str = "sec_test", schema_name: str = "test", embeddings=None
+):
     """Helper: build a pgVectorDB instance without calling initialize()."""
     return pgVectorDB(
         collection_name=collection_name,
@@ -45,6 +46,7 @@ def _make_rag(collection_name: str = "sec_test", schema_name: str = "test", embe
 # ---------------------------------------------------------------------------
 # SQL injection / bad identifier rejection (constructor-time)
 # ---------------------------------------------------------------------------
+
 
 class TestIdentifierValidation:
     def test_semicolon_in_collection_name(self):
@@ -85,6 +87,7 @@ class TestIdentifierValidation:
 # Input validation (requires DB — but checked as integration guard)
 # ---------------------------------------------------------------------------
 
+
 class TestInputValidation:
     """
     These tests verify ValidationError is raised BEFORE hitting the DB.
@@ -117,7 +120,9 @@ class TestInputValidation:
             await rag_hnsw.semantic_search("test", k=-1)
 
     @pytest.mark.integration
-    async def test_invalid_hybrid_weights_raises_validation_error(self, rag_hnsw, medium_docs, embeddings):
+    async def test_invalid_hybrid_weights_raises_validation_error(
+        self, rag_hnsw, medium_docs, embeddings
+    ):
         """hybrid_search weights that don't sum to 1.0 must raise ValidationError."""
         docs, _ = medium_docs
         await rag_hnsw.add_documents(docs)
@@ -136,6 +141,7 @@ class TestInputValidation:
 # InitializationError guard
 # ---------------------------------------------------------------------------
 
+
 class TestInitializationGuard:
     @pytest.mark.integration
     async def test_search_before_initialize_raises(self, embeddings, connection_string):
@@ -151,9 +157,12 @@ class TestInitializationGuard:
             await rag.semantic_search("test", k=5)
 
     @pytest.mark.integration
-    async def test_add_documents_before_initialize_raises(self, embeddings, connection_string):
+    async def test_add_documents_before_initialize_raises(
+        self, embeddings, connection_string
+    ):
         """Calling add_documents before initialize() must raise InitializationError."""
         from langchain_core.documents import Document
+
         rag = pgVectorDB(
             collection_name="sec_uninit_docs",
             embedding_model=embeddings,

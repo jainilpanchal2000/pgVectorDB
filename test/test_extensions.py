@@ -22,6 +22,7 @@ pytestmark = pytest.mark.integration
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def ext_manager(connection_string):
     engine = create_async_engine(connection_string, pool_pre_ping=True)
@@ -40,6 +41,7 @@ async def checked_manager(ext_manager):
 # ---------------------------------------------------------------------------
 # check_extensions()
 # ---------------------------------------------------------------------------
+
 
 class TestCheckExtensions:
     async def test_returns_dict(self, ext_manager):
@@ -67,6 +69,7 @@ class TestCheckExtensions:
 # ---------------------------------------------------------------------------
 # has_* properties
 # ---------------------------------------------------------------------------
+
 
 class TestHasProperties:
     async def test_has_pgvector_is_bool(self, checked_manager):
@@ -98,6 +101,7 @@ class TestHasProperties:
 # get_feature_availability()
 # ---------------------------------------------------------------------------
 
+
 class TestFeatureAvailability:
     async def test_returns_dict(self, checked_manager):
         features = checked_manager.get_feature_availability()
@@ -122,7 +126,9 @@ class TestFeatureAvailability:
     async def test_feature_values_format(self, checked_manager):
         features = checked_manager.get_feature_availability()
         for key, val in features.items():
-            assert isinstance(val, dict), f"Feature '{key}' should be dict, got {type(val)}"
+            assert isinstance(val, dict), (
+                f"Feature '{key}' should be dict, got {type(val)}"
+            )
             assert "available" in val
             assert "requires" in val
             assert "version" in val
@@ -132,6 +138,7 @@ class TestFeatureAvailability:
 # ---------------------------------------------------------------------------
 # require_*() methods
 # ---------------------------------------------------------------------------
+
 
 class TestRequireMethods:
     async def test_require_vectorscale_raises_when_absent(self, checked_manager):

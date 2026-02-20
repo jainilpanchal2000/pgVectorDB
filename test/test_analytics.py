@@ -30,6 +30,7 @@ pytestmark = pytest.mark.integration
 # Fixture: collection with data + index built
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def rag_ready(db_schema, embeddings, connection_string, medium_docs):
     """HNSW collection with 50 docs + index built."""
@@ -51,6 +52,7 @@ async def rag_ready(db_schema, embeddings, connection_string, medium_docs):
 # ---------------------------------------------------------------------------
 # get_stats()
 # ---------------------------------------------------------------------------
+
 
 class TestGetStats:
     async def test_returns_dict(self, rag_ready):
@@ -86,6 +88,7 @@ class TestGetStats:
 # get_index_stats()
 # ---------------------------------------------------------------------------
 
+
 class TestGetIndexStats:
     async def test_returns_dict(self, rag_ready):
         stats = await rag_ready.get_index_stats()
@@ -103,6 +106,7 @@ class TestGetIndexStats:
 # ---------------------------------------------------------------------------
 # validate_collection()
 # ---------------------------------------------------------------------------
+
 
 class TestValidateCollection:
     async def test_returns_dict(self, rag_ready):
@@ -127,6 +131,7 @@ class TestValidateCollection:
 # explain_query()
 # ---------------------------------------------------------------------------
 
+
 class TestExplainQuery:
     async def test_returns_non_empty(self, rag_ready):
         plan = await rag_ready.explain_query("test", "semantic_search", k=5)
@@ -141,6 +146,7 @@ class TestExplainQuery:
 # ---------------------------------------------------------------------------
 # benchmark_search_methods()
 # ---------------------------------------------------------------------------
+
 
 class TestBenchmarkSearchMethods:
     async def test_returns_dict(self, rag_ready):
@@ -160,6 +166,7 @@ class TestBenchmarkSearchMethods:
 # compute_recall()
 # ---------------------------------------------------------------------------
 
+
 class TestComputeRecall:
     async def test_returns_dict(self, rag_ready):
         result = await rag_ready.compute_recall(["python", "database"], k=5)
@@ -178,6 +185,7 @@ class TestComputeRecall:
 # set_iterative_scan()
 # ---------------------------------------------------------------------------
 
+
 class TestSetIterativeScan:
     async def test_relaxed_order(self, rag_ready):
         rag_ready.set_iterative_scan(
@@ -195,6 +203,7 @@ class TestSetIterativeScan:
 # ---------------------------------------------------------------------------
 # Label definitions
 # ---------------------------------------------------------------------------
+
 
 class TestLabelDefinitions:
     async def test_create_label_definitions(self, rag_ready):
@@ -224,6 +233,7 @@ class TestLabelDefinitions:
 # set_maintenance_work_mem()
 # ---------------------------------------------------------------------------
 
+
 class TestMaintenanceWorkMem:
     async def test_set_512mb(self, rag_ready):
         await rag_ready.set_maintenance_work_mem("512MB")
@@ -236,8 +246,11 @@ class TestMaintenanceWorkMem:
 # BM25 index stats (conditional)
 # ---------------------------------------------------------------------------
 
+
 class TestBM25IndexStats:
-    async def test_bm25_stats_if_available(self, db_schema, embeddings, connection_string, small_docs):
+    async def test_bm25_stats_if_available(
+        self, db_schema, embeddings, connection_string, small_docs
+    ):
         from pgvectordb import ExtensionManager
         from sqlalchemy.ext.asyncio import create_async_engine
 

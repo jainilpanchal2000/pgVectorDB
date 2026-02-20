@@ -27,6 +27,7 @@ pytestmark = pytest.mark.integration
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def rag_with_docs(db_schema, embeddings, connection_string, small_docs):
     """HNSW collection with 20 docs, no index needed for storage tests."""
@@ -47,6 +48,7 @@ async def rag_with_docs(db_schema, embeddings, connection_string, small_docs):
 # ---------------------------------------------------------------------------
 # export_to_json
 # ---------------------------------------------------------------------------
+
 
 class TestExportToJson:
     async def test_creates_file(self, rag_with_docs):
@@ -102,6 +104,7 @@ class TestExportToJson:
 # import_from_json
 # ---------------------------------------------------------------------------
 
+
 class TestImportFromJson:
     async def test_import_skip_existing(self, rag_with_docs):
         """Import the same exported docs with skip_existing=True — no duplicates."""
@@ -115,11 +118,15 @@ class TestImportFromJson:
             await rag_with_docs.import_from_json(path, batch_size=5, skip_existing=True)
 
             after = await rag_with_docs.count_by_metadata(None)
-            assert after == before, "Document count should not change with skip_existing=True"
+            assert after == before, (
+                "Document count should not change with skip_existing=True"
+            )
         finally:
             Path(path).unlink(missing_ok=True)
 
-    async def test_import_returns_count(self, db_schema, embeddings, connection_string, rag_with_docs):
+    async def test_import_returns_count(
+        self, db_schema, embeddings, connection_string, rag_with_docs
+    ):
         """Import into a fresh collection — count should equal exported docs."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             path = f.name
@@ -134,7 +141,9 @@ class TestImportFromJson:
                 index_type=IndexType.HNSW,
             )
             await fresh.initialize(overwrite_existing=True)
-            count = await fresh.import_from_json(path, batch_size=5, skip_existing=False)
+            count = await fresh.import_from_json(
+                path, batch_size=5, skip_existing=False
+            )
             assert count > 0
             await fresh.close()
         finally:
@@ -145,10 +154,13 @@ class TestImportFromJson:
 # create_halfvec_table
 # ---------------------------------------------------------------------------
 
+
 def _skip_on_halfvec_error(e: Exception):
     """Skip the test if the error is related to halfvec type incompatibility."""
     error_str = str(e).lower()
-    if any(kw in error_str for kw in ["halfvec", "type", "column", "cast", "dimension"]):
+    if any(
+        kw in error_str for kw in ["halfvec", "type", "column", "cast", "dimension"]
+    ):
         pytest.skip(f"halfvec type not supported with current vector dimensions: {e}")
     raise e
 
@@ -182,6 +194,7 @@ class TestHalfvecTable:
 # ---------------------------------------------------------------------------
 # create_sparsevec_table
 # ---------------------------------------------------------------------------
+
 
 class TestSparsevecTable:
     async def test_creates_table(self, rag_with_docs):

@@ -23,6 +23,7 @@ pytestmark = pytest.mark.integration
 # Additional fixtures for this module
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def rag(db_schema, embeddings, connection_string):
     """Fresh HNSW collection, overwritten per test."""
@@ -41,6 +42,7 @@ async def rag(db_schema, embeddings, connection_string):
 # ---------------------------------------------------------------------------
 # add_documents
 # ---------------------------------------------------------------------------
+
 
 class TestAddDocuments:
     async def test_returns_correct_count(self, rag, small_docs):
@@ -70,6 +72,7 @@ class TestAddDocuments:
 # add_documents_batch
 # ---------------------------------------------------------------------------
 
+
 class TestAddDocumentsBatch:
     async def test_batch_returns_correct_count(self, rag, medium_docs):
         docs, _ = medium_docs
@@ -84,13 +87,16 @@ class TestAddDocumentsBatch:
 
     async def test_batch_with_labels(self, rag, medium_docs):
         docs, labels = medium_docs
-        ids = await rag.add_documents_batch(docs, batch_size=10, labels=labels, show_progress=False)
+        ids = await rag.add_documents_batch(
+            docs, batch_size=10, labels=labels, show_progress=False
+        )
         assert len(ids) == len(docs)
 
 
 # ---------------------------------------------------------------------------
 # add_documents_batch_isolated (AGNO pattern)
 # ---------------------------------------------------------------------------
+
 
 class TestAddDocumentsBatchIsolated:
     async def test_isolated_batch_succeeds(self, rag, small_docs):
@@ -108,7 +114,7 @@ class TestAddDocumentsBatchIsolated:
         """continue_on_error=True should not raise even if a batch fails."""
         docs, _ = small_docs
         # Normal data — should succeed for all batches
-        result = await rag.add_documents_batch_isolated(
+        _result = await rag.add_documents_batch_isolated(
             docs, batch_size=5, show_progress=False, continue_on_error=True
         )
         count = await rag.count_by_metadata(None)
@@ -119,6 +125,7 @@ class TestAddDocumentsBatchIsolated:
 # aupdate_documents
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateDocuments:
     async def test_update_metadata_only(self, rag, small_docs):
         docs, _ = small_docs
@@ -128,7 +135,9 @@ class TestUpdateDocuments:
             page_content=docs[0].page_content,
             metadata={"langchain_id": ids[0], "updated": True, "status": "reviewed"},
         )
-        updated_ids = await rag.aupdate_documents([updated_doc], update_embeddings=False)
+        updated_ids = await rag.aupdate_documents(
+            [updated_doc], update_embeddings=False
+        )
         assert len(updated_ids) == 1
 
     async def test_update_with_re_embedding(self, rag, small_docs):
@@ -141,7 +150,9 @@ class TestUpdateDocuments:
         )
         # update_embeddings=True requires embedding the new content — should work
         try:
-            updated_ids = await rag.aupdate_documents([updated_doc], update_embeddings=True)
+            updated_ids = await rag.aupdate_documents(
+                [updated_doc], update_embeddings=True
+            )
             assert len(updated_ids) == 1
         except Exception as e:
             # Some implementations may not support full re-embedding in update
@@ -151,6 +162,7 @@ class TestUpdateDocuments:
 # ---------------------------------------------------------------------------
 # adelete
 # ---------------------------------------------------------------------------
+
 
 class TestDeleteDocuments:
     async def test_delete_returns_count(self, rag, small_docs):
@@ -178,17 +190,22 @@ class TestDeleteDocuments:
 # update_metadata
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateMetadata:
     async def test_bulk_update_count(self, rag, small_docs):
         docs, _ = small_docs
         ids = await rag.add_documents(docs)
-        updated = await rag.update_metadata(ids=ids[:10], metadata_updates={"tagged": True})
+        updated = await rag.update_metadata(
+            ids=ids[:10], metadata_updates={"tagged": True}
+        )
         assert updated == 10
 
     async def test_bulk_update_persists(self, rag, small_docs):
         docs, _ = small_docs
         ids = await rag.add_documents(docs)
-        await rag.update_metadata(ids=ids[:5], metadata_updates={"batch_label": "test_run"})
+        await rag.update_metadata(
+            ids=ids[:5], metadata_updates={"batch_label": "test_run"}
+        )
         retrieved = await rag.aget_by_ids(ids[:5])
         for doc in retrieved:
             assert doc["metadata"].get("batch_label") == "test_run"
@@ -197,6 +214,7 @@ class TestUpdateMetadata:
 # ---------------------------------------------------------------------------
 # aget_by_ids
 # ---------------------------------------------------------------------------
+
 
 class TestGetByIds:
     async def test_retrieves_correct_docs(self, rag, small_docs):
@@ -207,6 +225,7 @@ class TestGetByIds:
 
     async def test_unknown_ids_ignored(self, rag, small_docs):
         import uuid
+
         docs, _ = small_docs
         await rag.add_documents(docs)
         retrieved = await rag.aget_by_ids([str(uuid.uuid4()), str(uuid.uuid4())])
@@ -220,6 +239,7 @@ class TestGetByIds:
 # ---------------------------------------------------------------------------
 # count_by_metadata
 # ---------------------------------------------------------------------------
+
 
 class TestCountByMetadata:
     async def test_count_all(self, rag, medium_docs):

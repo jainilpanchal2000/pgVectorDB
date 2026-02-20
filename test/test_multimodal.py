@@ -20,7 +20,13 @@ import datetime
 from langchain_core.documents import Document
 
 from pgvectordb import pgVectorDB, IndexType
-from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace, RecencySpace, TimeUnit
+from pgvectordb.spaces import (
+    TextSpace,
+    NumberSpace,
+    CategorySpace,
+    RecencySpace,
+    TimeUnit,
+)
 
 
 pytestmark = pytest.mark.integration
@@ -30,28 +36,32 @@ pytestmark = pytest.mark.integration
 # Test documents with structured fields for multimodal
 # ---------------------------------------------------------------------------
 
+
 def make_multimodal_docs(n: int = 20) -> list[Document]:
     categories = ["tech", "science", "art", "sports"]
     docs = []
     for i in range(n):
-        docs.append(Document(
-            page_content=f"Document {i} about {categories[i % len(categories)]} topics",
-            metadata={
-                "title": f"Doc {i}",
-                "category": categories[i % len(categories)],
-                "year": 2020 + (i % 5),
-                "priority": float((i % 10) + 1),
-                "created_at": (
-                    datetime.datetime(2024, 1, 1) + datetime.timedelta(days=i)
-                ).isoformat(),
-            },
-        ))
+        docs.append(
+            Document(
+                page_content=f"Document {i} about {categories[i % len(categories)]} topics",
+                metadata={
+                    "title": f"Doc {i}",
+                    "category": categories[i % len(categories)],
+                    "year": 2020 + (i % 5),
+                    "priority": float((i % 10) + 1),
+                    "created_at": (
+                        datetime.datetime(2024, 1, 1) + datetime.timedelta(days=i)
+                    ).isoformat(),
+                },
+            )
+        )
     return docs
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture
 async def rag_mm(db_schema, embeddings, connection_string):
@@ -74,13 +84,18 @@ def spaces(embeddings):
     return [
         TextSpace(name="text", field="page_content", model=embeddings),
         NumberSpace(name="priority", field="priority"),
-        CategorySpace(name="category", field="category", categories=["tech", "science", "art", "sports"]),
+        CategorySpace(
+            name="category",
+            field="category",
+            categories=["tech", "science", "art", "sports"],
+        ),
     ]
 
 
 # ---------------------------------------------------------------------------
 # register_spaces
 # ---------------------------------------------------------------------------
+
 
 class TestRegisterSpaces:
     async def test_register_text_space(self, rag_mm, embeddings):
@@ -95,11 +110,15 @@ class TestRegisterSpaces:
         rag_mm.register_spaces(spaces)
 
     async def test_register_category_space(self, rag_mm):
-        spaces = [CategorySpace(name="cat", field="category", categories=["a", "b", "c"])]
+        spaces = [
+            CategorySpace(name="cat", field="category", categories=["a", "b", "c"])
+        ]
         rag_mm.register_spaces(spaces)
 
     async def test_register_recency_space(self, rag_mm):
-        spaces = [RecencySpace(name="recency", field="created_at", time_unit=TimeUnit.DAY)]
+        spaces = [
+            RecencySpace(name="recency", field="created_at", time_unit=TimeUnit.DAY)
+        ]
         rag_mm.register_spaces(spaces)
 
 
@@ -107,11 +126,14 @@ class TestRegisterSpaces:
 # add_documents_multimodal
 # ---------------------------------------------------------------------------
 
+
 class TestAddDocumentsMultimodal:
     async def test_adds_docs(self, rag_mm, spaces):
         rag_mm.register_spaces(spaces)
         docs = make_multimodal_docs(10)
-        ids = await rag_mm.add_documents_multimodal(docs, batch_size=5, show_progress=False)
+        ids = await rag_mm.add_documents_multimodal(
+            docs, batch_size=5, show_progress=False
+        )
         assert len(ids) == 10
 
     async def test_count_persisted(self, rag_mm, spaces):
@@ -126,6 +148,7 @@ class TestAddDocumentsMultimodal:
 # build_multimodal_index
 # ---------------------------------------------------------------------------
 
+
 class TestBuildMultimodalIndex:
     async def test_builds_indexes(self, rag_mm, spaces):
         rag_mm.register_spaces(spaces)
@@ -137,6 +160,7 @@ class TestBuildMultimodalIndex:
 # ---------------------------------------------------------------------------
 # multimodal_search
 # ---------------------------------------------------------------------------
+
 
 class TestMultimodalSearch:
     @pytest_asyncio.fixture
@@ -176,6 +200,7 @@ class TestMultimodalSearch:
 # get_multimodal_index_stats
 # ---------------------------------------------------------------------------
 
+
 class TestGetMultimodalIndexStats:
     async def test_returns_dict(self, rag_mm, spaces):
         rag_mm.register_spaces(spaces)
@@ -189,6 +214,7 @@ class TestGetMultimodalIndexStats:
 # ---------------------------------------------------------------------------
 # rerank_search (skipped if sentence-transformers not installed)
 # ---------------------------------------------------------------------------
+
 
 class TestRerankSearch:
     async def test_rerank_with_cross_encoder(self, rag_mm, embeddings, spaces):

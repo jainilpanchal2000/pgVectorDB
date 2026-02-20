@@ -20,7 +20,6 @@ from ..base import (
     DistanceMetric,
     ValidationError,
     DatabaseError,
-    InitializationError,
     QueryResult,
 )
 from ..schema import build_qualified_name, quote_identifier, get_distance_operator
@@ -65,7 +64,9 @@ class MultimodalMixin:
         try:
             from ..spaces import validate_spaces, TextSpace
         except ImportError:
-            raise ImportError("src.spaces module not found. Ensure spaces.py is present.")
+            raise ImportError(
+                "src.spaces module not found. Ensure spaces.py is present."
+            )
 
         validate_spaces(spaces)
 
@@ -87,7 +88,7 @@ class MultimodalMixin:
         For each registered space, adds an ``embedding_{space.name}`` column
         if it doesn't already exist.
         """
-        if not hasattr(self, '_spaces') or not self._spaces:
+        if not hasattr(self, "_spaces") or not self._spaces:
             return
 
         qualified_table = build_qualified_name(self.schema_name, self.table_name)
@@ -98,23 +99,28 @@ class MultimodalMixin:
                 dims = space.dimensions
 
                 # Check if column exists
-                check_result = await conn.execute(text("""
+                check_result = await conn.execute(
+                    text("""
                     SELECT 1 FROM information_schema.columns
                     WHERE table_schema = :schema
                     AND table_name = :table
                     AND column_name = :col
-                """), {
-                    "schema": self.schema_name,
-                    "table": self.table_name,
-                    "col": f"embedding_{space.name}"
-                })
+                """),
+                    {
+                        "schema": self.schema_name,
+                        "table": self.table_name,
+                        "col": f"embedding_{space.name}",
+                    },
+                )
 
                 if check_result.fetchone() is None:
                     # Add vector column
-                    await conn.execute(text(
-                        f"ALTER TABLE {qualified_table} "
-                        f"ADD COLUMN {col_name} vector({dims})"
-                    ))
+                    await conn.execute(
+                        text(
+                            f"ALTER TABLE {qualified_table} "
+                            f"ADD COLUMN {col_name} vector({dims})"
+                        )
+                    )
                     logger.info(
                         f"Added column embedding_{space.name} "
                         f"(vector({dims})) to {self.table_name}"
@@ -163,15 +169,13 @@ class MultimodalMixin:
         """
         self._ensure_initialized()
 
-        if not hasattr(self, '_spaces') or not self._spaces:
-            raise ValidationError(
-                "No spaces registered. Call register_spaces() first."
-            )
+        if not hasattr(self, "_spaces") or not self._spaces:
+            raise ValidationError("No spaces registered. Call register_spaces() first.")
         if not documents:
             raise ValidationError("documents list cannot be empty")
 
         try:
-            from ..spaces import encode_document_spaces, TextSpace
+            from ..spaces import encode_document_spaces
         except ImportError:
             raise ImportError("src.spaces module required")
 
@@ -183,7 +187,7 @@ class MultimodalMixin:
         total = len(documents)
 
         for batch_start in range(0, total, batch_size):
-            batch_docs = documents[batch_start:batch_start + batch_size]
+            batch_docs = documents[batch_start : batch_start + batch_size]
 
             # Also compute standard embedding for backward compatibility
             texts = [doc.page_content for doc in batch_docs]
@@ -201,11 +205,16 @@ class MultimodalMixin:
 
                 # Build dynamic SQL for multi-column insert
                 col_names = [
-                    "langchain_id", "content", "langchain_metadata", "embedding"
+                    "langchain_id",
+                    "content",
+                    "langchain_metadata",
+                    "embedding",
                 ]
                 param_names = [
-                    ":langchain_id", ":content",
-                    "CAST(:langchain_metadata AS jsonb)", ":embedding"
+                    ":langchain_id",
+                    ":content",
+                    "CAST(:langchain_metadata AS jsonb)",
+                    ":embedding",
                 ]
                 params = {
                     "langchain_id": doc_id,
@@ -238,15 +247,14 @@ class MultimodalMixin:
                             VALUES ({val_str})
                             ON CONFLICT (langchain_id) DO UPDATE SET {upd_str}
                         """),
-                        params
+                        params,
                     )
                     await conn.commit()
 
             if show_progress:
                 done = min(batch_start + batch_size, total)
                 logger.info(
-                    f"Multimodal insert: {done}/{total} "
-                    f"({done/total*100:.0f}%)"
+                    f"Multimodal insert: {done}/{total} ({done / total * 100:.0f}%)"
                 )
 
         logger.info(
@@ -292,10 +300,8 @@ class MultimodalMixin:
         """
         self._ensure_initialized()
 
-        if not hasattr(self, '_spaces') or not self._spaces:
-            raise ValidationError(
-                "No spaces registered. Call register_spaces() first."
-            )
+        if not hasattr(self, "_spaces") or not self._spaces:
+            raise ValidationError("No spaces registered. Call register_spaces() first.")
 
         idx_type = index_type or self.index_type
         qualified_table = build_qualified_name(self.schema_name, self.table_name)
@@ -315,30 +321,36 @@ class MultimodalMixin:
                     index_name = f"idx_{self.table_name}_{space.index_name_suffix}"
 
                     # Drop existing
-                    await conn.execute(text(
-                        f"DROP INDEX IF EXISTS "
-                        f"{build_qualified_name(self.schema_name, index_name)}"
-                    ))
+                    await conn.execute(
+                        text(
+                            f"DROP INDEX IF EXISTS "
+                            f"{build_qualified_name(self.schema_name, index_name)}"
+                        )
+                    )
 
                     if idx_type == IndexType.HNSW:
-                        await conn.execute(text(f"""
+                        await conn.execute(
+                            text(f"""
                             CREATE INDEX "{index_name}"
                             ON {qualified_table}
                             USING hnsw ({quote_identifier(col_name)} {ops_class})
                             WITH (m = {m}, ef_construction = {ef_construction})
-                        """))
+                        """)
+                        )
                     elif idx_type == IndexType.IVFFLAT:
                         result = await conn.execute(
                             text(f"SELECT COUNT(*) FROM {qualified_table}")
                         )
                         row_count = result.scalar() or 1000
-                        lists = max(int(row_count ** 0.5), 1)
-                        await conn.execute(text(f"""
+                        lists = max(int(row_count**0.5), 1)
+                        await conn.execute(
+                            text(f"""
                             CREATE INDEX "{index_name}"
                             ON {qualified_table}
                             USING ivfflat ({quote_identifier(col_name)} {ops_class})
                             WITH (lists = {lists})
-                        """))
+                        """)
+                        )
 
                     created[space.name] = index_name
                     logger.info(
@@ -408,10 +420,8 @@ class MultimodalMixin:
         """
         self._ensure_initialized()
 
-        if not hasattr(self, '_spaces') or not self._spaces:
-            raise ValidationError(
-                "No spaces registered. Call register_spaces() first."
-            )
+        if not hasattr(self, "_spaces") or not self._spaces:
+            raise ValidationError("No spaces registered. Call register_spaces() first.")
         if not query_params:
             raise ValidationError("query_params cannot be empty")
 
@@ -436,7 +446,9 @@ class MultimodalMixin:
             weights = {s.name: 1.0 for s in self._spaces if s.name in query_params}
 
         # Normalize weights to sum to 1.0
-        total_weight = sum(weights.get(s.name, 0.0) for s in self._spaces if s.name in query_params)
+        total_weight = sum(
+            weights.get(s.name, 0.0) for s in self._spaces if s.name in query_params
+        )
         if total_weight == 0:
             total_weight = 1.0
 
@@ -489,7 +501,7 @@ class MultimodalMixin:
             # Convert distance to similarity score (1 - distance for cosine)
             results = []
             for row in rows:
-                dist = float(row[3]) if row[3] is not None else float('inf')
+                dist = float(row[3]) if row[3] is not None else float("inf")
                 # For cosine distance, score = 1 - distance
                 # For L2, score = 1 / (1 + distance)
                 if metric == DistanceMetric.COSINE:
@@ -501,12 +513,14 @@ class MultimodalMixin:
                 else:
                     score = 1.0 - dist
 
-                results.append(QueryResult(
-                    id=str(row[0]),
-                    content=row[1],
-                    metadata=row[2] or {},
-                    score=score,
-                ))
+                results.append(
+                    QueryResult(
+                        id=str(row[0]),
+                        content=row[1],
+                        metadata=row[2] or {},
+                        score=score,
+                    )
+                )
 
             return results[:k]
 
@@ -569,6 +583,7 @@ class MultimodalMixin:
         for space in self._spaces:
             if space.name in query_params:
                 from ..spaces import TextSpace
+
                 if isinstance(space, TextSpace):
                     text_query = str(query_params[space.name])
                     break
@@ -613,7 +628,7 @@ class MultimodalMixin:
         """
         self._ensure_initialized()
 
-        if not hasattr(self, '_spaces') or not self._spaces:
+        if not hasattr(self, "_spaces") or not self._spaces:
             return {}
 
         stats = {}
@@ -622,14 +637,17 @@ class MultimodalMixin:
                 for space in self._spaces:
                     index_name = f"idx_{self.table_name}_{space.index_name_suffix}"
 
-                    result = await conn.execute(text("""
+                    result = await conn.execute(
+                        text("""
                         SELECT indexname, pg_size_pretty(pg_relation_size(indexrelid))
                         FROM pg_stat_user_indexes
                         WHERE schemaname = :schema AND indexrelname = :idx_name
-                    """), {
-                        "schema": self.schema_name,
-                        "idx_name": index_name,
-                    })
+                    """),
+                        {
+                            "schema": self.schema_name,
+                            "idx_name": index_name,
+                        },
+                    )
 
                     row = result.fetchone()
                     stats[space.name] = {
@@ -735,10 +753,9 @@ class MultimodalMixin:
 
         elif method in ("keyword", "bm25", "fts"):
             from ..base import KeywordSearchType
+
             search_type = (
-                KeywordSearchType.BM25
-                if method == "bm25"
-                else KeywordSearchType.FTS
+                KeywordSearchType.BM25 if method == "bm25" else KeywordSearchType.FTS
             )
             candidates = await self.keyword_search(
                 query, k=k, search_type=search_type, **search_kwargs
@@ -798,17 +815,17 @@ class MultimodalMixin:
         # Convert back to QueryResult
         results = []
         for r in reranked:
-            results.append(QueryResult(
-                id=r.get("id", ""),
-                content=r.get("content", ""),
-                metadata=r.get("metadata", {}),
-                score=r.get("rerank_score", r.get("score", 0.0)),
-            ))
+            results.append(
+                QueryResult(
+                    id=r.get("id", ""),
+                    content=r.get("content", ""),
+                    metadata=r.get("metadata", {}),
+                    score=r.get("rerank_score", r.get("score", 0.0)),
+                )
+            )
 
         logger.info(
             f"rerank_search: ✓ returned {len(results)} results "
             f"(from {len(candidates)} candidates)"
         )
         return results
-
-

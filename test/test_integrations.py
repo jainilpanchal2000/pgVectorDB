@@ -25,6 +25,7 @@ pytestmark = pytest.mark.integration
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def rag_with_index(db_schema, embeddings, connection_string, medium_docs):
     """HNSW collection with 50 docs + index built — ready for retriever tests."""
@@ -46,6 +47,7 @@ async def rag_with_index(db_schema, embeddings, connection_string, medium_docs):
 # ---------------------------------------------------------------------------
 # as_retriever()
 # ---------------------------------------------------------------------------
+
 
 class TestAsRetriever:
     def test_returns_retriever_object(self, rag_hnsw):
@@ -81,6 +83,7 @@ class TestAsRetriever:
 # retriever.ainvoke()
 # ---------------------------------------------------------------------------
 
+
 class TestRetrieverInvoke:
     async def _safe_invoke(self, retriever, query: str):
         """Invoke retriever, skip on known asyncpg SET LOCAL binding issue."""
@@ -89,7 +92,9 @@ class TestRetrieverInvoke:
         except Exception as e:
             err = str(e).lower()
             if "set local" in err or "syntax error" in err or "$1" in err:
-                pytest.skip(f"Skipped: asyncpg SET LOCAL parameter binding limitation: {e}")
+                pytest.skip(
+                    f"Skipped: asyncpg SET LOCAL parameter binding limitation: {e}"
+                )
             raise
 
     async def test_ainvoke_returns_list(self, rag_with_index):
@@ -142,6 +147,7 @@ class TestRetrieverInvoke:
 # Sync _get_relevant_documents raises NotImplementedError
 # ---------------------------------------------------------------------------
 
+
 class TestSyncNotImplemented:
     def test_sync_raises_not_implemented(self, rag_hnsw):
         retriever = rag_hnsw.as_retriever()
@@ -152,6 +158,7 @@ class TestSyncNotImplemented:
 # ---------------------------------------------------------------------------
 # Invalid search method
 # ---------------------------------------------------------------------------
+
 
 class TestInvalidSearchMethod:
     async def test_invalid_method_raises(self, rag_with_index):
