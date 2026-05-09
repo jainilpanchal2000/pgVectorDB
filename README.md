@@ -2,7 +2,7 @@
 
 Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL with pgvector. Features advanced vector search, comprehensive evaluation metrics, and optimization tools.
 
-**Version:** 0.0.5
+**Version:** 0.0.5.post1
 **Status:** Production-Ready (Security & Robustness Hardened)
 
 📖 **[Full Configuration Guide](docs/CONFIGURATION.md)** | 🛠️ **[Refactoring Summary](docs/REFACTORING_SUMMARY.md)**

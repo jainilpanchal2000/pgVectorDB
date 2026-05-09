@@ -68,7 +68,7 @@ See the `examples/` folder for full working notebooks:
 
 ## Status
 
-- **Version:** `0.0.5`
+- **Version:** `0.0.5.post1`
 - **Status:** Production-Ready
 
 !!! bug "Report Issues"
