@@ -76,45 +76,47 @@ class pgVectorDB(
     """
     Production-ready RAG system with multi-index support.
 
-    **Index Types:**
-    - HNSW: Fast queries, high recall, in-memory (best for <1M vectors)
-    - IVFFlat: Balanced performance, configurable (best for 100K-10M vectors)
-    - DiskANN: Scalable, disk-based, label filtering (best for >10M vectors)
+    Index Types:
+        - **HNSW**: Fast queries, high recall, in-memory (best for <1M vectors)
+        - **IVFFlat**: Balanced performance, configurable (best for 100K-10M vectors)
+        - **DiskANN**: Scalable, disk-based, label filtering (best for >10M vectors)
 
-    **Search Methods:**
-    1. keyword_search - Pure FTS
-    2. universal_keyword_search - FTS + metadata fields
-    3. semantic_search - Vector similarity
-    4. metadata_filter - Pure metadata filtering (no query)
-    5. metadata_keyword_search - Filtered FTS
-    6. metadata_semantic_search - Filtered vector search
-    7. hybrid_search - Combined keyword + semantic (with optional RRF)
-    8. ensemble_search - Filtered hybrid search (with optional RRF)
-    9. trigram_search - Fuzzy text matching (typo-tolerant)
-    10. metadata_trigram_search - Filtered fuzzy search
+    Search Methods:
+        1. ``keyword_search`` - Pure FTS
+        2. ``universal_keyword_search`` - FTS + metadata fields
+        3. ``semantic_search`` - Vector similarity
+        4. ``metadata_filter`` - Pure metadata filtering (no query)
+        5. ``metadata_keyword_search`` - Filtered FTS
+        6. ``metadata_semantic_search`` - Filtered vector search
+        7. ``hybrid_search`` - Combined keyword + semantic (with optional RRF)
+        8. ``ensemble_search`` - Filtered hybrid search (with optional RRF)
+        9. ``trigram_search`` - Fuzzy text matching (typo-tolerant)
+        10. ``metadata_trigram_search`` - Filtered fuzzy search
 
-    **Filter Operators (13):**
-    Comparison: $eq, $ne, $lt, $lte, $gt, $gte
-    Range: $between
-    Set: $in, $nin
-    Existence: $exists
-    Pattern: $like, $ilike
-    Logical: $and, $or
+    Filter Operators (13):
+        - **Comparison**: ``$eq``, ``$ne``, ``$lt``, ``$lte``, ``$gt``, ``$gte``
+        - **Range**: ``$between``
+        - **Set**: ``$in``, ``$nin``
+        - **Existence**: ``$exists``
+        - **Pattern**: ``$like``, ``$ilike``
+        - **Logical**: ``$and``, ``$or``
 
-    **Example:**
-        >>> from langchain_huggingface import HuggingFaceEmbeddings
-        >>>
-        >>> embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        >>> rag = pgVectorDB(
-        ...     collection_name="my_documents",
-        ...     embedding_model=embeddings,
-        ...     connection_string="postgresql+asyncpg://user:pass@localhost/db",
-        ...     index_type=IndexType.DISKANN
-        ... )
-        >>> await rag.initialize()
-        >>> await rag.add_documents(documents, labels=doc_labels)
-        >>> await rag.build_index(include_labels=True)
-        >>> results = await rag.semantic_search("AI applications", k=5, label_filter=[1, 2])
+    Example:
+        ```python
+        from langchain_huggingface import HuggingFaceEmbeddings
+
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        rag = pgVectorDB(
+            collection_name="my_documents",
+            embedding_model=embeddings,
+            connection_string="postgresql+asyncpg://user:pass@localhost/db",
+            index_type=IndexType.DISKANN
+        )
+        await rag.initialize()
+        await rag.add_documents(documents, labels=doc_labels)
+        await rag.build_index(include_labels=True)
+        results = await rag.semantic_search("AI applications", k=5, label_filter=[1, 2])
+        ```
     """
 
     def __init__(

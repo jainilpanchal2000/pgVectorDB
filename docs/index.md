@@ -72,4 +72,4 @@ See the `examples/` folder for full working notebooks:
 - **Status:** Production-Ready
 
 !!! bug "Report Issues"
-    Found a bug? Open an issue on [GitHub](https://github.com/jainilpanchal/pgvectordb)
+    Found a bug? Open an issue on [GitHub](https://github.com/jainilpanchal2000/pgvectordb)

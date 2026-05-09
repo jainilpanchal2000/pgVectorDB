@@ -1,8 +1,8 @@
 site_name: pgVectorDB
 site_description: Production-ready PostgreSQL vector database for RAG — multi-embedding, multimodal search, reranking, and more.
 # site_author: Jainil Panchal
-repo_url: https://github.com/jainilpanchal/pgvectordb
-repo_name: jainilpanchal/pgvectordb
+repo_url: https://github.com/jainilpanchal2000/pgVectorDB
+repo_name: jainilpanchal2000/pgVectorDB
 
 theme:
   name: material

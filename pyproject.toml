@@ -75,9 +75,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jainilpanchal/pgvectordb"
-Repository = "https://github.com/jainilpanchal/pgvectordb"
-Documentation = "https://github.com/jainilpanchal/pgvectordb#readme"
+Homepage = "https://github.com/jainilpanchal2000/pgvectordb"
+Repository = "https://github.com/jainilpanchal2000/pgvectordb"
+Documentation = "https://github.com/jainilpanchal2000/pgvectordb#readme"
 
 [tool.hatch.version]
 path = "pgvectordb/__init__.py"
