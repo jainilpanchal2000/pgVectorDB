@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.pytest_cache/
+
+# Ruff Cache
+.ruff_cache/
+
+# Virtual environments
+venv/
+env/
+ai_env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Environment
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data
+*.db
+*.sqlite
+*.json
+*.csv
+*.pkl
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+site/
+
+# Build artifacts
+dist/
+*.egg-info/
+
+# Allow eval folder
+!eval/
+!eval/**/*

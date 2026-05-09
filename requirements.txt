@@ -1,0 +1,18 @@
+# pgVectorDB — Dependency Management
+#
+# All dependencies are managed via pyproject.toml.
+# Use the following commands to install:
+#
+#   pip install -e .                    # Core dependencies
+#   pip install -e ".[huggingface]"     # + HuggingFace embeddings
+#   pip install -e ".[aws]"            # + AWS Bedrock
+#   pip install -e ".[rerankers]"      # + Local reranker models
+#   pip install -e ".[cohere]"         # + Cohere API
+#   pip install -e ".[jupyter]"        # + Jupyter/notebook support
+#   pip install -e ".[all]"            # All optional extras
+#   pip install -e ".[dev]"            # Development tools (pytest, ruff, mypy)
+#
+# Or install from PyPI:
+#
+#   pip install pgvectordb
+#   pip install "pgvectordb[all]"
