@@ -60,7 +60,7 @@ def get_vector_table(
     Returns:
         SQLAlchemy Table object
 
-    Example:
+    Examples:
         >>> table = get_vector_table("my_docs", "public", 384)
         >>> insert_stmt = postgresql.insert(table).values(records)
         >>> upsert_stmt = insert_stmt.on_conflict_do_update(
@@ -132,7 +132,7 @@ def get_label_definitions_table(schema: str = "public") -> Table:
     Returns:
         SQLAlchemy Table object for label definitions
 
-    Example:
+    Examples:
         >>> labels_table = get_label_definitions_table("public")
         >>> stmt = insert(labels_table).values([
         ...     {"id": 1, "name": "science", "description": "Scientific content"},
@@ -184,7 +184,7 @@ def get_multimodal_table(
     Returns:
         SQLAlchemy Table object with multiple vector columns
 
-    Example:
+    Examples:
         >>> from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace
         >>> spaces = [
         ...     TextSpace(name="description", field="content"),
@@ -260,7 +260,7 @@ def quote_identifier(identifier: str) -> str:
     Raises:
         ValueError: If identifier contains invalid characters
 
-    Example:
+    Examples:
         >>> quote_identifier("my_table")
         '"my_table"'
         >>> quote_identifier("schema.table")  # Invalid
@@ -293,7 +293,7 @@ def build_qualified_name(schema: str, name: str) -> str:
     Returns:
         Quoted qualified name like "schema"."name"
 
-    Example:
+    Examples:
         >>> build_qualified_name("public", "my_table")
         '"public"."my_table"'
     """
@@ -313,7 +313,7 @@ def get_distance_operator(distance_metric: str) -> str:
     Returns:
         PostgreSQL operator string
 
-    Example:
+    Examples:
         >>> get_distance_operator("cosine")
         '<=>'
     """
@@ -346,7 +346,7 @@ def get_index_ops(distance_metric: str, vector_type: str = "vector") -> str:
     Returns:
         Operator class name for CREATE INDEX
 
-    Example:
+    Examples:
         >>> get_index_ops("cosine", "vector")
         'vector_cosine_ops'
         >>> get_index_ops("l2", "halfvec")

@@ -1,8 +1,8 @@
-﻿# pgVectorDB TODO — One-Stop RAG Search Solution
+# pgVectorDB TODO — One-Stop RAG Search Solution
 
-**Last Updated:** 2026-02-19 23:36 IST
-**Status:** ✅ v0.0.4 Structural Refactoring COMPLETE — v0.0.5 Test Suite + Code Quality in progress
-**Goal:** Multiple embeddings per table, multimodal search, full reranker support
+**Last Updated:** 2026-05-09
+**Status:** ✅ v0.0.5 — PyPI Release Ready
+**Goal:** Production PostgreSQL vector database with multi-embedding, multimodal search, and rerankers
 
 ---
 
@@ -24,7 +24,7 @@ See [git history](.) for full details. **All metrics at 10/10.**
 
 ### ✅ Critical — Multi-Embedding Core (Tasks 36–39)
 
-#### 36. Vector Space Definitions (`src/spaces.py`) — ✅ DONE
+#### 36. Vector Space Definitions (`pgvectordb/spaces.py`) — ✅ DONE
 - [x] `VectorSpace` abstract base class (name, dimensions, encode method)
 - [x] `TextSpace` — embed text fields using LangChain embedding model
 - [x] `NumberSpace` — encode numeric fields with min-max normalization (minimum/maximum/similar modes)
@@ -88,7 +88,7 @@ See [git history](.) for full details. **All metrics at 10/10.**
 
 ---
 
-### ✅ NEW: Reranker Module (`src/rerankers.py`)
+### ✅ NEW: Reranker Module (`pgvectordb/rerankers.py`)
 
 Inspired by Superlinked's hybrid search + reranking article:
 
@@ -112,224 +112,125 @@ Inspired by Superlinked's hybrid search + reranking article:
 
 ---
 
-### 🔵 Future / Nice-to-Have
+## v0.0.4 — ✅ COMPLETE (Structural Refactoring)
+
+> **Analysis Date:** 2026-02-19
+> **Goal:** Improve maintainability, reduce tech debt, and prepare for scalable development.
+
+### ✅ 1. Break Up the `core.py` Monolith — DONE
+
+**Problem:** `core.py` was **4,726 lines / 196KB** — the single largest maintainability risk.
+
+| New Module | Methods Extracted | Lines |
+|---|---|---|
+| `pgvectordb/mixins/documents.py` | `add_documents`, `aupdate_documents`, `adelete`, batch ops, `upsert_documents`, `bulk_load_documents` | ~1,000 |
+| `pgvectordb/mixins/indexing.py` | `build_index`, HNSW/IVFFlat/DiskANN builders, `build_index_concurrent`, `build_bm25_index`, binary/subvector | ~1,150 |
+| `pgvectordb/mixins/analytics.py` | `get_stats`, `explain_query`, `benchmark_search_methods`, `validate_collection`, `compute_recall` | ~970 |
+| `pgvectordb/mixins/storage.py` | `export_to_json`, `import_from_json`, `create_halfvec_table`, `create_sparsevec_table` | ~380 |
+| `pgvectordb/mixins/multimodal.py` | `register_spaces`, `multimodal_search`, `multimodal_hybrid_search`, `rerank_search` | ~1,040 |
+| `pgvectordb/mixins/integrations.py` | `as_retriever`, `VectorStoreRetriever` | ~120 |
+
+**After extraction:** `core.py` is ~485 lines — just `__init__`, `initialize`, `close`, and mixin composition.
+
+### ✅ 2. Remove Duplicate Definitions — DONE
+### ✅ 3. Add Proper Python Packaging — DONE
+### ✅ 4. Reorganize Test Suite — DONE (13 pytest files + conftest.py)
+### ✅ 5. Fix Dependency Management — DONE
+### ✅ 6. File & Directory Organization — DONE
+### ✅ 7. Code Quality Improvements — DONE
+
+---
+
+## v0.0.5 — ✅ COMPLETE (PyPI Release)
+
+### Security Fixes
+- [x] `set_maintenance_work_mem` — regex whitelist validation
+- [x] `set_parallel_workers` — int coercion + bounds check
+- [x] `vacuum_analyze` — VACUUM outside transaction (COMMIT before VACUUM)
+
+### Performance Fixes
+- [x] `update_metadata` — bulk JSONB `||` UPDATE (O(1) vs O(2N))
+- [x] `upsert_documents` — single connection for all operations
+
+### Packaging
+- [x] Removed `psycopg2-binary` and `nest-asyncio` from core deps
+- [x] Added `[jupyter]` optional extra
+- [x] Fixed `ruff==0.15.2` → `ruff>=0.4.0`
+- [x] Aligned `MIN_PG_TEXTSEARCH_VERSION` to `0.4.0` + warning for < 1.0.0
+- [x] Version bump to `0.0.5`
+- [x] `hatch build` produces valid `.whl` and `.tar.gz`
+- [x] CHANGELOG.md created
+
+### Docker
+- [x] Pinned pgvector to v0.8.2, pgvectorscale to 0.9.0, pg_textsearch to v1.0.0
+- [x] Replaced hardcoded volume with named Docker volume
+
+### CI
+- [x] `.github/workflows/ci.yml` — ruff check + syntax check + hatch build on 3.10/3.12/3.13
+- [x] `.github/workflows/publish.yml` — trusted publishing on GitHub Release
+
+### Documentation
+- [x] README updated (version, layout, pip install, method count)
+- [x] `requirements.txt` replaced with pyproject.toml redirect
+- [x] TODO.md cleaned up
+
+---
+
+## pg_textsearch Upgrades (Verified)
+
+> **Reference:** https://github.com/timescale/pg_textsearch/blob/main/ROADMAP.md
+> **Verified:** 2026-05-09  Docker now pins v1.0.0
+
+| Version | Feature | Status |
+|---------|---------|--------|
+| v0.3.0 | Block-Max WAND → 4x faster BM25 queries | ✅ Automatic when installed |
+| v0.4.0 | Posting list compression → 41% smaller indexes | ✅ MIN version = 0.4.0 |
+| v0.5.0 | Parallel index builds | ✅ Exposed via `max_parallel_maintenance_workers` hint |
+| v1.0.0 | Production ready (pg_dump/restore, VACUUM) | ✅ Docker pin + warning for < 1.0.0 |
+
+### Post-v1.0 Features — Future TODOs
+
+- [ ] **Boolean queries** (AND/OR/NOT via @@ operator) — add `bm25_boolean_search()` when released
+- [ ] **Background compaction** — expose `set_bm25_compaction(enabled=True)` for write-heavy workloads
+- [ ] **Expression index support** — BM25 index on computed columns (e.g. `content || ' ' || title`)
+- [ ] **Multi-tenant BM25** — single index with tenant-id column scoping
+- [ ] **Positional queries** — phrase/exact search (major improvement over bag-of-words BM25)
+
+---
+
+## Architecture Overview (v0.0.5)
+
+```
+pgvectordb/                         (pip install pgvectordb)
+├── __init__.py                      public API exports, __version__
+├── core.py                          pgVectorDB class (~485 lines, composes mixins)
+├── base.py                          enums, exceptions, QueryResult, constants
+├── config.py                        Config defaults
+├── schema.py                        SQLAlchemy table definitions
+├── extensions.py                    PostgreSQL extension manager
+├── search.py                        SearchMixin (10 search methods)
+├── spaces.py                        TextSpace, NumberSpace, CategorySpace, RecencySpace
+├── rerankers.py                     CrossEncoder, Cohere, AWS, HuggingFace rerankers
+├── metrics.py                       RAG evaluation metrics
+├── py.typed                         PEP 561 marker
+└── mixins/
+    ├── __init__.py                  re-exports all 6 mixin classes
+    ├── documents.py   DocumentsMixin  (~1,020 lines)
+    ├── indexing.py    IndexingMixin   (~1,155 lines)
+    ├── analytics.py   AnalyticsMixin  (~985 lines)
+    ├── storage.py     StorageMixin    (~380 lines)
+    ├── multimodal.py  MultimodalMixin (~1,040 lines)
+    └── integrations.py IntegrationsMixin (~122 lines)
+
+MRO: pgVectorDB → SearchMixin → DocumentsMixin → IndexingMixin
+               → AnalyticsMixin → StorageMixin → MultimodalMixin → IntegrationsMixin
+```
+
+---
+
+## 🔵 Future / Nice-to-Have
 
 - [ ] **Late interaction / ColBERT-style** — store token-level embeddings for MaxSim scoring
 - [ ] **Learned space weights** — auto-learn optimal weights from relevance feedback
 - [ ] **NLQ agent integration** — LLM parses natural language queries into multimodal search params
 - [ ] **Matryoshka embeddings** — truncate embeddings for faster coarse search, rerank with full
-
----
-
-## pg_textsearch Upgrades (v0.0.5)
-
-> **Reference:** https://github.com/timescale/pg_textsearch/blob/main/ROADMAP.md
-> **Checked:** 2026-02-19  v0.3.0 through v0.5.0 are already released; v1.0.0 (Feb 2026) is production-ready
-
-### Already Released  Verify We Leverage These
-
-| Version | Feature | Notes |
-|---------|---------|-------|
-| v0.3.0 (Jan) | Block-Max WAND  4x faster BM25 queries | Automatic once pg_textsearch >= v0.3.0 installed |
-| v0.4.0 (Jan) | Posting list compression  41% smaller BM25 indexes | Automatic; bump min version check |
-| v0.5.0 (Jan) | Parallel index builds | Expose parallel hint in build_bm25_index() |
-| v1.0.0 (Feb) | Production ready  pg_dump/restore, VACUUM, replication | Pin Docker image to >= v1.0.0 |
-
-**Action items (no code changes yet  plan only):**
-- [ ] Pin pg_textsearch >= v1.0.0 in Dockerfile and document minimum version in README
-- [ ] Add version check in extensions.py  warn if pg_textsearch < v0.5.0
-- [ ] Add parallel build hint to build_bm25_index()  suggest setting max_parallel_maintenance_workers
-- [ ] Update eval/ benchmark to measure BM25 query speed and confirm Block-Max WAND speedup
-
-### Post-v1.0 Features  Future TODOs
-
-Definitely planned by Timescale; design for these now:
-
-- [ ] **Boolean queries** (AND/OR/NOT via @@ operator)  add bm25_boolean_search() method when released
-- [ ] **Background compaction**  expose set_bm25_compaction(enabled=True) to avoid write stalls on heavy update workloads
-- [ ] **Expression index support**  allow BM25 index on computed columns (e.g. content || ' ' || title)
-- [ ] **Multi-tenant BM25**  single index with tenant-id column scoping; useful for our multi-collection use cases
-- [ ] **Positional queries**  phrase/exact search support; major improvement over current bag-of-words BM25
-
----
-## Structural Refactoring — Codebase Health (v0.0.4) ✅ COMPLETE
-
-> **Analysis Date:** 2026-02-19
-> **Goal:** Improve maintainability, reduce tech debt, and prepare for scalable development.
-
----
-
-### ✅ 1. Break Up the `core.py` Monolith — DONE
-
-**Problem:** `src/core.py` is **4,726 lines / 196KB** — the single largest maintainability risk.
-It contains 70+ methods spanning initialization, document CRUD, indexing, search (via mixin),
-analytics, export/import, LangChain integration, multimodal, and reranking.
-
-**Recommendation:** Extract into focused modules by domain:
-
-| New Module | Methods to Extract | Est. Lines |
-|---|---|---|
-| `src/documents.py` | `add_documents`, `aupdate_documents`, `adelete`, `add_documents_batch`, `add_documents_batch_isolated`, `upsert_documents`, `bulk_load_documents`, `add_documents_orm`, `aget_by_ids`, `update_metadata` | ~700 |
-| `src/indexing.py` | `build_index`, `_build_hnsw_index`, `_build_ivfflat_index`, `_build_diskann_index`, `areindex`, `adrop_vector_index`, `build_index_concurrent`, `build_bm25_index`, `build_index_with_subvectors`, `build_index_binary_quantized`, `set_query_params`, `set_diskann_build_params` | ~700 |
-| `src/analytics.py` | `get_stats`, `get_index_stats`, `explain_query`, `benchmark_search_methods`, `validate_collection`, `compute_recall`, `compute_centroid`, `get_slow_queries`, `get_bm25_index_stats`, `get_index_build_progress`, `dump_bm25_index`, `spill_bm25_index` | ~600 |
-| `src/storage.py` | `export_to_json`, `import_from_json`, `create_halfvec_table`, `create_sparsevec_table` | ~350 |
-| `src/multimodal.py` | `register_spaces`, `_ensure_multimodal_columns`, `add_documents_multimodal`, `build_multimodal_index`, `multimodal_search`, `multimodal_hybrid_search`, `get_multimodal_index_stats`, `rerank_search` | ~750 |
-| `src/integrations.py` | `as_retriever`, `VectorStoreRetriever` inner class | ~100 |
-
-**After extraction, `core.py` should be ~500 lines** — just `__init__`, `initialize`, `close`,
-validation helpers, and mixin composition.
-
-- [x] Create document operations module (`pgvectordb/mixins/documents.py`)
-- [x] Create indexing module (`pgvectordb/mixins/indexing.py`)
-- [x] Create analytics module (`pgvectordb/mixins/analytics.py`)
-- [x] Create storage module (`pgvectordb/mixins/storage.py`)
-- [x] Create multimodal module (`pgvectordb/mixins/multimodal.py`)
-- [x] Create integrations module (`pgvectordb/mixins/integrations.py`)
-- [x] Slim `core.py` to ~500 lines with mixin composition
-
----
-
-### ✅ 2. Remove Duplicate Definitions in `core.py` — DONE
-
-**Problem:** `core.py` lines 198–304 **re-define** every enum (`IndexType`, `KeywordSearchType`,
-`StorageLayout`, `DistanceMetric`, `VectorPrecision`, `IterativeScanMode`), every exception
-(`RetrievalSystemError`, `InitializationError`, `ValidationError`, `DatabaseError`, `RateLimitError`),
-every constant (`ALLOWED_TEXT_CONFIGS`, `VALID_QUERY_PARAMS`), and `QueryResult` — all of which
-already exist in `base.py`.
-
-The `try/except ImportError` fallback (lines 128–189) imports from `base.py`, but the unconditional
-re-definitions on lines 198–304 **always overwrite** those imports. This means:
-- `base.py` definitions are **never actually used** by `core.py`
-- Any improvement to `base.py` docstrings/values is **silently ignored**
-- Two sources of truth exist for every enum and exception
-
-**Fix:** Delete lines 198–304 entirely. Keep only the `try/except` imports. If standalone
-usage of `core.py` is needed, raise a clear `ImportError` instead of silently redefining.
-
-- [x] Delete duplicate enum definitions from `core.py` (lines 198–240)
-- [x] Delete duplicate exception definitions from `core.py` (lines 272–295)
-- [x] Delete duplicate constant definitions from `core.py` (lines 243–269)
-- [x] Delete duplicate `QueryResult` from `core.py` (lines 299–304)
-- [x] Update fallback `try/except` to raise `ImportError` with clear message
-
----
-
-### ✅ 3. Add Proper Python Packaging (`pyproject.toml`) — DONE
-
-**Problem:** No `pyproject.toml` or `setup.py` exists. The project cannot be installed as a
-package (`pip install -e .`), making imports fragile (requires `src.` prefix and `PYTHONPATH` hacks).
-
-**Recommendation:**
-- [x] Create `pyproject.toml` with `[build-system]`, `[project]` metadata, and `[project.optional-dependencies]` for `aws`, `rerankers`, `dev`
-- [x] Rename `src/` to `pgvectordb/` (Python package naming convention)
-- [x] Update all internal imports from `src.` to `pgvectordb.`
-- [x] Add `pgvector` to `requirements.txt` (currently **missing** — `schema.py` imports `pgvector.sqlalchemy`)
-
----
-
-### � 4. Reorganize Test Suite (v0.0.5 — PENDING)
-
-**Problem:** `test/test_suite.py` is a single **1,282-line** file with 15 test functions,
-a custom `TestResults` tracker, and hardcoded DB credentials (`user`/`root` on port `9002`).
-Does not use `pytest` fixtures, markers, or parameterization despite `pytest` being in `requirements.txt`.
-
-**Recommendation:**
-- [ ] Split into test files mirroring source modules (`test_documents.py`, `test_search.py`, `test_indexing.py`, etc.)
-- [ ] Replace custom `TestResults` class with native `pytest` assertions
-- [ ] Use `pytest` fixtures for DB setup/teardown and embedding model initialization
-- [ ] Move DB credentials to environment variables or `conftest.py`
-- [ ] Add `pytest.ini` or `pyproject.toml [tool.pytest]` section
-- [ ] Add `pytest` markers for slow/integration tests (`@pytest.mark.slow`)
-
----
-
-### ✅ 5. Fix Dependency Management — DONE
-
-**Problem in `requirements.txt`:**
-- `pgvector` package is **missing** (needed by `schema.py` for `pgvector.sqlalchemy.Vector`)
-- `cohere` package is **missing** (needed by `rerankers.py` for `CohereReranker`)
-- Dev dependencies mixed with runtime dependencies in a single file
-- All dependencies are pinned to exact versions (fragile across environments)
-
-**Recommendation:**
-- [x] Add `pgvector` to requirements
-- [x] Add `cohere` to optional requirements
-- [x] Split into `requirements.txt` (runtime) and `requirements-dev.txt` (dev tools -> `pyproject.toml`)
-- [x] Use version ranges instead of exact pins (e.g., `sqlalchemy>=2.0,<3.0`)
-
----
-
-### � 6. Improve File & Directory Organization (v0.0.5 — PARTIALLY DONE)
-
-**Current issues:**
-- `scripts/test_connection.py` (14KB) overlaps with test suite functionality
-- `scripts/demo.py` (9.5KB) overlaps with `examples/` directory
-- `eval/scripts/benchmark_all_methods.py` is 34KB — another large file
-- `docs/` is gitignored but contains 3 markdown files tracked in the repo
-- No `__init__.py` in `test/`, `scripts/`, or `examples/`
-
-**Recommendation:**
-- [ ] Move or merge `scripts/demo.py` into `examples/`
-- [ ] Move `scripts/test_connection.py` into `test/` or remove if redundant
-- [ ] Consider splitting `eval/scripts/benchmark_all_methods.py` into smaller benchmark scripts
-- [ ] Fix `.gitignore` — `docs/` is listed as ignored but tracked; remove the ignore rule or untrack
-- [ ] Add `__init__.py` to `test/` for proper pytest discovery
-
----
-
-### � 7. Code Quality Improvements (v0.0.5 — PENDING)
-
-**Across all files:**
-- [ ] Replace f-string SQL interpolation with parameterized queries in remaining raw SQL (e.g., `_setup_full_text_search`, `_add_labels_column` use `f'ALTER TABLE "{self.schema_name}"...'`)
-- [ ] Add type hints to all function return types (several methods lack `-> None` or `-> Dict`)
-- [ ] Add `__all__` exports to new modules after refactoring
-- [ ] Standardize import style — `core.py` uses `from src.X` while `__init__.py` uses `from .X` (relative)
-- [ ] Remove `logging.basicConfig()` call from `core.py` line 192 (libraries should not configure root logger)
-- [ ] Consider adding `py.typed` marker for type checking support
-
----
-
-## Architecture Overview (v0.0.4)
-
-```
-pgvectordb/                         (pip install -e .)
-+-- __init__.py                      public API exports
-+-- core.py                          pgVectorDB class (~440 lines, composes mixins)
-+-- base.py                          enums, exceptions, QueryResult, constants
-+-- config.py                        Config defaults
-+-- schema.py                        SQLAlchemy table definitions
-+-- extensions.py                    PostgreSQL extension manager
-+-- search.py                        SearchMixin (10 search methods)
-+-- spaces.py                        TextSpace, NumberSpace, CategorySpace, RecencySpace
-+-- rerankers.py                     CrossEncoder, Cohere, AWS, HuggingFace rerankers
-+-- metrics.py                       RAG evaluation metrics
-+-- mixins/
-    +-- __init__.py                  re-exports all 6 mixin classes
-    +-- documents.py   DocumentsMixin  (~995 lines)
-    +-- indexing.py    IndexingMixin   (~1052 lines)
-    +-- analytics.py   AnalyticsMixin  (~946 lines)
-    +-- storage.py     StorageMixin    (~330 lines)
-    +-- multimodal.py  MultimodalMixin (~813 lines)
-    +-- integrations.py IntegrationsMixin (~122 lines)
-
-MRO: pgVectorDB -> SearchMixin -> DocumentsMixin -> IndexingMixin
-               -> AnalyticsMixin -> StorageMixin -> MultimodalMixin -> IntegrationsMixin
-
-Retrieval: multimodal_search() | rerank_search() | multimodal_hybrid_search()
-Rerankers: CrossEncoder | Cohere | AWSBedrock | HuggingFace
-```
-
----
-
-## Remaining for v0.0.5
-
-| # | Task | Priority |
-|---|------|----------|
-| 4 | Reorganize test/test_suite.py into per-module pytest files | High |
-| 6 | File/directory cleanup (scripts/demo.py -> examples/, eval split) | Medium |
-| 7 | Code quality: remaining f-string SQL -> parameterized, type hints, py.typed marker | Medium |
-| - | Late interaction / ColBERT-style embeddings | Future |
-| - | Learned space weights from relevance feedback | Future |
-| - | NLQ agent integration | Future |
-| - | Matryoshka embeddings | Future |
-

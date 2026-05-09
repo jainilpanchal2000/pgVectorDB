@@ -51,7 +51,7 @@ class MultimodalMixin:
         Raises:
             ValidationError: If spaces list is empty or has duplicates.
 
-        Example:
+        Examples:
             >>> from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace
             >>> rag.register_spaces([
             ...     TextSpace(name="description", field="content"),
@@ -158,7 +158,7 @@ class MultimodalMixin:
             ValidationError: If no spaces registered or documents empty.
             DatabaseError: If insert fails.
 
-        Example:
+        Examples:
             >>> from langchain_core.documents import Document
             >>> docs = [
             ...     Document(page_content="Modern downtown apartment",
@@ -291,7 +291,7 @@ class MultimodalMixin:
             InitializationError: If system not initialized.
             ValidationError: If no spaces registered.
 
-        Example:
+        Examples:
             >>> indexes = await rag.build_multimodal_index(
             ...     metric=DistanceMetric.COSINE, m=24
             ... )
@@ -405,7 +405,7 @@ class MultimodalMixin:
             InitializationError: If not initialized.
             ValidationError: If no spaces registered or query_params empty.
 
-        Example:
+        Examples:
             >>> results = await rag.multimodal_search(
             ...     query_params={
             ...         "description": "modern downtown apartment",
@@ -558,7 +558,7 @@ class MultimodalMixin:
         Returns:
             Fused results sorted by combined score.
 
-        Example:
+        Examples:
             >>> results = await rag.multimodal_hybrid_search(
             ...     query_params={"description": "cozy apartment near park"},
             ...     weights={"description": 1.0},
@@ -621,7 +621,7 @@ class MultimodalMixin:
         Returns:
             Dictionary mapping space names to their index info.
 
-        Example:
+        Examples:
             >>> stats = await rag.get_multimodal_index_stats()
             >>> for name, info in stats.items():
             ...     print(f"{name}: {info['index_name']} ({info['index_size']})")
@@ -713,7 +713,7 @@ class MultimodalMixin:
             InitializationError: If system not initialized.
             ValueError: If search_method is unknown.
 
-        Example:
+        Examples:
             >>> from pgvectordb.rerankers import CrossEncoderReranker, create_reranker
             >>>
             >>> # Local cross-encoder

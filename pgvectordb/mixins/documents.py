@@ -86,11 +86,12 @@ class DocumentsMixin:
         self, doc_ids: List[str], labels: List[List[int]]
     ) -> None:
         """Add labels column for DiskANN filtering."""
+        qualified_table = build_qualified_name(self.schema_name, self.table_name)
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 await conn.execute(
                     text(
-                        f'ALTER TABLE "{self.schema_name}"."{self.table_name}" '
+                        f"ALTER TABLE {qualified_table} "
                         f"ADD COLUMN IF NOT EXISTS labels SMALLINT[]"
                     )
                 )
@@ -98,7 +99,7 @@ class DocumentsMixin:
                 for doc_id, label_list in zip(doc_ids, labels):
                     await conn.execute(
                         text(
-                            f'UPDATE "{self.schema_name}"."{self.table_name}" '
+                            f"UPDATE {qualified_table} "
                             f"SET labels = :labels WHERE langchain_id = :doc_id"
                         ),
                         {"labels": label_list, "doc_id": doc_id},
@@ -130,7 +131,7 @@ class DocumentsMixin:
             ValidationError: If documents missing 'langchain_id' or list is empty
             DatabaseError: If update operation fails
 
-        Example:
+        Examples:
             >>> # Update metadata only (fast - no re-embedding)
             >>> docs[0].metadata['status'] = 'reviewed'
             >>> docs[0].metadata['langchain_id'] = 'existing-id'
@@ -227,7 +228,7 @@ class DocumentsMixin:
             ValidationError: If ids list is empty
             DatabaseError: If deletion fails
 
-        Example:
+        Examples:
             >>> doc_ids = await rag.add_documents(documents)
             >>> # Delete first 5 documents
             >>> deleted_count = await rag.adelete(doc_ids[:5])
@@ -279,7 +280,7 @@ class DocumentsMixin:
         Returns:
             List of all added document IDs
 
-        Example:
+        Examples:
             >>> # Add 50,000 documents efficiently
             >>> all_ids = await rag.add_documents_batch(
             ...     large_doc_list,
@@ -353,7 +354,7 @@ class DocumentsMixin:
         Returns:
             Number of documents updated
 
-        Example:
+        Examples:
             >>> # Tag documents as reviewed
             >>> doc_ids = ["id1", "id2", "id3"]
             >>> count = await rag.update_metadata(
@@ -376,43 +377,30 @@ class DocumentsMixin:
 
         try:
             async with self.sqlalchemy_engine.connect() as conn:
-                # Use jsonb_set to update metadata fields
-                # This preserves existing fields while updating/adding new ones
-                update_count = 0
-
-                for doc_id in ids:
-                    # First, get current metadata
-                    get_query = text(f"""
-                        SELECT langchain_metadata
-                        FROM "{self.schema_name}"."{self.table_name}"
-                        WHERE langchain_id = :doc_id
-                    """)
-                    result = await conn.execute(get_query, {"doc_id": doc_id})
-                    row = result.fetchone()
-
-                    if row:
-                        import json
-
-                        current_metadata = row[0] or {}
-                        # Merge updates
-                        updated_metadata = {**current_metadata, **metadata_updates}
-
-                        # Update
-                        update_query = text(f"""
-                            UPDATE "{self.schema_name}"."{self.table_name}"
-                            SET langchain_metadata = CAST(:metadata AS jsonb)
-                            WHERE langchain_id = :doc_id
-                        """)
-                        await conn.execute(
-                            update_query,
-                            {
-                                "metadata": json.dumps(updated_metadata),
-                                "doc_id": doc_id,
-                            },
-                        )
-                        update_count += 1
-
+                # Single bulk UPDATE using JSONB `||` merge operator.
+                # This merges `metadata_updates` into the existing JSON column
+                # for all matching IDs in one round-trip (O(1) vs the previous O(2N)).
+                #
+                # Note: langchain_metadata is type JSON (not JSONB), so we must
+                # cast to jsonb for the || merge, then cast back to json.
+                update_query = text(f"""
+                    UPDATE "{self.schema_name}"."{self.table_name}"
+                    SET langchain_metadata = (
+                        COALESCE(langchain_metadata::jsonb, '{{}}'::jsonb)
+                        || CAST(:updates AS jsonb)
+                    )::json
+                    WHERE langchain_id = ANY(:ids)
+                """)
+                result = await conn.execute(
+                    update_query,
+                    {
+                        "updates": json.dumps(metadata_updates),
+                        "ids": ids,
+                    },
+                )
                 await conn.commit()
+
+                update_count = result.rowcount
                 logger.info(f"Updated metadata for {update_count} documents")
                 return update_count
         except Exception as e:
@@ -438,7 +426,7 @@ class DocumentsMixin:
             ValidationError: If ids list is empty
             DatabaseError: If retrieval fails
 
-        Example:
+        Examples:
             >>> doc_ids = ["uuid-1", "uuid-2", "uuid-3"]
             >>> docs = await rag.aget_by_ids(doc_ids)
             >>> for doc in docs:
@@ -500,7 +488,7 @@ class DocumentsMixin:
         Returns:
             Tuple of (successfully_added_ids, failed_batch_indices)
 
-        Example:
+        Examples:
             >>> added_ids, failed_batches = await rag.add_documents_batch_isolated(
             ...     documents,
             ...     batch_size=500,
@@ -717,83 +705,84 @@ class DocumentsMixin:
 
         inserted = 0
         updated = 0
+        qualified_table = build_qualified_name(self.schema_name, self.table_name)
 
         try:
+            # Single connection for all DDL and UPDATE operations.
+            # Previously a new connection was opened for every document, which
+            # exhausted the pool on large batches.
             async with self.sqlalchemy_engine.connect() as conn:
-                # Ensure content_hash column exists
+                # Ensure content_hash column exists (idempotent)
                 await conn.execute(
                     text(f"""
-                    ALTER TABLE {build_qualified_name(self.schema_name, self.table_name)}
+                    ALTER TABLE {qualified_table}
                     ADD COLUMN IF NOT EXISTS content_hash VARCHAR(32)
                 """)
                 )
                 await conn.commit()
 
-            for i in range(0, len(documents), batch_size):
-                batch = documents[i : i + batch_size]
+                for i in range(0, len(documents), batch_size):
+                    batch = documents[i : i + batch_size]
 
-                for doc in batch:
-                    content_hash = (
-                        self._compute_content_hash(doc.page_content)
-                        if dedup_by_content
-                        else None
-                    )
-                    doc_id = doc.metadata.get("langchain_id") or str(uuid.uuid4())
-                    doc.metadata["langchain_id"] = doc_id
+                    for doc in batch:
+                        content_hash = (
+                            self._compute_content_hash(doc.page_content)
+                            if dedup_by_content
+                            else None
+                        )
+                        doc_id = doc.metadata.get("langchain_id") or str(uuid.uuid4())
+                        doc.metadata["langchain_id"] = doc_id
 
-                    # Check if document with this hash exists
-                    async with self.sqlalchemy_engine.connect() as conn:
+                        existing_id = None
                         if content_hash:
                             result = await conn.execute(
                                 text(f"""
-                                    SELECT langchain_id FROM {build_qualified_name(self.schema_name, self.table_name)}
+                                    SELECT langchain_id FROM {qualified_table}
                                     WHERE content_hash = :hash
                                 """),
                                 {"hash": content_hash},
                             )
-                            existing = result.fetchone()
+                            row = result.fetchone()
+                            if row:
+                                existing_id = row[0]
 
-                            if existing:
-                                # Update existing document
-                                embedding = self.embedding_model.embed_query(
-                                    doc.page_content
-                                )
-                                await conn.execute(
-                                    text(f"""
-                                        UPDATE {build_qualified_name(self.schema_name, self.table_name)}
-                                        SET content = :content,
-                                            langchain_metadata = :metadata,
-                                            embedding = :embedding
-                                        WHERE langchain_id = :doc_id
-                                    """),
-                                    {
-                                        "content": doc.page_content,
-                                        "metadata": doc.metadata,
-                                        "embedding": str(embedding),
-                                        "doc_id": existing[0],
-                                    },
-                                )
-                                await conn.commit()
-                                updated += 1
-                                continue
-
-                    # Insert new document
-                    await self.add_documents([doc])
-
-                    # Update content hash
-                    if content_hash:
-                        async with self.sqlalchemy_engine.connect() as conn:
+                        if existing_id:
+                            # Update existing document in-place
+                            embedding = self.embedding_model.embed_query(doc.page_content)
                             await conn.execute(
                                 text(f"""
-                                    UPDATE {build_qualified_name(self.schema_name, self.table_name)}
-                                    SET content_hash = :hash
+                                    UPDATE {qualified_table}
+                                    SET content = :content,
+                                        langchain_metadata = :metadata,
+                                        embedding = :embedding
                                     WHERE langchain_id = :doc_id
                                 """),
-                                {"hash": content_hash, "doc_id": doc_id},
+                                {
+                                    "content": doc.page_content,
+                                    "metadata": doc.metadata,
+                                    "embedding": str(embedding),
+                                    "doc_id": existing_id,
+                                },
                             )
                             await conn.commit()
+                            updated += 1
+                        else:
+                            # Insert new document via add_documents (manages its own connection)
+                            await self.add_documents([doc])
 
-                    inserted += 1
+                            # Write content hash back on the same shared connection
+                            if content_hash:
+                                await conn.execute(
+                                    text(f"""
+                                        UPDATE {qualified_table}
+                                        SET content_hash = :hash
+                                        WHERE langchain_id = :doc_id
+                                    """),
+                                    {"hash": content_hash, "doc_id": doc_id},
+                                )
+                                await conn.commit()
+
+                            inserted += 1
 
             logger.info(f"Upsert complete: {inserted} inserted, {updated} updated")
             return inserted, updated
@@ -828,7 +817,7 @@ class DocumentsMixin:
         Returns:
             Number of documents loaded
 
-        Example:
+        Examples:
             >>> # Load 100,000 documents quickly
             >>> count = await rag.bulk_load_documents(large_dataset)
             >>> print(f"Loaded {count} documents")
@@ -954,7 +943,7 @@ class DocumentsMixin:
         Returns:
             List of document IDs
 
-        Example:
+        Examples:
             >>> doc_ids = await rag.add_documents_orm(documents)
         """
         self._ensure_initialized()

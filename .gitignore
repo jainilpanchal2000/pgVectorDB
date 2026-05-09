@@ -40,7 +40,11 @@ ai_env/
 Thumbs.db
 
 # Docs
-docs/
+site/
+
+# Build artifacts
+dist/
+*.egg-info/
 
 # Allow eval folder
 !eval/

@@ -1,9 +1,9 @@
-﻿# pgVectorDB - Production PostgreSQL Vector Database
+# pgVectorDB - Production PostgreSQL Vector Database
 
 Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL with pgvector. Features advanced vector search, comprehensive evaluation metrics, and optimization tools.
 
-**Version:** 0.0.2 (Modular Architecture)
-**Status:** Production-Ready (10/10 Security & Robustness)
+**Version:** 0.0.5
+**Status:** Production-Ready (Security & Robustness Hardened)
 
 📖 **[Full Configuration Guide](docs/CONFIGURATION.md)** | 🛠️ **[Refactoring Summary](docs/REFACTORING_SUMMARY.md)**
 
@@ -52,20 +52,28 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
 
 ---
 
-## 🆕 v0.0.2 - Modular Architecture
+## 🆕 v0.0.5 — PyPI Release
 
-The codebase has been refactored into focused modules for better maintainability and scalability:
+The codebase uses a flat modular layout with focused mixin files:
 
 ```
-src/
-├── __init__.py          # Main exports
+pgvectordb/
+├── __init__.py          # Main exports & version
 ├── core.py              # Main pgVectorDB class
-├── search.py            # Search implementations (Mixin)
+├── search.py            # 10 search method implementations
 ├── base.py              # Enums, exceptions, constants
 ├── extensions.py        # Extension checking & graceful degradation
 ├── config.py            # Configuration defaults
 ├── metrics.py           # RAG evaluation metrics
-└── schema.py            # Centralized SQLAlchemy table definitions
+├── schema.py            # Centralized SQLAlchemy table definitions
+├── spaces.py            # Multimodal vector space abstractions
+├── rerankers.py         # CrossEncoder, Cohere, Bedrock, HuggingFace rerankers
+└── mixins/
+    ├── documents.py     # Document CRUD operations
+    ├── indexing.py      # Index build, tune, and maintenance
+    ├── analytics.py     # Stats, benchmarking, diagnostics
+    ├── storage.py       # Export/import and specialized tables
+    └── multimodal.py   # Multi-space search
 ```
 
 ### Extension Requirements & Graceful Degradation
@@ -80,7 +88,25 @@ src/
 
 ## 📦 Installation
 
-### Option 1: Using Docker (Recommended)
+### Option 1: Install from PyPI (Recommended)
+
+```bash
+pip install pgvectordb
+
+# With HuggingFace embedding support
+pip install pgvectordb[huggingface]
+
+# With AWS Bedrock support
+pip install pgvectordb[aws]
+
+# Everything (all optional extras)
+pip install pgvectordb[all]
+
+# For Jupyter notebooks
+pip install pgvectordb[jupyter]
+```
+
+### Option 2: Using Docker (for the PostgreSQL database)
 
 We provide a custom PostgreSQL 17 image with `pgvector`, `pgvectorscale`, and `pg_textsearch` pre-installed.
 
@@ -89,7 +115,7 @@ cd docker
 docker compose up -d
 ```
 
-### Option 2: Manual Installation
+### Option 3: Manual PostgreSQL Setup
 
 1. **Install PostgreSQL Extensions:**
 ```sql
@@ -102,7 +128,7 @@ CREATE EXTENSION pg_textsearch;
 
 2. **Install Python Package:**
 ```bash
-pip install -r requirements.txt
+pip install pgvectordb
 ```
 
 ---
@@ -208,7 +234,7 @@ await rag.build_index_concurrent(
 
 ## 🛠️ Utility Methods (Full List)
 
-The system now includes **51 utility methods** provided by `src/core.py`:
+The system includes **60+ methods** across `pgvectordb/core.py` and its mixins:
 
 **Document Management**
 - `add_documents`, `add_documents_batch`, `add_documents_batch_isolated`

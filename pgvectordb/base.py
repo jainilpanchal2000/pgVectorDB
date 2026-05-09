@@ -11,7 +11,7 @@ This module contains foundational components used throughout pgVectorDB:
 - **Constants**: ALLOWED_TEXT_CONFIGS, VALID_QUERY_PARAMS
 - **Type Definitions**: QueryResult
 
-Usage:
+Examples:
     >>> from pgvectordb.base import IndexType, ValidationError, QueryResult
     >>> index = IndexType.HNSW
     >>> raise ValidationError("Invalid input")
@@ -47,7 +47,7 @@ class IndexType(str, Enum):
             - Cons: Requires vectorscale extension
             - Extension: Requires 'vectorscale' PostgreSQL extension
 
-    Example:
+    Examples:
         >>> from pgvectordb.base import IndexType
         >>> rag = pgVectorDB(
         ...     collection_name="docs",
@@ -76,7 +76,7 @@ class KeywordSearchType(str, Enum):
             - Ranking: BM25 formula with configurable k1 and b
             - Extension: Requires 'pg_textsearch' PostgreSQL extension
 
-    Example:
+    Examples:
         >>> from pgvectordb.base import KeywordSearchType
         >>> results = await rag.keyword_search(
         ...     "machine learning",
@@ -105,7 +105,7 @@ class StorageLayout(str, Enum):
             - Memory: Highest memory usage
             - Best for: When query speed is critical
 
-    Example:
+    Examples:
         >>> from pgvectordb.base import StorageLayout
         >>> await rag.build_index(
         ...     storage_layout=StorageLayout.MEMORY_OPTIMIZED  # 75% less memory
@@ -153,7 +153,7 @@ class DistanceMetric(str, Enum):
             - Best for: Set similarity, binary features
             - Range: 0 (identical) to 1 (no overlap)
 
-    Example:
+    Examples:
         >>> from pgvectordb.base import DistanceMetric
         >>> await rag.build_index(metric=DistanceMetric.COSINE)
     """
@@ -187,7 +187,7 @@ class VectorPrecision(str, Enum):
             - Storage savings: 97%
             - Best for: Binary embeddings, Hamming distance
 
-    Example:
+    Examples:
         >>> from pgvectordb.base import VectorPrecision
         >>> await rag.create_halfvec_table()  # Uses FLOAT16
     """
@@ -218,7 +218,7 @@ class IterativeScanMode(str, Enum):
             - Performance: Better recall, faster than strict
             - Recommended: For most filtered search use cases
 
-    Example:
+    Examples:
         >>> from pgvectordb.base import IterativeScanMode
         >>> await rag.set_iterative_scan(IterativeScanMode.RELAXED_ORDER)
     """
@@ -296,7 +296,7 @@ class RetrievalSystemError(Exception):
     All custom exceptions in this module inherit from this class,
     allowing you to catch any pgVectorDB error with a single except clause.
 
-    Example:
+    Examples:
         >>> try:
         ...     await rag.semantic_search("query")
         ... except RetrievalSystemError as e:
@@ -318,7 +318,7 @@ class InitializationError(RetrievalSystemError):
         - Missing required PostgreSQL extensions (pgvector, vectorscale, pg_textsearch)
         - Database connection issues during initialization
 
-    Example:
+    Examples:
         >>> rag = pgVectorDB(...)
         >>> await rag.semantic_search("query")  # Raises InitializationError
         InitializationError: System not initialized. Call initialize() first.
@@ -343,7 +343,7 @@ class ValidationError(RetrievalSystemError):
         - Label values outside smallint range
         - Invalid filter operator syntax
 
-    Example:
+    Examples:
         >>> await rag.semantic_search("", k=5)
         ValidationError: query must be a non-empty string
 
@@ -368,7 +368,7 @@ class DatabaseError(RetrievalSystemError):
         - Index creation failures
         - SQL syntax errors (internal)
 
-    Example:
+    Examples:
         >>> await rag.add_documents(docs)
         DatabaseError: Failed to add documents: connection refused
     """
@@ -392,7 +392,7 @@ class RateLimitError(RetrievalSystemError):
         - Reduce batch sizes
         - Use local embedding model if rate limits are frequent
 
-    Example:
+    Examples:
         >>> try:
         ...     await rag.add_documents_batch(large_batch)
         ... except RateLimitError:
@@ -425,12 +425,13 @@ class QueryResult(TypedDict):
         - Keyword search (BM25): Higher is more relevant (negated from raw scores)
         - Hybrid search: Normalized/fused scores
 
-    Example:
+    Examples:
         >>> results: List[QueryResult] = await rag.semantic_search("query")
         >>> for result in results:
         ...     print(f"ID: {result['id']}")
         ...     print(f"Score: {result['score']:.4f}")
-        ...     print(f"Content: {result['content'][:100]}...")
+        ...     content = result['content']
+        ...     print(f"Content: {content[:100]}...")
     """
 
     id: str

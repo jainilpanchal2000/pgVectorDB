@@ -9,6 +9,7 @@ set_parallel_workers, dump_bm25_index, spill_bm25_index.
 """
 
 import json
+import re
 import time
 import logging
 from typing import Dict, List, Optional, Any, Callable
@@ -98,7 +99,7 @@ class AnalyticsMixin:
         Returns:
             Dictionary with index statistics
 
-        Example:
+        Examples:
             >>> stats = await rag.get_index_stats()
             >>> print(f"Index type: {stats['index_type']}")
             >>> print(f"Index size: {stats['index_size']}")
@@ -212,7 +213,7 @@ class AnalyticsMixin:
         Returns:
             Query execution plan as formatted string
 
-        Example:
+        Examples:
             >>> plan = await rag.explain_query(
             ...     "machine learning",
             ...     search_method="hybrid_search",
@@ -283,7 +284,7 @@ class AnalyticsMixin:
         Returns:
             Dictionary mapping method name to performance metrics
 
-        Example:
+        Examples:
             >>> queries = ["AI", "machine learning", "neural networks"]
             >>> results = await rag.benchmark_search_methods(queries, k=10)
             >>> for method, metrics in results.items():
@@ -354,7 +355,7 @@ class AnalyticsMixin:
         Returns:
             Dictionary with validation results and issues found
 
-        Example:
+        Examples:
             >>> validation = await rag.validate_collection()
             >>> if validation['issues_found']:
             ...     print(f"Found {len(validation['issues'])} issues:")
@@ -469,7 +470,7 @@ class AnalyticsMixin:
         Returns:
             Dictionary with 'recall@k', 'queries_tested', and 'avg_overlap'
 
-        Example:
+        Examples:
             >>> recall = await rag.compute_recall(
             ...     test_queries=["AI applications", "machine learning"],
             ...     k=10
@@ -518,7 +519,7 @@ class AnalyticsMixin:
             scan_mem_multiplier: HNSW memory multiplier (default: 1)
             max_probes: IVFFlat max probes for iterative scan
 
-        Example:
+        Examples:
             >>> rag.set_iterative_scan(
             ...     mode=IterativeScanMode.STRICT_ORDER,
             ...     max_scan_tuples=50000
@@ -548,7 +549,7 @@ class AnalyticsMixin:
         Returns:
             Number of labels created
 
-        Example:
+        Examples:
             >>> await rag.create_label_definitions([
             ...     {"id": 1, "name": "science", "description": "Scientific content"},
             ...     {"id": 2, "name": "technology", "description": "Tech content"},
@@ -631,15 +632,26 @@ class AnalyticsMixin:
         speeding up HNSW index creation.
 
         Args:
-            value: Memory value like '2GB', '4GB', '8GB'
+            value: Memory value like '2GB', '4GB', '8GB'. Must match the
+                pattern ``<integer>[kB|MB|GB|TB]`` (case-insensitive).
 
         Warning:
             Don't set higher than available server memory minus needs of other processes.
 
-        Example:
+        Raises:
+            ValidationError: If value does not match the expected memory format.
+
+        Examples:
             >>> await rag.set_maintenance_work_mem('8GB')
             >>> await rag.build_index()  # Faster with more memory
         """
+        # Allowlist check: only integers optionally followed by a memory unit.
+        # This prevents SQL injection via the value string.
+        if not re.match(r"^\d+\s*(kB|MB|GB|TB)?$", value.strip(), re.IGNORECASE):
+            raise ValidationError(
+                f"Invalid maintenance_work_mem value '{value}'. "
+                "Expected format: '<integer>[kB|MB|GB|TB]', e.g. '2GB' or '65536'."
+            )
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 await conn.execute(text(f"SET maintenance_work_mem = '{value}'"))
@@ -657,12 +669,27 @@ class AnalyticsMixin:
         Configure parallel workers for queries and index builds.
 
         Args:
-            gather: max_parallel_workers_per_gather for exact search speedup
-            maintenance: max_parallel_maintenance_workers for faster index builds
+            gather: max_parallel_workers_per_gather for exact search speedup.
+                Must be a non-negative integer.
+            maintenance: max_parallel_maintenance_workers for faster index builds.
+                Must be a non-negative integer.
 
-        Example:
+        Raises:
+            ValidationError: If values are not valid non-negative integers.
+
+        Examples:
             >>> await rag.set_parallel_workers(gather=4, maintenance=7)
         """
+        # Coerce to int and validate to prevent SQL injection via non-integer types
+        if gather is not None:
+            gather = int(gather)
+            if gather < 0:
+                raise ValidationError("gather must be a non-negative integer")
+        if maintenance is not None:
+            maintenance = int(maintenance)
+            if maintenance < 0:
+                raise ValidationError("maintenance must be a non-negative integer")
+
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 if gather is not None:
@@ -698,7 +725,7 @@ class AnalyticsMixin:
         Returns:
             Average embedding vector, or None if no documents
 
-        Example:
+        Examples:
             >>> centroid = await rag.compute_centroid(filter={"category": "ai"})
         """
         self._ensure_initialized()
@@ -838,7 +865,7 @@ class AnalyticsMixin:
         Returns:
             Reranked QueryResult list
 
-        Example:
+        Examples:
             >>> from sentence_transformers import CrossEncoder
             >>> ce = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
             >>>
@@ -896,7 +923,7 @@ class AnalyticsMixin:
         Returns:
             Index summary or path to dump file
 
-        Example:
+        Examples:
             >>> summary = await rag.dump_bm25_index()
             >>> print(summary)
         """
@@ -936,7 +963,7 @@ class AnalyticsMixin:
         Returns:
             Number of entries spilled
 
-        Example:
+        Examples:
             >>> entries = await rag.spill_bm25_index()
             >>> print(f"Spilled {entries} entries to disk")
 

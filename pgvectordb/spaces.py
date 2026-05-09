@@ -17,7 +17,7 @@ Space Types:
     - **CategorySpace**: Encodes categorical fields as one-hot vectors.
     - **RecencySpace**: Encodes timestamps via exponential time-decay.
 
-Usage:
+Examples:
     >>> from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace
     >>> spaces = [
     ...     TextSpace(name="description", field="content"),
@@ -35,7 +35,6 @@ Usage:
     ...     k=10,
     ... )
 
-Author: Jainil Panchal
 Version: 0.0.3
 """
 
@@ -67,7 +66,7 @@ class NumberMode(str, Enum):
         SIMILAR: Values closest to query are best (e.g., temperature, square footage).
             Distance increases in both directions from the query.
 
-    Example:
+    Examples:
         >>> price_space = NumberSpace(
         ...     name="price", field="price",
         ...     min_value=0, max_value=1000000,
@@ -94,7 +93,7 @@ class TimeUnit(str, Enum):
         DAY: 86 400 seconds.
         WEEK: 604 800 seconds.
 
-    Example:
+    Examples:
         >>> recency = RecencySpace(
         ...     name="updated", field="updated_at",
         ...     time_unit=TimeUnit.DAY, period_value=7  # weekly decay
@@ -141,7 +140,7 @@ class VectorSpace(ABC):
         - Implement ``encode_query(value)`` to convert a query parameter to a vector.
         - Set ``dimensions`` in ``__init__``.
 
-    Example:
+    Examples:
         >>> class MyCustomSpace(VectorSpace):
         ...     def __init__(self, name, field, dims):
         ...         super().__init__(name=name, field=field)
@@ -267,7 +266,7 @@ class TextSpace(VectorSpace):
             default model.
         _dimensions: Detected embedding dimensions (set on first use).
 
-    Example:
+    Examples:
         >>> # Embed the document content
         >>> desc_space = TextSpace(name="description", field="content")
         >>>
@@ -401,7 +400,7 @@ class NumberSpace(VectorSpace):
         max_value: Maximum expected value (maps to 1.0).
         mode: Encoding mode — MINIMUM, MAXIMUM, or SIMILAR.
 
-    Example:
+    Examples:
         >>> price_space = NumberSpace(
         ...     name="price", field="price",
         ...     min_value=0, max_value=2000000,
@@ -545,7 +544,7 @@ class CategorySpace(VectorSpace):
         negative_filter: Score assigned to non-matching categories.
             ``-1.0`` strongly penalizes mismatches, ``0.0`` is neutral.
 
-    Example:
+    Examples:
         >>> city_space = CategorySpace(
         ...     name="city", field="city",
         ...     categories=["New York", "San Francisco", "Chicago", "Austin"],
@@ -673,7 +672,7 @@ class RecencySpace(VectorSpace):
         means stored embeddings become stale over time. Re-encode periodically
         or compute recency at query time for accuracy.
 
-    Example:
+    Examples:
         >>> recency = RecencySpace(
         ...     name="published", field="published_at",
         ...     time_unit=TimeUnit.DAY, period_value=7,

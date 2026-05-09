@@ -25,7 +25,7 @@ Supported backends:
 | ``AWSBedrockReranker`` | AWS Bedrock | ``boto3``, AWS credentials |
 | ``HuggingFaceReranker`` | Local transformers pipeline | ``transformers``, ``torch`` |
 
-Usage:
+Examples:
     >>> from pgvectordb.rerankers import CrossEncoderReranker, CohereReranker
     >>>
     >>> # Local cross-encoder (no API key needed)
@@ -41,7 +41,6 @@ Usage:
     ...     rerank_top_k=5,  # Return best 5 after reranking
     ... )
 
-Author: Jainil Panchal
 Version: 0.0.3
 """
 
@@ -66,7 +65,7 @@ class BaseReranker(ABC):
         - Implement ``rerank(query, documents, top_k)``
         - Return results sorted by rerank score, descending
 
-    Example:
+    Examples:
         >>> class MyReranker(BaseReranker):
         ...     def rerank(self, query, documents, top_k=None):
         ...         # Score each document
@@ -129,7 +128,7 @@ class CrossEncoderReranker(BaseReranker):
         batch_size: Documents to score per batch (default: 32).
         max_length: Max token length per (query, doc) pair (default: 512).
 
-    Example:
+    Examples:
         >>> reranker = CrossEncoderReranker(
         ...     model="cross-encoder/ms-marco-MiniLM-L-6-v2"
         ... )
@@ -229,7 +228,7 @@ class CohereReranker(BaseReranker):
         model: Rerank model name (default: ``rerank-english-v3.0``).
         max_chunks_per_doc: Max text chunks per document (default: 10).
 
-    Example:
+    Examples:
         >>> import os
         >>> reranker = CohereReranker(api_key=os.environ["COHERE_API_KEY"])
         >>> results = reranker.rerank(query, candidates, top_k=5)
@@ -330,7 +329,7 @@ class AWSBedrockReranker(BaseReranker):
         aws_secret_access_key: Optional, falls back to env/IAM.
         aws_session_token: Optional, for temporary credentials.
 
-    Example:
+    Examples:
         >>> reranker = AWSBedrockReranker(region_name="us-east-1")
         >>> results = reranker.rerank(query, candidates, top_k=5)
     """
@@ -456,7 +455,7 @@ class HuggingFaceReranker(BaseReranker):
         batch_size: Batch size for inference (default: 16).
         max_length: Max token length (default: 512).
 
-    Example:
+    Examples:
         >>> reranker = HuggingFaceReranker(
         ...     model="BAAI/bge-reranker-v2-m3",
         ...     device="cuda",
@@ -577,7 +576,7 @@ class HuggingFaceReranker(BaseReranker):
 
 def create_reranker(
     backend: str,
-    **kwargs,
+    **kwargs: Any,
 ) -> BaseReranker:
     """
     Factory function to create a reranker by backend name.
@@ -593,7 +592,7 @@ def create_reranker(
     Raises:
         ValueError: If backend name is unknown.
 
-    Example:
+    Examples:
         >>> reranker = create_reranker("cross_encoder",
         ...     model="cross-encoder/ms-marco-MiniLM-L-6-v2"
         ... )

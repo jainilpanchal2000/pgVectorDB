@@ -331,7 +331,7 @@ class RAGEvaluator:
         Measures how high the first relevant document appears in results.
         Higher is better (max = 1.0 when first doc is relevant)
 
-        Example:
+        Examples:
         - First relevant at position 1: RR = 1/1 = 1.0
         - First relevant at position 2: RR = 1/2 = 0.5
         - First relevant at position 5: RR = 1/5 = 0.2
@@ -378,7 +378,7 @@ class RAGEvaluator:
 
         Range: 0 to 1 (1 = perfect ranking)
 
-        Example:
+        Examples:
         - Retrieved: [rel, rel, irrel, rel, irrel] (3 relevant out of 5)
         - DCG = 1/log2(2) + 1/log2(3) + 0/log2(4) + 1/log2(5) + 0/log2(6)
         - IDCG = 1/log2(2) + 1/log2(3) + 1/log2(4) (perfect: all 3 relevant at top)
@@ -742,7 +742,7 @@ class KValueAnalysis:
 
     Helps answer: "What K value is best for my use case?"
 
-    Example:
+    Examples:
         >>> analyzer = KValueAnalysis()
         >>> results = analyzer.analyze(
         ...     queries=queries,

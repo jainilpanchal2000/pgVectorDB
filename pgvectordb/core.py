@@ -27,7 +27,6 @@ Quick Start
     >>> await rag.add_documents(docs)
     >>> results = await rag.semantic_search("artificial intelligence", k=5)
 
-Author: Jainil Panchal
 Version: 0.0.4
 License: MIT
 """
@@ -59,6 +58,7 @@ from .mixins import (
     MultimodalMixin,
     IntegrationsMixin,
 )
+from .schema import build_qualified_name, quote_identifier
 from .config import Config
 
 logger = logging.getLogger(__name__)
@@ -338,12 +338,14 @@ class pgVectorDB(
 
     async def _setup_full_text_search(self) -> None:
         """Creates tsvector column, trigger, and GIN indexes for full-text and trigram search."""
+        qualified_table = build_qualified_name(self.schema_name, self.table_name)
+
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 # Add tsvector column
                 await conn.execute(
                     text(
-                        f'ALTER TABLE "{self.schema_name}"."{self.table_name}" '
+                        f"ALTER TABLE {qualified_table} "
                         f"ADD COLUMN IF NOT EXISTS content_tsvector tsvector"
                     )
                 )
@@ -360,35 +362,35 @@ class pgVectorDB(
                 await conn.execute(text(function_ddl))
 
                 # Create trigger
-                trigger_name = f"tsvector_update_on_{self.table_name}"
+                trigger_name = quote_identifier(f"tsvector_update_on_{self.table_name}")
                 await conn.execute(
-                    text(
-                        f'DROP TRIGGER IF EXISTS "{trigger_name}" ON "{self.schema_name}"."{self.table_name}";'
-                    )
+                    text(f"DROP TRIGGER IF EXISTS {trigger_name} ON {qualified_table};")
                 )
                 create_trigger_ddl = f"""
-                CREATE TRIGGER "{trigger_name}" 
-                BEFORE INSERT OR UPDATE ON "{self.schema_name}"."{self.table_name}"
+                CREATE TRIGGER {trigger_name} 
+                BEFORE INSERT OR UPDATE ON {qualified_table}
                 FOR EACH ROW EXECUTE FUNCTION update_content_tsvector();
                 """
                 await conn.execute(text(create_trigger_ddl))
 
                 # Create GIN index on tsvector
-                index_name = f"idx_{self.table_name}_content_tsvector"
+                index_name = quote_identifier(f"idx_{self.table_name}_content_tsvector")
                 await conn.execute(
                     text(
-                        f'CREATE INDEX IF NOT EXISTS "{index_name}" '
-                        f'ON "{self.schema_name}"."{self.table_name}" USING GIN(content_tsvector);'
+                        f"CREATE INDEX IF NOT EXISTS {index_name} "
+                        f"ON {qualified_table} USING GIN(content_tsvector);"
                     )
                 )
                 logger.info("✓ Full-text search index created")
 
                 # Create trigram GIN index for similarity search
-                trigram_index_name = f"idx_{self.table_name}_content_trgm"
+                trigram_index_name = quote_identifier(
+                    f"idx_{self.table_name}_content_trgm"
+                )
                 await conn.execute(
                     text(
-                        f'CREATE INDEX IF NOT EXISTS "{trigram_index_name}" '
-                        f'ON "{self.schema_name}"."{self.table_name}" USING GIN(content gin_trgm_ops);'
+                        f"CREATE INDEX IF NOT EXISTS {trigram_index_name} "
+                        f"ON {qualified_table} USING GIN(content gin_trgm_ops);"
                     )
                 )
                 logger.info("✓ Trigram similarity index created")
@@ -414,7 +416,7 @@ class pgVectorDB(
         Raises:
             DatabaseError: If initialization fails
 
-        Example:
+        Examples:
             >>> rag = pgVectorDB(...)
             >>> await rag.initialize()  # That's it! No SQL needed
         """

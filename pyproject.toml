@@ -37,8 +37,6 @@ dependencies = [
     "python-dotenv>=1.0",
     "langchain-community>=0.2",
     "langchain>=0.2",
-    "psycopg2-binary>=2.9",
-    "nest-asyncio>=1.5",
 ]
 
 [project.optional-dependencies]
@@ -58,6 +56,13 @@ rerankers = [
 cohere = [
     "cohere>=5.0",
 ]
+jupyter = [
+    # Convenience tools for running pgVectorDB in Jupyter notebooks.
+    # Not required in production environments.
+    "nest-asyncio>=1.5",
+    "ipykernel>=6.0",
+    "jupyter>=1.0",
+]
 all = [
     "pgvectordb[huggingface,aws,rerankers,cohere]",
 ]
@@ -65,9 +70,8 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "black>=24.0",
-    "flake8>=7.0",
     "mypy>=1.8",
-    "ruff==0.15.2",
+    "ruff>=0.4.0",
 ]
 
 [project.urls]
@@ -110,5 +114,9 @@ dev = [
     "nbconvert>=7.17.0",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
-    "ruff==0.15.2",
+    "ruff>=0.4.0",
+]
+docs = [
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
 ]

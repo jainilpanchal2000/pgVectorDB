@@ -1,0 +1,3 @@
+# Exceptions
+
+::: pgvectordb.base

@@ -2,7 +2,7 @@
 pgVectorDB - Production PostgreSQL Vector Database
 ===================================================
 
-**Version:** 0.0.4
+**Version:** 0.0.5
 **Status:** Production-Ready with Multi-Embedding Support
 
 A comprehensive PostgreSQL-based RAG (Retrieval-Augmented Generation) system with
@@ -129,7 +129,7 @@ except ImportError:
     HuggingFaceReranker = None
     create_reranker = None
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 __all__ = [
     # Core class

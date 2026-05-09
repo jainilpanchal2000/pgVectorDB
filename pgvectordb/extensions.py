@@ -10,7 +10,7 @@ Extension Requirements:
     - **vectorscale** (OPTIONAL): Enables DiskANN index type and label filtering
     - **pg_textsearch** (OPTIONAL): Enables BM25 keyword search ranking
 
-Usage:
+Examples:
     >>> from pgvectordb.extensions import ExtensionManager
     >>> ext_manager = ExtensionManager(engine)
     >>> await ext_manager.check_extensions()
@@ -65,7 +65,7 @@ class ExtensionManager:
         vectorscale_version (str): Version of installed vectorscale
         pg_textsearch_version (str): Version of installed pg_textsearch
 
-    Example:
+    Examples:
         >>> ext = ExtensionManager(engine)
         >>> await ext.check_extensions()
         >>>
@@ -84,7 +84,9 @@ class ExtensionManager:
     MIN_PGVECTOR_VERSION = "0.5.0"
     MIN_PGVECTOR_ITERATIVE = "0.8.0"
     MIN_VECTORSCALE_VERSION = "0.2.0"
-    MIN_PG_TEXTSEARCH_VERSION = "0.3.0"
+    # 0.4.0 is the first release with native BM25 index support.
+    # config.py is the single source of truth; keep both in sync.
+    MIN_PG_TEXTSEARCH_VERSION = "0.4.0"
 
     def __init__(self, engine: AsyncEngine):
         """
@@ -125,7 +127,7 @@ class ExtensionManager:
             InitializationError: If required pgvector extension is not installed.
             DatabaseError: If unable to query extension status.
 
-        Example:
+        Examples:
             >>> status = await ext.check_extensions()
             >>> print(status)
             {'pgvector': True, 'vectorscale': True, 'pg_textsearch': False}
@@ -197,11 +199,27 @@ class ExtensionManager:
 
                 # Check pg_textsearch (optional)
                 if "pg_textsearch" in installed:
-                    self.has_pg_textsearch = True
                     self.pg_textsearch_version = installed["pg_textsearch"]
-                    logger.info(
-                        f"✓ pg_textsearch {self.pg_textsearch_version} detected (BM25 available)"
-                    )
+                    
+                    if version.parse(self.pg_textsearch_version) >= version.parse(self.MIN_PG_TEXTSEARCH_VERSION):
+                        self.has_pg_textsearch = True
+                        logger.info(
+                            f"✓ pg_textsearch {self.pg_textsearch_version} detected (BM25 available)"
+                        )
+                        # Recommend v1.0.0+ for production safety
+                        if version.parse(self.pg_textsearch_version) < version.parse("1.0.0"):
+                            logger.warning(
+                                f"⚠ pg_textsearch {self.pg_textsearch_version} is below v1.0.0. "
+                                "BM25 will work, but v1.0.0+ adds pg_dump/restore, "
+                                "VACUUM, and replication support. Upgrade recommended "
+                                "for production use."
+                            )
+                    else:
+                        logger.warning(
+                            f"⚠ pg_textsearch version {self.pg_textsearch_version} is too old. "
+                            f"Minimum required is {self.MIN_PG_TEXTSEARCH_VERSION}. (BM25 disabled)"
+                        )
+                        self.has_pg_textsearch = False
                 else:
                     # Check availability
                     avail = await conn.execute(
@@ -329,7 +347,7 @@ class ExtensionManager:
             InitializationError: If vectorscale is not installed.
                 Error message includes installation instructions.
 
-        Example:
+        Examples:
             >>> ext.require_vectorscale("build DiskANN index")
             InitializationError: Cannot build DiskANN index:
                 vectorscale extension is not installed.
@@ -362,7 +380,7 @@ class ExtensionManager:
             InitializationError: If pg_textsearch is not installed.
                 Error message includes installation instructions.
 
-        Example:
+        Examples:
             >>> ext.require_pg_textsearch("build BM25 index")
             InitializationError: Cannot build BM25 index:
                 pg_textsearch extension is not installed.
@@ -403,7 +421,7 @@ class ExtensionManager:
             Dictionary mapping features to their availability status
             and requirements.
 
-        Example:
+        Examples:
             >>> avail = ext.get_feature_availability()
             >>> print(avail['DiskANN index'])
             {'available': False, 'requires': 'vectorscale', 'version': None}

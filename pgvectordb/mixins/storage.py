@@ -40,7 +40,7 @@ class StorageMixin:
         Returns:
             Number of documents exported
 
-        Example:
+        Examples:
             >>> # Export all documents (without embeddings for smaller file)
             >>> count = await rag.export_to_json("backup.json")
             >>>
@@ -117,7 +117,7 @@ class StorageMixin:
         Returns:
             Number of documents imported
 
-        Example:
+        Examples:
             >>> # Restore from backup
             >>> count = await rag.import_from_json("backup.json")
             >>> print(f"Imported {count} documents")
@@ -202,7 +202,7 @@ class StorageMixin:
         Returns:
             Name of the created table
 
-        Example:
+        Examples:
             >>> halfvec_table = await rag.create_halfvec_table()
             >>> print(f"Created {halfvec_table} with half-precision vectors")
 
@@ -298,7 +298,7 @@ class StorageMixin:
         Returns:
             Name of the created table
 
-        Example:
+        Examples:
             >>> sparse_table = await rag.create_sparsevec_table(max_dimensions=50000)
             >>> print(f"Created {sparse_table} for sparse vectors")
 
@@ -359,7 +359,7 @@ class StorageMixin:
             InitializationError: If system not initialized
             DatabaseError: If table deletion fails
 
-        Example:
+        Examples:
             >>> await rag.delete_table()
             >>> await rag.close()
         """

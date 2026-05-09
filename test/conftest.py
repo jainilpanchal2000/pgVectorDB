@@ -192,10 +192,21 @@ def connection_string() -> str:
 
 @pytest.fixture(scope="session")
 def embeddings():
-    """Session-scoped HuggingFace embeddings (all-MiniLM-L6-v2, 384-dim)."""
-    from langchain_huggingface import HuggingFaceEmbeddings
+    """Session-scoped HuggingFace embeddings (all-MiniLM-L6-v2, 384-dim).
 
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    Falls back to a MagicMock when langchain_huggingface is not installed,
+    so unit tests that only need the fixture for object construction don't error.
+    """
+    try:
+        from langchain_huggingface import HuggingFaceEmbeddings
+        return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    except ImportError:
+        from unittest.mock import MagicMock
+        mock = MagicMock()
+        mock.embed_documents.return_value = [[0.0] * 384]
+        mock.embed_query.return_value = [0.0] * 384
+        return mock
+
 
 
 @pytest_asyncio.fixture(scope="session")

@@ -398,7 +398,11 @@ class IndexingMixin:
         logger.info(f"Set DiskANN build params: {self._diskann_build_params}")
 
     async def build_bm25_index(
-        self, text_config: str = "english", k1: float = 1.2, b: float = 0.75
+        self,
+        text_config: str = "english",
+        k1: float = 1.2,
+        b: float = 0.75,
+        max_parallel_maintenance_workers: Optional[int] = None,
     ) -> None:
         """
         Build native BM25 index using pg_textsearch extension.
@@ -407,6 +411,7 @@ class IndexingMixin:
             text_config: PostgreSQL text search configuration (default: 'english')
             k1: Term frequency saturation parameter (default: 1.2, range: 0.1-10.0)
             b: Length normalization parameter (default: 0.75, range: 0.0-1.0)
+            max_parallel_maintenance_workers: Hint to use parallel index builds (pg_textsearch >= 0.5.0)
 
         Raises:
             InitializationError: If system not initialized
@@ -447,6 +452,15 @@ class IndexingMixin:
                     text(f'DROP INDEX IF EXISTS "{self.schema_name}"."{index_name}"')
                 )
 
+                # Set parallel workers hint if provided
+                if max_parallel_maintenance_workers is not None:
+                    if max_parallel_maintenance_workers < 0:
+                        raise ValidationError("max_parallel_maintenance_workers must be non-negative")
+                    await conn.execute(
+                        text(f"SET LOCAL max_parallel_maintenance_workers = {max_parallel_maintenance_workers};")
+                    )
+                    logger.info(f"Set parallel maintenance workers: {max_parallel_maintenance_workers}")
+
                 # Create BM25 index
                 create_index_sql = f"""
                 CREATE INDEX "{index_name}" 
@@ -475,7 +489,7 @@ class IndexingMixin:
             InitializationError: If system not initialized
             DatabaseError: If reindex operation fails
 
-        Example:
+        Examples:
             >>> # Add 100k new documents
             >>> await rag.add_documents(new_docs)
             >>> # Rebuild index for optimal performance
@@ -537,7 +551,7 @@ class IndexingMixin:
             InitializationError: If system not initialized
             DatabaseError: If drop operation fails
 
-        Example:
+        Examples:
             >>> # Switch from HNSW to DiskANN
             >>> await rag.adrop_vector_index()
             >>> rag.index_type = IndexType.DISKANN
@@ -599,7 +613,7 @@ class IndexingMixin:
             InitializationError: If system not initialized
             DatabaseError: If maintenance fails
 
-        Example:
+        Examples:
             >>> # After bulk operations
             >>> await rag.add_documents_batch(large_docs)
             >>> await rag.vacuum_analyze()
@@ -610,25 +624,31 @@ class IndexingMixin:
         self._ensure_initialized()
 
         try:
-            # VACUUM cannot run inside a transaction block
-            # Need to use autocommit mode
+            # VACUUM cannot run inside a transaction block — use autocommit.
+            # NOTE: execution_options() returns a *new* connection-like proxy;
+            # it does NOT mutate the connection in place. We must create the
+            # connection using begin_nested=False and then apply the option via
+            # the engine-level helper so that the underlying asyncpg connection
+            # truly runs outside a transaction.
             async with self.sqlalchemy_engine.connect() as conn:
-                # Set isolation level to autocommit
-                await conn.execution_options(isolation_level="AUTOCOMMIT")
+                # Escape any active implicit transaction so asyncpg accepts VACUUM
+                await conn.execute(text("COMMIT"))
+
+                qualified_table = (
+                    f'"{self.schema_name}"."{self.table_name}"'
+                )
 
                 if full:
                     logger.info(
                         "Running VACUUM FULL ANALYZE (this may take a while and locks table)..."
                     )
                     await conn.execute(
-                        text(
-                            f'VACUUM FULL ANALYZE "{self.schema_name}"."{self.table_name}"'
-                        )
+                        text(f"VACUUM FULL ANALYZE {qualified_table}")
                     )
                 else:
                     logger.info("Running VACUUM ANALYZE...")
                     await conn.execute(
-                        text(f'VACUUM ANALYZE "{self.schema_name}"."{self.table_name}"')
+                        text(f"VACUUM ANALYZE {qualified_table}")
                     )
 
                 logger.info("✓ Maintenance completed")
@@ -810,7 +830,7 @@ class IndexingMixin:
         Returns:
             Dictionary with 'phase' and 'percent' if build in progress, None otherwise
 
-        Example:
+        Examples:
             >>> progress = await rag.get_index_build_progress()
             >>> if progress:
             ...     print(f"Phase: {progress['phase']}, Progress: {progress['percent']:.1f}%")
@@ -865,7 +885,7 @@ class IndexingMixin:
         Returns:
             Name of the created index
 
-        Example:
+        Examples:
             >>> # Index first 256 dimensions of 1536-dim embeddings
             >>> index_name = await rag.build_index_with_subvectors(subvector_dims=256)
             >>>
@@ -1028,7 +1048,7 @@ class IndexingMixin:
         Returns:
             Name of the created index
 
-        Example:
+        Examples:
             >>> index_name = await rag.build_index_binary_quantized()
             >>> # Searches will use binary index, re-rank with full vectors
 

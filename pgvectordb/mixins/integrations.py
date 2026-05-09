@@ -42,7 +42,7 @@ class IntegrationsMixin:
         Returns:
             VectorStoreRetriever object compatible with LangChain
 
-        Example:
+        Examples:
             >>> # Basic semantic retriever
             >>> retriever = rag.as_retriever()
             >>>

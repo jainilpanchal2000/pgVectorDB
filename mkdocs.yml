@@ -1,0 +1,98 @@
+site_name: pgVectorDB
+site_description: Production-ready PostgreSQL vector database for RAG — multi-embedding, multimodal search, reranking, and more.
+# site_author: Jainil Panchal
+repo_url: https://github.com/jainilpanchal/pgvectordb
+repo_name: jainilpanchal/pgvectordb
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - content.action.view
+    - announcement.dismiss
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_source: true
+            show_category_heading: true
+            show_root_heading: true
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.mark
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting_started/installation.md
+    - Quickstart: getting_started/quickstart.md
+    - Core Concepts: getting_started/core_concepts.md
+  - User Guide:
+    - Vector Store Operations: user_guide/vector_store.md
+    - Embeddings & Spaces: user_guide/embeddings_and_spaces.md
+    - Multimodal Search: user_guide/multimodal_search.md
+    - Search & Retrieval: user_guide/search_and_retrieval.md
+    - Metadata Filtering: user_guide/filtering.md
+    - Reranking: user_guide/reranking.md
+    - Metrics & Evaluation: user_guide/metrics_and_evaluation.md
+    - Analytics & Diagnostics: user_guide/analytics_and_diagnostics.md
+    - LangChain Integration: user_guide/langchain_integration.md
+  - Advanced:
+    - Indexing & Performance: advanced/indexing.md
+    - Configuration: advanced/configuration.md
+  - API Reference:
+    - pgVectorDB Core: api_reference/pgvectordb.md
+    - Spaces: api_reference/spaces.md
+    - Rerankers: api_reference/rerankers.md
+    - Metrics: api_reference/metrics.md
+    - Configuration: api_reference/config.md
+    - Exceptions: api_reference/exceptions.md
