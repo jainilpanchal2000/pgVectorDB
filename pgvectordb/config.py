@@ -1,5 +1,6 @@
-from typing import Dict, Any
 import os
+from typing import Any, Dict
+
 from dotenv import load_dotenv
 from langchain_core.embeddings import Embeddings
 

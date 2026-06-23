@@ -2,8 +2,10 @@
 
 Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL with pgvector. Features advanced vector search, comprehensive evaluation metrics, and optimization tools.
 
-**Version:** 0.0.5.post1
+**Version:** 0.0.6
 **Status:** Production-Ready (Security & Robustness Hardened)
+
+**New in v0.0.6:** Fluent API with LanceDB-style query builder, query analysis (explain/analyze), advanced query parameters, and scalar indexes for metadata filtering.
 
 📖 **[Full Configuration Guide](docs/CONFIGURATION.md)** | 🛠️ **[Refactoring Summary](docs/REFACTORING_SUMMARY.md)**
 
@@ -31,7 +33,35 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
 - **FTS (Full-Text Search)** - PostgreSQL's native ts_rank.
 - **BM25** - Industry-standard ranking via `pg_textsearch` (configurable k1, b).
 
-### 🎯 **10 Search Methods**
+### 🎯 **Fluent Query API (v0.0.6)**
+LanceDB-style query builder with lazy execution:
+
+```python
+# Basic semantic search
+results = await db.search("machine learning").limit(10).to_list()
+
+# Filtered search
+results = await (
+    db.search("AI frameworks")
+    .where({"category": "ai", "year": 2024})
+    .limit(5)
+    .to_list()
+)
+
+# Hybrid search
+results = await (
+    db.search([0.1, 0.2, ...])  # Vector query
+    .nearest_to_text("neural networks")  # Add FTS
+    .limit(10)
+    .to_list()
+)
+
+# Query analysis
+plan = db.search("query").explain_plan()  # Execution plan
+metrics = await db.search("query").analyze_plan()  # Timing + I/O
+```
+
+### 🔍 **10 Search Methods (Legacy API)**
 1. **keyword_search** - Pure keyword search (FTS or BM25).
 2. **universal_keyword_search** - Keyword search across content + metadata.
 3. **semantic_search** - Vector similarity search.
@@ -49,6 +79,56 @@ Production-ready Retrieval-Augmented Generation (RAG) system built on PostgreSQL
 - **Deduplication**: Content-hash based deduplication in `upsert_documents`.
 - **Concurrent Indexing**: Non-blocking `build_index_concurrent` for zero downtime.
 - **Recall Monitoring**: Measure exact vs approximate search recall.
+
+---
+
+## 🆕 v0.0.6 — Fluent API
+
+**New LanceDB-style query builder** with lazy execution:
+
+```python
+# Chain methods, execute on to_list()
+results = await (
+    db.search("machine learning")
+    .where({"category": "ai", "year": {"$gte": 2024}})
+    .limit(10)
+    .to_list()
+)
+```
+
+**Query analysis tools:**
+```python
+# Explain query plan without executing
+plan = db.search("query").where({"category": "ai"}).explain_plan()
+
+# Execute with EXPLAIN ANALYZE
+metrics = await db.search("query").analyze_plan()
+```
+
+**Advanced query parameters:**
+```python
+results = await (
+    db.search("query")
+    .ef(100)              # HNSW candidate pool
+    .nprobes(20)          # IVF partitions
+    .refine_factor(2)     # Oversampling
+    .distance_range(0, 0.5)  # Distance bounds
+    .bypass_vector_index()   # Exact search
+    .limit(10)
+    .to_list()
+)
+```
+
+**Scalar indexes for metadata filtering:**
+```python
+# B-Tree for range queries ($gt, $lt, $between)
+await db.create_scalar_index("price", index_type="btree")
+
+# GIN for low-cardinality equality ($eq, $in)
+await db.create_scalar_index("category", index_type="bitmap")
+```
+
+See [examples/fluent_api_demo.py](examples/fluent_api_demo.py) for a complete working demo.
 
 ---
 

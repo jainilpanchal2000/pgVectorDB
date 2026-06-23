@@ -20,8 +20,7 @@ Run:
 
 import pytest
 
-from pgvectordb import pgVectorDB, IndexType, DistanceMetric, StorageLayout
-
+from pgvectordb import DistanceMetric, IndexType, StorageLayout, pgVectorDB
 
 pytestmark = pytest.mark.integration
 
@@ -77,16 +76,16 @@ class TestHNSWIndex:
     async def test_build_hnsw_l2(
         self, db_schema, embeddings, connection_string, small_docs
     ):
-        rag = _make_rag(
+        pgvdb = _make_rag(
             IndexType.HNSW, "test_hnsw_l2", db_schema, embeddings, connection_string
         )
-        await rag.initialize(overwrite_existing=True)
+        await pgvdb.initialize(overwrite_existing=True)
         docs, _ = small_docs
-        await rag.add_documents(docs)
-        await rag.build_index(metric=DistanceMetric.L2)
-        stats = await rag.get_stats()
+        await pgvdb.add_documents(docs)
+        await pgvdb.build_index(metric=DistanceMetric.L2)
+        stats = await pgvdb.get_stats()
         assert stats["index_built"]
-        await rag.close()
+        await pgvdb.close()
 
     async def test_reindex_hnsw(self, rag_hnsw, small_docs):
         docs, _ = small_docs
@@ -118,16 +117,16 @@ class TestIVFFlatIndex:
     async def test_build_ivfflat(
         self, db_schema, embeddings, connection_string, medium_docs
     ):
-        rag = _make_rag(
+        pgvdb = _make_rag(
             IndexType.IVFFLAT, "test_ivf_col", db_schema, embeddings, connection_string
         )
-        await rag.initialize(overwrite_existing=True)
+        await pgvdb.initialize(overwrite_existing=True)
         docs, _ = medium_docs
-        await rag.add_documents(docs)
-        await rag.build_index(lists=10)
-        stats = await rag.get_stats()
+        await pgvdb.add_documents(docs)
+        await pgvdb.build_index(lists=10)
+        stats = await pgvdb.get_stats()
         assert stats["index_built"]
-        await rag.close()
+        await pgvdb.close()
 
 
 # ---------------------------------------------------------------------------
@@ -140,8 +139,9 @@ class TestDiskANNIndex:
         self, db_schema, embeddings, connection_string, docs_and_labels
     ):
         """DiskANN requires vectorscale — skipped if absent."""
-        from pgvectordb import ExtensionManager
         from sqlalchemy.ext.asyncio import create_async_engine
+
+        from pgvectordb import ExtensionManager
 
         engine = create_async_engine(connection_string, pool_pre_ping=True)
         mgr = ExtensionManager(engine)
@@ -151,29 +151,29 @@ class TestDiskANNIndex:
         if not mgr.has_vectorscale:
             pytest.skip("vectorscale not installed — skipping DiskANN test")
 
-        rag = _make_rag(
+        pgvdb = _make_rag(
             IndexType.DISKANN,
             "test_diskann_col",
             db_schema,
             embeddings,
             connection_string,
         )
-        await rag.initialize(overwrite_existing=True)
+        await pgvdb.initialize(overwrite_existing=True)
         docs, labels = docs_and_labels
-        await rag.add_documents(docs, labels=labels)
-        await rag.build_index(
+        await pgvdb.add_documents(docs, labels=labels)
+        await pgvdb.build_index(
             num_neighbors=50,
             search_list_size=100,
             storage_layout=StorageLayout.MEMORY_OPTIMIZED,
             include_labels=True,
         )
-        stats = await rag.get_stats()
+        stats = await pgvdb.get_stats()
         assert stats["index_built"]
 
         # Label filtering
-        res = await rag.semantic_search("programming", k=10, label_filter=[1, 2])
+        res = await pgvdb.semantic_search("programming", k=10, label_filter=[1, 2])
         assert isinstance(res, list)
-        await rag.close()
+        await pgvdb.close()
 
     async def test_diskann_build_params_api(self, rag_hnsw):
         """set_diskann_build_params API contract — must not raise."""
@@ -192,8 +192,9 @@ class TestBM25Index:
     async def test_build_bm25(
         self, db_schema, embeddings, connection_string, small_docs
     ):
-        from pgvectordb import ExtensionManager
         from sqlalchemy.ext.asyncio import create_async_engine
+
+        from pgvectordb import ExtensionManager
 
         engine = create_async_engine(connection_string, pool_pre_ping=True)
         mgr = ExtensionManager(engine)
@@ -203,14 +204,14 @@ class TestBM25Index:
         if not mgr.has_pg_textsearch:
             pytest.skip("pg_textsearch not installed — skipping BM25 index test")
 
-        rag = _make_rag(
+        pgvdb = _make_rag(
             IndexType.HNSW, "test_bm25_idx", db_schema, embeddings, connection_string
         )
-        await rag.initialize(overwrite_existing=True)
+        await pgvdb.initialize(overwrite_existing=True)
         docs, _ = small_docs
-        await rag.add_documents(docs)
-        await rag.build_bm25_index(text_config="english", k1=1.2, b=0.75)
-        await rag.close()
+        await pgvdb.add_documents(docs)
+        await pgvdb.build_bm25_index(text_config="english", k1=1.2, b=0.75)
+        await pgvdb.close()
 
 
 # ---------------------------------------------------------------------------
@@ -262,18 +263,18 @@ class TestConcurrentIndex:
     async def test_build_concurrent(
         self, db_schema, embeddings, connection_string, small_docs
     ):
-        rag = _make_rag(
+        pgvdb = _make_rag(
             IndexType.HNSW,
             "test_concurrent_idx",
             db_schema,
             embeddings,
             connection_string,
         )
-        await rag.initialize(overwrite_existing=True)
+        await pgvdb.initialize(overwrite_existing=True)
         docs, _ = small_docs
-        await rag.add_documents(docs)
+        await pgvdb.add_documents(docs)
         # build_index_concurrent uses `distance=` not `metric=`
-        await rag.build_index_concurrent(distance=DistanceMetric.COSINE)
-        stats = await rag.get_stats()
+        await pgvdb.build_index_concurrent(distance=DistanceMetric.COSINE)
+        stats = await pgvdb.get_stats()
         assert stats["index_built"]
-        await rag.close()
+        await pgvdb.close()

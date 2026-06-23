@@ -6,28 +6,29 @@ multimodal_search, multimodal_hybrid_search, get_multimodal_index_stats,
 rerank_search, and related helpers.
 """
 
-import uuid
 import json
 import logging
-from typing import Dict, List, Optional, Any
+import uuid
+from typing import Any, Dict, List, Optional
 
 from langchain_core.documents import Document
 from sqlalchemy import text
 
 from ..base import (
+    DatabaseError,
+    DistanceMetric,
     IndexType,
     KeywordSearchType,
-    DistanceMetric,
-    ValidationError,
-    DatabaseError,
     QueryResult,
+    ValidationError,
 )
-from ..schema import build_qualified_name, quote_identifier, get_distance_operator
+from ..schema import build_qualified_name, get_distance_operator, quote_identifier
+from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class MultimodalMixin:
+class MultimodalMixin(MixinBase):
     """Mixin providing multimodal search and reranking operations."""
 
     # ==================== MULTIMODAL METHODS (v0.0.3) ====================
@@ -53,7 +54,7 @@ class MultimodalMixin:
 
         Examples:
             >>> from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace
-            >>> rag.register_spaces([
+            >>> pgvdb.register_spaces([
             ...     TextSpace(name="description", field="content"),
             ...     NumberSpace(name="price", field="price",
             ...                 min_value=0, max_value=1000000, mode="minimum"),
@@ -62,7 +63,7 @@ class MultimodalMixin:
             ... ])
         """
         try:
-            from ..spaces import validate_spaces, TextSpace
+            from ..spaces import TextSpace, validate_spaces
         except ImportError:
             raise ImportError(
                 "src.spaces module not found. Ensure spaces.py is present."
@@ -164,8 +165,8 @@ class MultimodalMixin:
             ...     Document(page_content="Modern downtown apartment",
             ...              metadata={"price": 500000, "city": "NYC"}),
             ... ]
-            >>> rag.register_spaces(spaces)
-            >>> ids = await rag.add_documents_multimodal(docs)
+            >>> pgvdb.register_spaces(spaces)
+            >>> ids = await pgvdb.add_documents_multimodal(docs)
         """
         self._ensure_initialized()
 
@@ -292,7 +293,7 @@ class MultimodalMixin:
             ValidationError: If no spaces registered.
 
         Examples:
-            >>> indexes = await rag.build_multimodal_index(
+            >>> indexes = await pgvdb.build_multimodal_index(
             ...     metric=DistanceMetric.COSINE, m=24
             ... )
             >>> for space_name, idx_name in indexes.items():
@@ -406,7 +407,7 @@ class MultimodalMixin:
             ValidationError: If no spaces registered or query_params empty.
 
         Examples:
-            >>> results = await rag.multimodal_search(
+            >>> results = await pgvdb.multimodal_search(
             ...     query_params={
             ...         "description": "modern downtown apartment",
             ...         "price": 500000,
@@ -559,7 +560,7 @@ class MultimodalMixin:
             Fused results sorted by combined score.
 
         Examples:
-            >>> results = await rag.multimodal_hybrid_search(
+            >>> results = await pgvdb.multimodal_hybrid_search(
             ...     query_params={"description": "cozy apartment near park"},
             ...     weights={"description": 1.0},
             ...     keyword_weight=0.3,
@@ -622,7 +623,7 @@ class MultimodalMixin:
             Dictionary mapping space names to their index info.
 
         Examples:
-            >>> stats = await rag.get_multimodal_index_stats()
+            >>> stats = await pgvdb.get_multimodal_index_stats()
             >>> for name, info in stats.items():
             ...     print(f"{name}: {info['index_name']} ({info['index_size']})")
         """
@@ -720,7 +721,7 @@ class MultimodalMixin:
             >>> reranker = CrossEncoderReranker(
             ...     model="cross-encoder/ms-marco-MiniLM-L-6-v2"
             ... )
-            >>> results = await rag.rerank_search(
+            >>> results = await pgvdb.rerank_search(
             ...     query="best noise cancelling headphones under $200",
             ...     reranker=reranker,
             ...     k=50,
@@ -730,7 +731,7 @@ class MultimodalMixin:
             >>>
             >>> # Cohere API reranker
             >>> reranker = create_reranker("cohere", api_key="co_...")
-            >>> results = await rag.rerank_search(
+            >>> results = await pgvdb.rerank_search(
             ...     query="modern 2BR apartment downtown",
             ...     reranker=reranker,
             ...     k=100,

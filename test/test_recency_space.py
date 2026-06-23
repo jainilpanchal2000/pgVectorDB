@@ -11,11 +11,11 @@ Run with:
 
 import math
 import time
-import pytest
 from datetime import datetime, timezone
 
-from pgvectordb.spaces import RecencySpace, TimeUnit
+import pytest
 
+from pgvectordb.spaces import RecencySpace, TimeUnit
 
 # ==================== TimeUnit Tests ====================
 

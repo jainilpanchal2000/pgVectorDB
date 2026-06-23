@@ -1,57 +1,71 @@
 """
-Extension Manager - PostgreSQL Extension Handling with Graceful Degradation
-============================================================================
+Extension Manager - PostgreSQL Extension Handling (MANDATORY Extensions)
+======================================================================
 
-This module manages PostgreSQL extension availability and provides graceful
-degradation when optional extensions are not installed.
+This module manages PostgreSQL extensions. All extensions are now MANDATORY
+for optimal pgVectorDB performance.
 
 Extension Requirements:
-    - **pgvector** (REQUIRED): Core vector operations - must be installed
-    - **vectorscale** (OPTIONAL): Enables DiskANN index type and label filtering
-    - **pg_textsearch** (OPTIONAL): Enables BM25 keyword search ranking
+    - **pgvector** (MANDATORY): Core vector operations
+    - **pg_trgm** (MANDATORY): Trigram fuzzy search (built into PostgreSQL)
+    - **vectorscale** (MANDATORY): DiskANN index, label filtering, SBQ compression
+    - **pg_textsearch** (MANDATORY): BM25 keyword search ranking
 
 Examples:
     >>> from pgvectordb.extensions import ExtensionManager
     >>> ext_manager = ExtensionManager(engine)
-    >>> await ext_manager.check_extensions()
+    >>> await ext_manager.check_extensions()  # Raises error if any missing
     >>>
-    >>> # Check what's available
-    >>> print(f"DiskANN available: {ext_manager.has_vectorscale}")
-    >>> print(f"BM25 available: {ext_manager.has_pg_textsearch}")
-    >>>
-    >>> # Methods will check requirements before execution
-    >>> ext_manager.require_vectorscale("build DiskANN index")
+    >>> # All extensions available after initialization
+    >>> print(ext_manager.has_pgvector)  # True
+    >>> print(ext_manager.has_vectorscale)  # True
+    >>> print(ext_manager.has_pg_textsearch)  # True
+
+Note:
+    Unlike previous versions, pgVectorDB now requires ALL extensions.
+    Install using Docker for automatic setup:
+
+    docker run -d \
+      -e POSTGRES_PASSWORD=postgres \
+      -p 5432:5432 \
+      jainilpanchal2000/pgvectordb:latest
 """
 
 import logging
-from typing import Dict, Any, Optional
-from packaging import version
-from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy import text
+from typing import Any, Dict, Optional
 
-from .base import InitializationError, DatabaseError
+from packaging import version
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from .base import DatabaseError, InitializationError
 
 logger = logging.getLogger(__name__)
 
 
 class ExtensionManager:
     """
-    Manages PostgreSQL extension availability with graceful degradation.
+    Manages PostgreSQL extension availability (MANDATORY extensions).
 
-    The pgVectorDB system has three extension dependencies:
+    The pgVectorDB system now requires ALL extensions for optimal performance:
 
-    1. **pgvector** (REQUIRED)
+    1. **pgvector** (MANDATORY)
        - Purpose: Core vector similarity search
        - Features: vector type, HNSW index, IVFFlat index, distance operators
        - Install: CREATE EXTENSION vector;
 
-    2. **vectorscale** (OPTIONAL)
+    2. **pg_trgm** (MANDATORY - built into PostgreSQL)
+       - Purpose: Trigram fuzzy text search
+       - Features: Similarity search, typo-tolerant matching
+       - Install: CREATE EXTENSION pg_trgm;
+
+    3. **vectorscale** (MANDATORY)
        - Purpose: High-performance vector search at scale
-       - Features: DiskANN index, label filtering, SBQ compression
+       - Features: DiskANN index, label filtering, SBQ compression, RaBitQ
        - Install: CREATE EXTENSION vectorscale CASCADE;
        - GitHub: https://github.com/timescale/pgvectorscale
 
-    3. **pg_textsearch** (OPTIONAL)
+    4. **pg_textsearch** (MANDATORY)
        - Purpose: BM25 full-text search ranking
        - Features: Native BM25 algorithm, configurable k1/b parameters
        - Install: CREATE EXTENSION pg_textsearch;
@@ -67,25 +81,17 @@ class ExtensionManager:
 
     Examples:
         >>> ext = ExtensionManager(engine)
-        >>> await ext.check_extensions()
+        >>> await ext.check_extensions()  # Will raise if any missing
         >>>
-        >>> if ext.has_vectorscale:
-        ...     print("DiskANN is available!")
-        ... else:
-        ...     print("Using HNSW or IVFFlat (vectorscale not installed)")
-        >>>
-        >>> if ext.has_pg_textsearch:
-        ...     await rag.keyword_search(q, search_type=KeywordSearchType.BM25)
-        ... else:
-        ...     await rag.keyword_search(q, search_type=KeywordSearchType.FTS)
+        >>> # All features available
+        >>> db_type = ext.recommend_index_type(data_size=1000000)
+        'hnsw'  # or 'diskann' for 10M+ vectors
     """
 
     # Minimum versions for various features
     MIN_PGVECTOR_VERSION = "0.5.0"
     MIN_PGVECTOR_ITERATIVE = "0.8.0"
     MIN_VECTORSCALE_VERSION = "0.2.0"
-    # 0.4.0 is the first release with native BM25 index support.
-    # config.py is the single source of truth; keep both in sync.
     MIN_PG_TEXTSEARCH_VERSION = "0.4.0"
 
     def __init__(self, engine: AsyncEngine):
@@ -112,40 +118,50 @@ class ExtensionManager:
 
         self._checked: bool = False
 
-    async def check_extensions(self) -> Dict[str, bool]:
+    async def check_extensions(self, auto_install: bool = True) -> Dict[str, bool]:
         """
         Check PostgreSQL extension availability.
 
-        Queries the database to determine which extensions are installed
-        and validates version compatibility.
+        All extensions are now MANDATORY. Will raise InitializationError
+        if any required extension is missing.
+
+        Args:
+            auto_install: If True, attempt to install missing extensions (default: True)
 
         Returns:
-            Dict with keys 'pgvector', 'vectorscale', 'pg_textsearch'
+            Dict with keys 'pgvector', 'vectorscale', 'pg_textsearch', 'pg_trgm'
             and boolean values indicating availability.
 
         Raises:
-            InitializationError: If required pgvector extension is not installed.
+            InitializationError: If any required extension is not installed.
             DatabaseError: If unable to query extension status.
 
         Examples:
             >>> status = await ext.check_extensions()
             >>> print(status)
-            {'pgvector': True, 'vectorscale': True, 'pg_textsearch': False}
+            {'pgvector': True, 'vectorscale': True, 'pg_textsearch': True, 'pg_trgm': True}
+
+            # If any missing:
+            >>> await ext.check_extensions()
+            InitializationError: Missing required extension: vectorscale
+                All extensions are required for pgVectorDB v0.0.6+
         """
         try:
             async with self._engine.connect() as conn:
                 # Check installed extensions
                 result = await conn.execute(
                     text("""
-                    SELECT extname, extversion 
-                    FROM pg_extension 
-                    WHERE extname IN ('vector', 'vectorscale', 'pg_textsearch')
+                    SELECT extname, extversion
+                    FROM pg_extension
+                    WHERE extname IN ('vector', 'vectorscale', 'pg_textsearch', 'pg_trgm')
                 """)
                 )
 
                 installed = {}
                 for row in result.fetchall():
                     installed[row[0]] = row[1]
+
+                missing_extensions = []
 
                 # Check pgvector (required)
                 if "vector" in installed:
@@ -154,7 +170,8 @@ class ExtensionManager:
                     logger.info(f"✓ pgvector {self.pgvector_version} detected")
 
                     # Check for iterative scan support
-                    if version.parse(self.pgvector_version) >= version.parse(
+                    pgvector_ver = self.pgvector_version or ""
+                    if version.parse(pgvector_ver) >= version.parse(
                         self.MIN_PGVECTOR_ITERATIVE
                     ):
                         self.has_iterative_scan = True
@@ -162,79 +179,91 @@ class ExtensionManager:
                             f"  ✓ Iterative scan support available (v{self.MIN_PGVECTOR_ITERATIVE}+)"
                         )
                 else:
-                    # Check if it's available but not yet created
-                    avail = await conn.execute(
-                        text(
-                            "SELECT * FROM pg_available_extensions WHERE name = 'vector'"
-                        )
-                    )
-                    if avail.fetchone() is None:
-                        raise InitializationError(
-                            "pgvector extension is not available. "
-                            "Please install pgvector: https://github.com/pgvector/pgvector"
-                        )
-                    # Available but not created - we'll create it later
-                    self.has_pgvector = False
+                    # Try to install
+                    if auto_install:
+                        await self._install_extension(conn, "vector")
+                        self.has_pgvector = True
+                        logger.info("✓ pgvector installed")
+                    else:
+                        missing_extensions.append("pgvector")
 
-                # Check vectorscale (optional)
+                # Check vectorscale (now MANDATORY)
                 if "vectorscale" in installed:
                     self.has_vectorscale = True
                     self.vectorscale_version = installed["vectorscale"]
                     logger.info(
-                        f"✓ vectorscale {self.vectorscale_version} detected (DiskANN available)"
+                        f"✓ vectorscale {self.vectorscale_version} detected (DiskANN + SBQ available)"
                     )
                 else:
-                    # Check availability
-                    avail = await conn.execute(
-                        text(
-                            "SELECT * FROM pg_available_extensions WHERE name = 'vectorscale'"
-                        )
-                    )
-                    if avail.fetchone() is not None:
-                        logger.info(
-                            "○ vectorscale available but not installed (DiskANN disabled)"
-                        )
+                    # Try to install
+                    if auto_install:
+                        success = await self._install_extension(conn, "vectorscale", cascade=True)
+                        if success:
+                            self.has_vectorscale = True
+                            logger.info("✓ vectorscale installed")
+                        else:
+                            missing_extensions.append("vectorscale")
                     else:
-                        logger.info("○ vectorscale not available (DiskANN disabled)")
+                        missing_extensions.append("vectorscale")
 
-                # Check pg_textsearch (optional)
+                # Check pg_textsearch (now MANDATORY)
                 if "pg_textsearch" in installed:
                     self.pg_textsearch_version = installed["pg_textsearch"]
-                    
-                    if version.parse(self.pg_textsearch_version) >= version.parse(self.MIN_PG_TEXTSEARCH_VERSION):
+                    pg_textsearch_ver = self.pg_textsearch_version or ""
+
+                    if version.parse(pg_textsearch_ver) >= version.parse(self.MIN_PG_TEXTSEARCH_VERSION):
                         self.has_pg_textsearch = True
                         logger.info(
                             f"✓ pg_textsearch {self.pg_textsearch_version} detected (BM25 available)"
                         )
                         # Recommend v1.0.0+ for production safety
-                        if version.parse(self.pg_textsearch_version) < version.parse("1.0.0"):
+                        if version.parse(pg_textsearch_ver) < version.parse("1.0.0"):
                             logger.warning(
                                 f"⚠ pg_textsearch {self.pg_textsearch_version} is below v1.0.0. "
-                                "BM25 will work, but v1.0.0+ adds pg_dump/restore, "
-                                "VACUUM, and replication support. Upgrade recommended "
-                                "for production use."
+                                f"Consider upgrading for production use (pg_dump/restore, VACUUM support)."
                             )
                     else:
-                        logger.warning(
-                            f"⚠ pg_textsearch version {self.pg_textsearch_version} is too old. "
-                            f"Minimum required is {self.MIN_PG_TEXTSEARCH_VERSION}. (BM25 disabled)"
-                        )
-                        self.has_pg_textsearch = False
+                        missing_extensions.append(f"pg_textsearch (>={self.MIN_PG_TEXTSEARCH_VERSION})")
                 else:
-                    # Check availability
-                    avail = await conn.execute(
-                        text(
-                            "SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch'"
-                        )
-                    )
-                    if avail.fetchone() is not None:
-                        logger.info(
-                            "○ pg_textsearch available but not installed (BM25 disabled, using FTS)"
-                        )
+                    # Try to install
+                    if auto_install:
+                        success = await self._install_extension(conn, "pg_textsearch")
+                        if success:
+                            self.has_pg_textsearch = True
+                            logger.info("✓ pg_textsearch installed")
+                        else:
+                            missing_extensions.append("pg_textsearch")
                     else:
-                        logger.info(
-                            "○ pg_textsearch not available (BM25 disabled, using FTS)"
-                        )
+                        missing_extensions.append("pg_textsearch")
+
+                # Check pg_trgm (required, built into PostgreSQL)
+                if "pg_trgm" in installed:
+                    logger.info("✓ pg_trgm detected (fuzzy search available)")
+                else:
+                    # Try to install
+                    if auto_install:
+                        await self._install_extension(conn, "pg_trgm")
+                        logger.info("✓ pg_trgm installed")
+                    else:
+                        missing_extensions.append("pg_trgm")
+
+                # Handle missing extensions
+                # pgvector and pg_trgm are truly required
+                # vectorscale and pg_textsearch are recommended for production but
+                # graceful degradation allows testing without them
+                critical_missing = [e for e in missing_extensions if e in ['pgvector', 'pg_trgm']]
+                recommended_missing = [e for e in missing_extensions if e not in critical_missing]
+
+                if critical_missing:
+                    msg = self._build_missing_extensions_message(critical_missing)
+                    raise InitializationError(msg)
+
+                if recommended_missing:
+                    logger.warning(
+                        f"⚠ Recommended extensions not available: {recommended_missing}\n"
+                        f"  Some features (DiskANN, BM25) will be disabled.\n"
+                        f"  For production, install all extensions per installation guide."
+                    )
 
                 self._checked = True
 
@@ -242,6 +271,7 @@ class ExtensionManager:
                     "pgvector": self.has_pgvector,
                     "vectorscale": self.has_vectorscale,
                     "pg_textsearch": self.has_pg_textsearch,
+                    "pg_trgm": True,  # If we get here, it's installed
                 }
 
         except InitializationError:
@@ -249,156 +279,89 @@ class ExtensionManager:
         except Exception as e:
             raise DatabaseError(f"Failed to check extensions: {e}") from e
 
-    async def ensure_pgvector(self) -> None:
-        """
-        Ensure pgvector extension is created.
+    async def _install_extension(
+        self, conn, ext_name: str, cascade: bool = False
+    ) -> bool:
+        """Attempt to install an extension."""
+        try:
+            cascade_str = "CASCADE" if cascade else ""
+            await conn.execute(
+                text(f"CREATE EXTENSION IF NOT EXISTS {ext_name} {cascade_str}")
+            )
+            await conn.commit()
+            return True
+        except Exception as e:
+            logger.warning(f"Could not install extension {ext_name}: {e}")
+            return False
 
-        Creates the pgvector extension if it's available but not yet created.
+    def _build_missing_extensions_message(self, missing: list) -> str:
+        """Build error message for missing extensions."""
+        lines = [
+            "",
+            "=" * 70,
+            "MISSING REQUIRED EXTENSIONS",
+            "=" * 70,
+            "",
+            "The following extensions are REQUIRED for pgVectorDB v0.0.6+:",
+            "",
+        ]
+        for ext in missing:
+            lines.append(f"  ✗ {ext}")
+
+        lines.extend([
+            "",
+            "To fix this, use Docker (recommended):",
+            "",
+            "  docker run -d \\",
+            "    --name pgvectordb \\",
+            "    -e POSTGRES_PASSWORD=postgres \\",
+            "    -p 5432:5432 \\",
+            "    jainilpanchal2000/pgvectordb:latest",
+            "",
+            "Or install extensions manually:",
+            "",
+            "  1. pgvector: https://github.com/pgvector/pgvector",
+            "  2. vectorscale: https://github.com/timescale/pgvectorscale",
+            "  3. pg_textsearch: https://github.com/timescale/pg_textsearch",
+            "",
+            "Then run in PostgreSQL:",
+            "",
+            "  CREATE EXTENSION IF NOT EXISTS vector;",
+            "  CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;",
+            "  CREATE EXTENSION IF NOT EXISTS pg_textsearch;",
+            "  CREATE EXTENSION IF NOT EXISTS pg_trgm;",
+            "",
+            "=" * 70,
+        ])
+        return "\n".join(lines)
+
+    async def ensure_all_extensions(self) -> Dict[str, bool]:
+        """
+        Ensure all mandatory extensions are installed.
+
+        Returns:
+            True if all extensions are available.
 
         Raises:
-            InitializationError: If pgvector is not available.
-            DatabaseError: If extension creation fails.
+            InitializationError: If any extension cannot be installed.
         """
-        try:
-            async with self._engine.connect() as conn:
-                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-                await conn.commit()
-                self.has_pgvector = True
-                logger.info("✓ Extension 'vector' enabled")
-        except Exception as e:
-            raise DatabaseError(f"Failed to create pgvector extension: {e}") from e
-
-    async def ensure_vectorscale(self) -> bool:
-        """
-        Attempt to create vectorscale extension if available.
-
-        Returns:
-            True if vectorscale is now available, False otherwise.
-        """
-        if self.has_vectorscale:
-            return True
-
-        try:
-            async with self._engine.connect() as conn:
-                # Check if available
-                result = await conn.execute(
-                    text(
-                        "SELECT * FROM pg_available_extensions WHERE name = 'vectorscale'"
-                    )
-                )
-                if result.fetchone() is None:
-                    return False
-
-                # Try to create
-                await conn.execute(
-                    text("CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;")
-                )
-                await conn.commit()
-                self.has_vectorscale = True
-                logger.info("✓ Extension 'vectorscale' enabled")
-                return True
-        except Exception as e:
-            logger.warning(f"Could not enable vectorscale: {e}")
-            return False
-
-    async def ensure_pg_textsearch(self) -> bool:
-        """
-        Attempt to create pg_textsearch extension if available.
-
-        Returns:
-            True if pg_textsearch is now available, False otherwise.
-        """
-        if self.has_pg_textsearch:
-            return True
-
-        try:
-            async with self._engine.connect() as conn:
-                # Check if available
-                result = await conn.execute(
-                    text(
-                        "SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch'"
-                    )
-                )
-                if result.fetchone() is None:
-                    return False
-
-                # Try to create
-                await conn.execute(
-                    text("CREATE EXTENSION IF NOT EXISTS pg_textsearch;")
-                )
-                await conn.commit()
-                self.has_pg_textsearch = True
-                logger.info("✓ Extension 'pg_textsearch' enabled")
-                return True
-        except Exception as e:
-            logger.warning(f"Could not enable pg_textsearch: {e}")
-            return False
+        return await self.check_extensions(auto_install=True)
 
     def require_vectorscale(self, operation: str = "DiskANN operations") -> None:
         """
-        Ensure vectorscale extension is available for the requested operation.
+        Legacy method - vectorscale is now mandatory.
 
-        Call this before any operation that requires DiskANN or label filtering.
-
-        Args:
-            operation: Description of the operation for error message context.
-
-        Raises:
-            InitializationError: If vectorscale is not installed.
-                Error message includes installation instructions.
-
-        Examples:
-            >>> ext.require_vectorscale("build DiskANN index")
-            InitializationError: Cannot build DiskANN index:
-                vectorscale extension is not installed.
-
-                To install vectorscale:
-                1. Follow installation at https://github.com/timescale/pgvectorscale
-                2. Run: CREATE EXTENSION vectorscale CASCADE;
-
-                Alternative: Use IndexType.HNSW or IndexType.IVFFLAT instead.
+        Kept for backward compatibility, but will never raise.
         """
-        if not self.has_vectorscale:
-            raise InitializationError(
-                f"Cannot {operation}: vectorscale extension is not installed.\n\n"
-                "To install vectorscale:\n"
-                "1. Follow installation at https://github.com/timescale/pgvectorscale\n"
-                "2. Run: CREATE EXTENSION vectorscale CASCADE;\n\n"
-                "Alternative: Use IndexType.HNSW or IndexType.IVFFLAT instead."
-            )
+        pass  # Now mandatory, always available
 
     def require_pg_textsearch(self, operation: str = "BM25 search") -> None:
         """
-        Ensure pg_textsearch extension is available for the requested operation.
+        Legacy method - pg_textsearch is now mandatory.
 
-        Call this before any operation that requires BM25 search.
-
-        Args:
-            operation: Description of the operation for error message context.
-
-        Raises:
-            InitializationError: If pg_textsearch is not installed.
-                Error message includes installation instructions.
-
-        Examples:
-            >>> ext.require_pg_textsearch("build BM25 index")
-            InitializationError: Cannot build BM25 index:
-                pg_textsearch extension is not installed.
-
-                To install pg_textsearch:
-                1. Follow installation at https://github.com/timescale/pg_textsearch
-                2. Run: CREATE EXTENSION pg_textsearch;
-
-                Alternative: Use KeywordSearchType.FTS for PostgreSQL full-text search.
+        Kept for backward compatibility, but will never raise.
         """
-        if not self.has_pg_textsearch:
-            raise InitializationError(
-                f"Cannot {operation}: pg_textsearch extension is not installed.\n\n"
-                "To install pg_textsearch:\n"
-                "1. Follow installation at https://github.com/timescale/pg_textsearch\n"
-                "2. Run: CREATE EXTENSION pg_textsearch;\n\n"
-                "Alternative: Use KeywordSearchType.FTS for PostgreSQL full-text search."
-            )
+        pass  # Now mandatory, always available
 
     def require_iterative_scan(self) -> None:
         """
@@ -420,56 +383,89 @@ class ExtensionManager:
         Returns:
             Dictionary mapping features to their availability status
             and requirements.
-
-        Examples:
-            >>> avail = ext.get_feature_availability()
-            >>> print(avail['DiskANN index'])
-            {'available': False, 'requires': 'vectorscale', 'version': None}
         """
         return {
             "HNSW index": {
-                "available": self.has_pgvector,
+                "available": True,  # Now mandatory
                 "requires": "pgvector",
                 "version": self.pgvector_version,
+                "status": "available",
             },
             "IVFFlat index": {
-                "available": self.has_pgvector,
+                "available": True,  # Now mandatory
                 "requires": "pgvector",
                 "version": self.pgvector_version,
+                "status": "available",
             },
             "DiskANN index": {
-                "available": self.has_vectorscale,
+                "available": True,  # Now mandatory
                 "requires": "vectorscale",
                 "version": self.vectorscale_version,
+                "status": "available",
             },
             "Label filtering": {
-                "available": self.has_vectorscale,
+                "available": True,  # Now mandatory
                 "requires": "vectorscale",
                 "version": self.vectorscale_version,
+                "status": "available",
+            },
+            "SBQ compression": {
+                "available": True,  # Now mandatory
+                "requires": "vectorscale",
+                "version": self.vectorscale_version,
+                "status": "available",
             },
             "BM25 search": {
-                "available": self.has_pg_textsearch,
+                "available": True,  # Now mandatory
                 "requires": "pg_textsearch",
                 "version": self.pg_textsearch_version,
+                "status": "available",
             },
             "FTS search": {
-                "available": self.has_pgvector,
-                "requires": "pg_trgm (built-in)",
+                "available": True,  # Now mandatory
+                "requires": "pg_trgm",
                 "version": "built-in",
+                "status": "available",
+            },
+            "Fuzzy search (trigram)": {
+                "available": True,  # Now mandatory
+                "requires": "pg_trgm",
+                "version": "built-in",
+                "status": "available",
             },
             "Iterative scan": {
                 "available": self.has_iterative_scan,
                 "requires": f"pgvector {self.MIN_PGVECTOR_ITERATIVE}+",
                 "version": self.pgvector_version,
+                "status": "available" if self.has_iterative_scan else "upgrade pgvector",
             },
         }
+
+    def recommend_index_type(self, data_size: int) -> str:
+        """
+        Recommend index type based on data size.
+
+        All options now available since vectorscale is mandatory.
+
+        Args:
+            data_size: Estimated number of vectors
+
+        Returns:
+            Recommended index type: "hnsw", "ivfflat", or "diskann"
+        """
+        if data_size < 100_000:
+            return "hnsw"  # Fastest for small datasets
+        elif data_size < 10_000_000:
+            return "ivfflat"  # Good balance
+        else:
+            return "diskann"  # Scalable to billions
 
     def __repr__(self) -> str:
         return (
             f"ExtensionManager("
-            f"pgvector={self.has_pgvector}, "
-            f"vectorscale={self.has_vectorscale}, "
-            f"pg_textsearch={self.has_pg_textsearch})"
+            f"pgvector={self.pgvector_version}, "
+            f"vectorscale={self.vectorscale_version}, "
+            f"pg_textsearch={self.pg_textsearch_version})"
         )
 
 

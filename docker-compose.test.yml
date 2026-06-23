@@ -1,0 +1,28 @@
+services:
+  postgres-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: pgvectordb-test
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: testdb
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command: >
+      postgres
+        -c shared_preload_libraries='pg_textsearch,pg_stat_statements'
+        -c pg_stat_statements.track=all
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgvectordb-test-data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgvectordb-test-data:

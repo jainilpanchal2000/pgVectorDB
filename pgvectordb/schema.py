@@ -12,15 +12,15 @@ Version: 1.0
 """
 
 from sqlalchemy import (
-    Table,
     Column,
-    String,
-    Text,
-    MetaData,
     DateTime,
+    MetaData,
+    String,
+    Table,
+    Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.sql import func
 
 # Try to import pgvector types, fall back to string if not available

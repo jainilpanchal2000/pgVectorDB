@@ -1,24 +1,30 @@
-# Quickstart
+# Quickstart Guide
 
-This guide walks you through building a complete Retrieval-Augmented Generation (RAG) pipeline with pgVectorDB in under 5 minutes.
+Get started with pgVectorDB in 5 minutes using the LanceDB-style fluent API.
 
 ---
 
-## 1. Setup
-
-Make sure your PostgreSQL database is running (see [Installation](installation.md)) and pgVectorDB is installed.
-
-For this guide we use HuggingFace sentence-transformers to generate embeddings locally (no API key needed):
+## Installation
 
 ```bash
-pip install "pgvectordb[huggingface]"
+pip install pgvectordb[huggingface]
+```
+
+For the database, use our Docker image with all extensions pre-installed:
+
+```bash
+docker run -d \
+  --name pgvectordb \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 \
+  ankane/pgvector:latest
 ```
 
 ---
 
-## 2. Initialize the Database
+## Basic Usage
 
-Define your embedding model and initialize the `pgVectorDB` instance. The `initialize()` call creates all required PostgreSQL objects — extensions, table, triggers, and indexes.
+### 1. Initialize the Database
 
 ```python
 import asyncio
@@ -26,139 +32,180 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from pgvectordb import pgVectorDB
 
 async def main():
-    # 1. Initialize the embedding model
-    #    all-MiniLM-L6-v2 produces 384-dimensional vectors
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-    # 2. Connect to the database
-    conn_string = "postgresql+asyncpg://myuser:mypassword@localhost/mydb"
-
-    db = pgVectorDB(
-        collection_name="my_documents",
-        embedding_model=embeddings,
-        connection_string=conn_string
+    # Initialize embeddings
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
-
-    # 3. Create the tables, triggers, and indexes (idempotent)
+    
+    # Create database instance
+    db = pgVectorDB(
+        collection_name="my_docs",
+        embedding_model=embeddings,
+        connection_string="postgresql+asyncpg://postgres:postgres@localhost/postgres"
+    )
+    
+    # Create tables and indexes
     await db.initialize()
-    print("Database initialized!")
-
-    # ... (code continues below)
+    print("✓ Database initialized")
 ```
 
----
-
-## 3. Add Documents
-
-Pass raw text strings plus optional metadata. pgVectorDB automatically computes embeddings and stores everything in PostgreSQL.
+### 2. Add Documents
 
 ```python
-    # ... (inside main function)
-
+    # Add documents with metadata
     documents = [
-        "The quick brown fox jumps over the lazy dog.",
-        "PostgreSQL is a powerful, open source object-relational database system.",
-        "pgvector is an open-source vector similarity search extension for Postgres.",
-        "Machine learning models map text to dense vector embeddings.",
-        "The weather today is sunny with a high of 75 degrees."
+        "Machine learning is a subset of AI that enables computers to learn from data.",
+        "PostgreSQL is a powerful open-source relational database system.",
+        "Vector databases enable efficient similarity search for AI embeddings.",
+        "Python is the most popular language for data science and ML.",
     ]
-
-    # Attach metadata for later filtering
-    metadata = [
-        {"source": "story",   "id": 1},
-        {"source": "wiki",    "id": 2},
-        {"source": "wiki",    "id": 3},
-        {"source": "science", "id": 4},
-        {"source": "news",    "id": 5}
+    
+    metadatas = [
+        {"category": "ai", "year": 2024},
+        {"category": "database", "year": 2024},
+        {"category": "database", "year": 2024},
+        {"category": "programming", "year": 2024},
     ]
+    
+    ids = await db.add_texts(texts=documents, metadatas=metadatas)
+    print(f"✓ Added {len(ids)} documents")
+```
 
-    print("Adding documents...")
-    doc_ids = await db.add_texts(texts=documents, metadatas=metadata)
-    print(f"Added {len(doc_ids)} documents.")
+### 3. Search with Fluent API
+
+The new LanceDB-style fluent API provides intuitive method chaining:
+
+```python
+    # Basic semantic search
+    results = await (
+        db.search("machine learning AI")
+        .limit(3)
+        .to_list()
+    )
+    
+    for r in results:
+        print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
+```
+
+### 4. Filtered Search
+
+```python
+    # Search with metadata filter
+    results = await (
+        db.search("database systems")
+        .where({"category": "database"})
+        .limit(3)
+        .to_list()
+    )
+```
+
+### 5. Hybrid Search (Vector + Text)
+
+```python
+    # Hybrid search combining vector and full-text search
+    results = await (
+        db.search("machine learning frameworks")
+        .where({"category": "ai"})
+        .limit(5)
+        .nearest_to_text("Python ML libraries")  # Add FTS component
+        .to_list()
+    )
 ```
 
 ---
 
-## 4. Perform a Semantic Search
-
-Query the vector index for the most semantically relevant documents:
+## Complete Example
 
 ```python
-    # ... (inside main function)
+import asyncio
+from langchain_huggingface import HuggingFaceEmbeddings
+from pgvectordb import pgVectorDB
 
-    query = "What is a good database for storing embeddings?"
-
-    print(f"\nSearching for: '{query}'")
-    results = await db.semantic_search(query, k=2)
-
-    for i, res in enumerate(results):
-        print(f"\nResult {i+1}:")
-        print(f"  Content: {res['content']}")
-        print(f"  Score:   {res['score']:.4f}")
-        print(f"  Metadata: {res['metadata']}")
-
-    # Close the connection pool when done
+async def main():
+    # Setup
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    
+    db = pgVectorDB(
+        collection_name="quickstart",
+        embedding_model=embeddings,
+        connection_string="postgresql+asyncpg://postgres:postgres@localhost/postgres"
+    )
+    
+    await db.initialize()
+    
+    # Add documents
+    await db.add_texts(
+        texts=[
+            "Transformers revolutionized NLP with attention mechanisms.",
+            "BERT is a bidirectional encoder for language understanding.",
+            "GPT models use autoregressive language modeling.",
+            "PostgreSQL supports JSONB for flexible document storage.",
+        ],
+        metadatas=[
+            {"topic": "nlp", "model": "transformers"},
+            {"topic": "nlp", "model": "bert"},
+            {"topic": "nlp", "model": "gpt"},
+            {"topic": "database", "model": "postgres"},
+        ]
+    )
+    
+    # Build index for faster search
+    await db.build_index()
+    
+    # Search examples
+    print("\n=== Semantic Search ===")
+    results = await db.search("language models").limit(2).to_list()
+    for r in results:
+        print(f"  [{r['score']:.4f}] {r['content']}")
+    
+    print("\n=== Filtered Search ===")
+    results = await (
+        db.search("models")
+        .where({"topic": "nlp"})
+        .limit(2)
+        .to_list()
+    )
+    for r in results:
+        print(f"  [{r['score']:.4f}] {r['content'][:50]}...")
+    
+    # Cleanup
     await db.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Expected Output
-
-```
-Database initialized!
-Adding documents...
-Added 5 documents.
-
-Searching for: 'What is a good database for storing embeddings?'
-
-Result 1:
-  Content: pgvector is an open-source vector similarity search extension for Postgres.
-  Score:   0.5432
-  Metadata: {'source': 'wiki', 'id': 3}
-
-Result 2:
-  Content: PostgreSQL is a powerful, open source object-relational database system.
-  Score:   0.6123
-  Metadata: {'source': 'wiki', 'id': 2}
-```
-
-!!! note "Score Interpretation"
-    Score semantics depend on the search method:
-
-    | Search Method | Score Direction | Meaning |
-    |--------------|----------------|---------|
-    | `semantic_search` | **Lower = more similar** | Cosine distance (0 = identical) |
-    | `keyword_search` (FTS) | **Higher = more relevant** | `ts_rank` score |
-    | `keyword_search` (BM25) | **Higher = more relevant** | BM25 score |
-    | `hybrid_search` | **Higher = more relevant** | Fused RRF or weighted score |
-
 ---
 
-## 5. Filter by Metadata
+## Query Builder Methods
 
-Combine vector search with metadata filtering to build multi-tenant systems or category-scoped search:
+The fluent API supports these chainable methods:
 
-```python
-# Only search within 'wiki' documents
-results = await db.semantic_search(
-    query="database extensions",
-    filter={"source": "wiki"},
-    k=5
-)
-```
-
-See [Metadata Filtering](../user_guide/filtering.md) for all 13 available filter operators.
+| Method | Description | Example |
+|--------|-------------|---------|
+| `search(query)` | Start vector search | `db.search("query")` |
+| `search_text(query)` | Start text search | `db.search_text("query")` |
+| `limit(n)` | Set max results | `.limit(10)` |
+| `offset(n)` | Skip first n results | `.offset(5)` |
+| `where(filter)` | Apply metadata filter | `.where({"category": "ai"})` |
+| `select(cols)` | Choose columns | `.select(["content", "metadata"])` |
+| `distance_type(m)` | Set metric | `.distance_type("cosine")` |
+| `nprobes(n)` | IVF probes | `.nprobes(20)` |
+| `ef(n)` | HNSW ef_search | `.ef(100)` |
+| `refine_factor(n)` | Oversampling | `.refine_factor(2)` |
+| `distance_range(l,u)` | Distance bounds | `.distance_range(0, 0.5)` |
+| `bypass_vector_index()` | Exact search | `.bypass_vector_index()` |
+| `to_list()` | Execute → list | `.to_list()` |
+| `to_pandas()` | Execute → DataFrame | `.to_pandas()` |
+| `to_arrow()` | Execute → Arrow | `.to_arrow()` |
 
 ---
 
 ## Next Steps
 
-You've built a basic vector search pipeline. From here, explore:
-
-- **[Search & Retrieval](../user_guide/search_and_retrieval.md)** — All 10 search methods including Hybrid (BM25 + Vector) and trigram fuzzy search
-- **[Metadata Filtering](../user_guide/filtering.md)** — `$eq`, `$in`, `$between`, `$and`, `$or`, and 8 more operators
-- **[Multimodal Search](../user_guide/multimodal_search.md)** — Multiple embeddings per document (text + price + category)
-- **[Reranking](../user_guide/reranking.md)** — Cross-encoder and Cohere reranking for precision
-- **[Indexing & Performance](../advanced/indexing.md)** — HNSW, IVFFlat, and DiskANN tuning
+- **[Search & Retrieval](search_and_retrieval.md)** — Deep dive into all search methods
+- **[Metadata Filtering](filtering.md)** — All filter operators ($eq, $in, $between, etc.)
+- **[Indexing & Performance](../advanced/indexing.md)** — HNSW, IVFFlat, DiskANN tuning
+- **[Analytics](../user_guide/analytics_and_diagnostics.md)** — Query plans, benchmarks, recall

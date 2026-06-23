@@ -6,21 +6,23 @@ Provides: export_to_json, import_from_json, create_halfvec_table, create_sparsev
 
 import json
 import logging
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 from langchain_core.documents import Document
 from sqlalchemy import text
 
 from ..base import (
-    ValidationError,
     DatabaseError,
+    ValidationError,
 )
 from ..schema import build_qualified_name
+
+from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class StorageMixin:
+class StorageMixin(MixinBase):
     """Mixin providing data export/import and specialized table operations."""
 
     async def export_to_json(
@@ -42,10 +44,10 @@ class StorageMixin:
 
         Examples:
             >>> # Export all documents (without embeddings for smaller file)
-            >>> count = await rag.export_to_json("backup.json")
+            >>> count = await pgvdb.export_to_json("backup.json")
             >>>
             >>> # Export filtered documents with embeddings
-            >>> count = await rag.export_to_json(
+            >>> count = await pgvdb.export_to_json(
             ...     "active_docs.json",
             ...     filter={"status": "active"},
             ...     include_embeddings=True
@@ -119,7 +121,7 @@ class StorageMixin:
 
         Examples:
             >>> # Restore from backup
-            >>> count = await rag.import_from_json("backup.json")
+            >>> count = await pgvdb.import_from_json("backup.json")
             >>> print(f"Imported {count} documents")
         """
         self._ensure_initialized()
@@ -156,7 +158,7 @@ class StorageMixin:
                 async with self.sqlalchemy_engine.connect() as conn:
                     result = await conn.execute(
                         text(f"""
-                        SELECT langchain_id 
+                        SELECT langchain_id
                         FROM "{self.schema_name}"."{self.table_name}"
                     """)
                     )
@@ -203,7 +205,7 @@ class StorageMixin:
             Name of the created table
 
         Examples:
-            >>> halfvec_table = await rag.create_halfvec_table()
+            >>> halfvec_table = await pgvdb.create_halfvec_table()
             >>> print(f"Created {halfvec_table} with half-precision vectors")
 
         Note:
@@ -299,7 +301,7 @@ class StorageMixin:
             Name of the created table
 
         Examples:
-            >>> sparse_table = await rag.create_sparsevec_table(max_dimensions=50000)
+            >>> sparse_table = await pgvdb.create_sparsevec_table(max_dimensions=50000)
             >>> print(f"Created {sparse_table} for sparse vectors")
 
         Note:
@@ -360,8 +362,8 @@ class StorageMixin:
             DatabaseError: If table deletion fails
 
         Examples:
-            >>> await rag.delete_table()
-            >>> await rag.close()
+            >>> await pgvdb.delete_table()
+            >>> await pgvdb.close()
         """
         self._ensure_initialized()
 

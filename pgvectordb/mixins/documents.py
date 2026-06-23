@@ -6,28 +6,30 @@ add_documents_batch_isolated, update_metadata, aget_by_ids, upsert_documents,
 bulk_load_documents, add_documents_orm, and embedding/dedup helpers.
 """
 
-import uuid
 import hashlib
 import json
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+import uuid
+from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.documents import Document
-from sqlalchemy import text, inspect
+from sqlalchemy import inspect, text
 
 from ..base import (
-    IndexType,
-    ValidationError,
     DatabaseError,
-    RateLimitError,
+    IndexType,
     QueryResult,
+    RateLimitError,
+    ValidationError,
 )
 from ..schema import build_qualified_name, get_vector_table
+
+from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class DocumentsMixin:
+class DocumentsMixin(MixinBase):
     """Mixin providing document CRUD operations."""
 
     async def add_documents(
@@ -72,6 +74,8 @@ class DocumentsMixin:
                 if labels is not None and self.index_type == IndexType.DISKANN:
                     doc.metadata["labels"] = labels[i]
 
+            if self._vector_store is None:
+                raise RuntimeError("Vector store is not initialized")
             doc_ids = await self._vector_store.aadd_documents(documents)
 
             if labels is not None and self.index_type == IndexType.DISKANN:
@@ -135,12 +139,12 @@ class DocumentsMixin:
             >>> # Update metadata only (fast - no re-embedding)
             >>> docs[0].metadata['status'] = 'reviewed'
             >>> docs[0].metadata['langchain_id'] = 'existing-id'
-            >>> await rag.aupdate_documents(docs, update_embeddings=False)
+            >>> await pgvdb.aupdate_documents(docs, update_embeddings=False)
             >>>
             >>> # Update content (re-embeds automatically)
             >>> docs[1].page_content = "Updated content here"
             >>> docs[1].metadata['langchain_id'] = 'existing-id-2'
-            >>> await rag.aupdate_documents(docs, update_embeddings=True)
+            >>> await pgvdb.aupdate_documents(docs, update_embeddings=True)
         """
         self._ensure_initialized()
 
@@ -163,12 +167,14 @@ class DocumentsMixin:
                     # Build update query based on what needs updating
                     if update_embeddings:
                         # Re-compute embedding for content
+                        import json
+
                         embedding = self.embedding_model.embed_query(doc.page_content)
 
                         update_query = text(f"""
                             UPDATE "{self.schema_name}"."{self.table_name}"
                             SET content = :content,
-                                langchain_metadata = :metadata,
+                                langchain_metadata = CAST(:metadata AS jsonb),
                                 embedding = :embedding
                             WHERE langchain_id = :doc_id
                         """)
@@ -177,7 +183,7 @@ class DocumentsMixin:
                             update_query,
                             {
                                 "content": doc.page_content,
-                                "metadata": doc.metadata,
+                                "metadata": json.dumps(doc.metadata),
                                 "embedding": str(embedding),
                                 "doc_id": doc_id,
                             },
@@ -229,9 +235,9 @@ class DocumentsMixin:
             DatabaseError: If deletion fails
 
         Examples:
-            >>> doc_ids = await rag.add_documents(documents)
+            >>> doc_ids = await pgvdb.add_documents(documents)
             >>> # Delete first 5 documents
-            >>> deleted_count = await rag.adelete(doc_ids[:5])
+            >>> deleted_count = await pgvdb.adelete(doc_ids[:5])
             >>> print(f"Deleted {deleted_count} documents")
         """
         self._ensure_initialized()
@@ -282,7 +288,7 @@ class DocumentsMixin:
 
         Examples:
             >>> # Add 50,000 documents efficiently
-            >>> all_ids = await rag.add_documents_batch(
+            >>> all_ids = await pgvdb.add_documents_batch(
             ...     large_doc_list,
             ...     batch_size=500,
             ...     show_progress=True
@@ -357,16 +363,16 @@ class DocumentsMixin:
         Examples:
             >>> # Tag documents as reviewed
             >>> doc_ids = ["id1", "id2", "id3"]
-            >>> count = await rag.update_metadata(
+            >>> count = await pgvdb.update_metadata(
             ...     ids=doc_ids,
             ...     metadata_updates={"status": "reviewed", "reviewer": "alice"}
             ... )
             >>> print(f"Updated {count} documents")
             >>>
             >>> # Add computed field to all documents matching filter
-            >>> docs = await rag.metadata_filter({"category": "ai"})
+            >>> docs = await pgvdb.metadata_filter({"category": "ai"})
             >>> ids = [d['id'] for d in docs]
-            >>> await rag.update_metadata(ids, {"indexed": True})
+            >>> await pgvdb.update_metadata(ids, {"indexed": True})
         """
         self._ensure_initialized()
 
@@ -428,7 +434,7 @@ class DocumentsMixin:
 
         Examples:
             >>> doc_ids = ["uuid-1", "uuid-2", "uuid-3"]
-            >>> docs = await rag.aget_by_ids(doc_ids)
+            >>> docs = await pgvdb.aget_by_ids(doc_ids)
             >>> for doc in docs:
             ...     print(f"ID: {doc['id']}, Content: {doc['content'][:50]}")
         """
@@ -489,7 +495,7 @@ class DocumentsMixin:
             Tuple of (successfully_added_ids, failed_batch_indices)
 
         Examples:
-            >>> added_ids, failed_batches = await rag.add_documents_batch_isolated(
+            >>> added_ids, failed_batches = await pgvdb.add_documents_batch_isolated(
             ...     documents,
             ...     batch_size=500,
             ...     continue_on_error=True
@@ -645,9 +651,9 @@ class DocumentsMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(
                     text("""
-                        SELECT 1 FROM pg_indexes 
-                        WHERE schemaname = :schema 
-                        AND tablename = :table 
+                        SELECT 1 FROM pg_indexes
+                        WHERE schemaname = :schema
+                        AND tablename = :table
                         AND indexname = :index_name
                     """),
                     {
@@ -819,7 +825,7 @@ class DocumentsMixin:
 
         Examples:
             >>> # Load 100,000 documents quickly
-            >>> count = await rag.bulk_load_documents(large_dataset)
+            >>> count = await pgvdb.bulk_load_documents(large_dataset)
             >>> print(f"Loaded {count} documents")
 
         Note:
@@ -885,7 +891,7 @@ class DocumentsMixin:
                     for record in batch:
                         await conn.execute(
                             text(f"""
-                                INSERT INTO {qualified_table} 
+                                INSERT INTO {qualified_table}
                                 (langchain_id, content, langchain_metadata, embedding)
                                 VALUES (:id, :content, CAST(:metadata AS jsonb), :embedding)
                                 ON CONFLICT (langchain_id) DO UPDATE SET
@@ -944,7 +950,7 @@ class DocumentsMixin:
             List of document IDs
 
         Examples:
-            >>> doc_ids = await rag.add_documents_orm(documents)
+            >>> doc_ids = await pgvdb.add_documents_orm(documents)
         """
         self._ensure_initialized()
 

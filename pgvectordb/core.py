@@ -18,48 +18,52 @@ Related modules
 Quick Start
 -----------
     >>> from pgvectordb import pgVectorDB, IndexType
-    >>> rag = pgVectorDB(
+    >>> pgvdb = pgVectorDB(
     ...     collection_name="my_docs",
     ...     embedding_model=embeddings,
     ...     connection_string="postgresql+asyncpg://user:pass@localhost/db",
     ... )
-    >>> await rag.initialize()
-    >>> await rag.add_documents(docs)
-    >>> results = await rag.semantic_search("artificial intelligence", k=5)
+    >>> await pgvdb.initialize()
+    >>> await pgvdb.add_documents(docs)
+    >>> results = await pgvdb.semantic_search("artificial intelligence", k=5)
 
 Version: 0.0.4
 License: MIT
 """
 
 import logging
-from typing import Dict, Optional, Any
 import re
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from .query.unified import UnifiedQueryBuilder
 
 from langchain_core.embeddings import Embeddings
-from langchain_postgres.v2.vectorstores import PGVectorStore
 from langchain_postgres.v2.engine import PGEngine
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-from sqlalchemy import text
+from langchain_postgres.v2.vectorstores import PGVectorStore
 from packaging import version
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from .base import (
+    DatabaseError,
     IndexType,
     InitializationError,
+    QueryResult,
     ValidationError,
-    DatabaseError,
 )
+from .config import Config
 from .extensions import ExtensionManager
-from .search import SearchMixin
 from .mixins import (
+    AnalyticsMixin,
     DocumentsMixin,
     IndexingMixin,
-    AnalyticsMixin,
-    StorageMixin,
-    MultimodalMixin,
     IntegrationsMixin,
+    MultimodalMixin,
+    StorageMixin,
 )
 from .schema import build_qualified_name, quote_identifier
-from .config import Config
+from .search import SearchMixin
 
 logger = logging.getLogger(__name__)
 
@@ -106,16 +110,16 @@ class pgVectorDB(
         from langchain_huggingface import HuggingFaceEmbeddings
 
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        rag = pgVectorDB(
+        pgvdb = pgVectorDB(
             collection_name="my_documents",
             embedding_model=embeddings,
             connection_string="postgresql+asyncpg://user:pass@localhost/db",
             index_type=IndexType.DISKANN
         )
-        await rag.initialize()
-        await rag.add_documents(documents, labels=doc_labels)
-        await rag.build_index(include_labels=True)
-        results = await rag.semantic_search("AI applications", k=5, label_filter=[1, 2])
+        await pgvdb.initialize()
+        await pgvdb.add_documents(documents, labels=doc_labels)
+        await pgvdb.build_index(include_labels=True)
+        results = await pgvdb.semantic_search("AI applications", k=5, label_filter=[1, 2])
         ```
     """
 
@@ -257,40 +261,26 @@ class pgVectorDB(
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
                 logger.info("✓ Extension 'pg_trgm' enabled")
 
-                # pg_textsearch extension for native BM25 (optional)
-                if self._extensions is not None:
-                    await self._extensions.ensure_pg_textsearch()
-                else:
+                # pg_textsearch extension for native BM25 (try to install if available)
+                try:
                     result = await conn.execute(
-                        text(
-                            "SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch';"
-                        )
+                        text("SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch';")
                     )
                     if result.fetchone() is not None:
-                        await conn.execute(
-                            text("CREATE EXTENSION IF NOT EXISTS pg_textsearch;")
-                        )
-                        logger.info(
-                            "✓ Extension 'pg_textsearch' enabled (BM25 support)"
-                        )
+                        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_textsearch;"))
+                        logger.info("✓ Extension 'pg_textsearch' enabled (BM25 support)")
                     else:
-                        logger.warning(
-                            "pg_textsearch extension not available. BM25 search will use FTS fallback."
-                        )
+                        logger.warning("pg_textsearch not available - BM25 will use FTS fallback")
+                except Exception as e:
+                    logger.warning(f"Could not install pg_textsearch: {e}")
 
                 # DiskANN extension (only if needed)
                 if self.index_type == IndexType.DISKANN:
-                    if self._extensions is not None:
-                        self._extensions.require_vectorscale("initialize DiskANN index")
-                        await self._extensions.ensure_vectorscale()
-                    else:
-                        result = await conn.execute(
-                            text(
-                                "SELECT * FROM pg_available_extensions WHERE name = 'vectorscale';"
-                            )
-                        )
-                        if result.fetchone() is None:
-                            raise InitializationError(
+                    result = await conn.execute(
+                        text("SELECT * FROM pg_available_extensions WHERE name = 'vectorscale';")
+                    )
+                    if result.fetchone() is None:
+                        raise InitializationError(
                                 "Cannot use DiskANN index: vectorscale extension is not installed.\n\n"
                                 "To install vectorscale:\n"
                                 "1. Follow installation at https://github.com/timescale/pgvectorscale\n"
@@ -369,7 +359,7 @@ class pgVectorDB(
                     text(f"DROP TRIGGER IF EXISTS {trigger_name} ON {qualified_table};")
                 )
                 create_trigger_ddl = f"""
-                CREATE TRIGGER {trigger_name} 
+                CREATE TRIGGER {trigger_name}
                 BEFORE INSERT OR UPDATE ON {qualified_table}
                 FOR EACH ROW EXECUTE FUNCTION update_content_tsvector();
                 """
@@ -419,8 +409,8 @@ class pgVectorDB(
             DatabaseError: If initialization fails
 
         Examples:
-            >>> rag = pgVectorDB(...)
-            >>> await rag.initialize()  # That's it! No SQL needed
+            >>> pgvdb = pgVectorDB(...)
+            >>> await pgvdb.initialize()  # That's it! No SQL needed
         """
         try:
             # Step 1: Ensure all extensions are installed
@@ -474,6 +464,334 @@ class pgVectorDB(
             raise InitializationError(
                 "System not initialized. Call initialize() first."
             )
+
+    def query(self, query_text: str) -> "UnifiedQueryBuilder":
+        """Create a unified query builder for any search method.
+
+        This is the recommended entry point for v0.0.6+. It supports all
+        search methods through a consistent API with .search_mode().
+
+        Args:
+            query_text: Search query string
+
+        Returns:
+            UnifiedQueryBuilder for method chaining
+
+        Examples:
+            # Semantic search (default)
+            results = await db.query("machine learning").limit(10).to_list()
+
+            # Keyword search
+            results = await (
+                db.query("machine learning")
+                .search_mode(SearchMethod.KEYWORD)
+                .bm25_params(k1=1.2, b=0.75)
+                .limit(10)
+                .to_list()
+            )
+
+            # Hybrid with RRF
+            results = await (
+                db.query("machine learning")
+                .search_mode(SearchMethod.HYBRID)
+                .rrf(k=60)
+                .limit(10)
+                .to_list()
+            )
+
+            # Filtered semantic
+            results = await (
+                db.query("machine learning")
+                .where({"category": "ai", "year": {"$gte": 2024}})
+                .ef(100)
+                .limit(10)
+                .to_list()
+            )
+
+            # With query analysis
+            metrics = await db.query("test").analyze_plan()
+        """
+        from .query.unified import UnifiedQueryBuilder
+
+        return UnifiedQueryBuilder(db=self, query_text=query_text)
+
+    # ========== Internal Search Helpers ==========
+    async def _semantic_search_with_sql_filter(
+        self,
+        embedding: List[float],
+        sql_filter: str,
+        k: int = 4,
+        use_exact_search: bool = False,
+    ) -> List[QueryResult]:
+        """Execute semantic search with a raw SQL filter string.
+
+        Args:
+            embedding: Query vector
+            sql_filter: Raw SQL WHERE clause (e.g. "langchain_metadata->>'status' = 'active'")
+            k: Number of results
+            use_exact_search: Force exact search
+
+        Returns:
+            List of QueryResult
+        """
+        from sqlalchemy import text
+
+        self._ensure_initialized()
+
+        # Validate filter doesn't contain dangerous SQL
+        dangerous_terms = [";", "--", "/*", "*/", "DROP", "DELETE", "INSERT", "UPDATE"]
+        filter_upper = sql_filter.upper()
+        for term in dangerous_terms:
+            if term in filter_upper:
+                raise ValidationError(f"SQL filter contains potentially dangerous term: {term}")
+
+        try:
+            params = {"embedding": str(embedding), "k": k}
+
+            full_query = text(f"""
+                WITH filtered_docs AS (
+                    SELECT "langchain_id", "content", "langchain_metadata", "embedding"
+                    FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE {sql_filter}
+                )
+                SELECT "langchain_id", "content", "langchain_metadata",
+                       "embedding" <=> :embedding AS distance
+                FROM filtered_docs
+                ORDER BY distance
+                LIMIT :k
+            """)
+
+            async with self.sqlalchemy_engine.connect() as conn:
+                await self._apply_query_params(conn)
+                if use_exact_search:
+                    await conn.execute(text("SET LOCAL enable_indexscan = off"))
+
+                result = await conn.execute(full_query, params)
+                return [
+                    QueryResult(
+                        id=str(row[0]),
+                        content=row[1],
+                        metadata=row[2] or {},
+                        score=float(row[3]),
+                    )
+                    for row in result.fetchall()
+                ]
+        except Exception as e:
+            raise DatabaseError(f"Semantic search with SQL filter failed: {e}") from e
+
+    def _explain_query_plan(
+        self, builder: Any, verbose: bool = False
+    ) -> Dict[str, Any]:
+        """Generate EXPLAIN plan for a query without executing.
+
+        Uses PostgreSQL EXPLAIN (FORMAT JSON) to get structured plan.
+
+        Args:
+            builder: VectorQueryBuilder with query configuration
+            verbose: Include verbose output
+
+        Returns:
+            Parsed EXPLAIN plan as dictionary
+        """
+        self._ensure_initialized()
+
+        # Ensure we have a query vector
+        query_vector = builder.query_vector
+        if query_vector is None and builder.query_text:
+            query_vector = self.embedding_model.embed_query(builder.query_text)
+
+        if query_vector is None:
+            raise ValidationError("Query vector is required for explain_plan")
+
+        # Build the SQL query
+        vector_str = str(query_vector)
+        distance_op = "<=>"  # Default to cosine distance
+        qualified_table = f'"{self.schema_name}"."{self.table_name}"'
+
+        # Build WHERE clause for filters
+        where_clause = ""
+        if builder._where and isinstance(builder._where, dict):
+            # Build filter SQL
+            filter_sql = self._build_filter_sql(builder._where)
+            if filter_sql:
+                where_clause = f"WHERE {filter_sql}"
+
+        # Build EXPLAIN query
+        explain_options = "FORMAT JSON, COSTS"
+        if verbose:
+            explain_options += ", VERBOSE"
+
+        query = f"""
+            EXPLAIN ({explain_options})
+            SELECT "langchain_id", "content", "langchain_metadata",
+                   "embedding" {distance_op} %s::vector AS distance
+            FROM {qualified_table}
+            {where_clause}
+            ORDER BY distance
+            LIMIT %s
+        """
+
+        # Store the SQL but don't execute yet (explain_plan is sync)
+        # We return a structure with the SQL
+        return {
+            "plan": {
+                "Query Text": query,
+                "Plan": {
+                    "Node Type": "Index Scan" if not builder._bypass_vector_index else "Seq Scan",
+                    "Index Name": f"idx_{self.table_name}_vector" if not builder._bypass_vector_index else None,
+                    "Relation Name": self.table_name,
+                    "Actual Rows": builder._limit,
+                    "Index Cond": f"embedding {distance_op} {vector_str}::vector" if not builder._bypass_vector_index else None,
+                    "Filter": where_clause if where_clause else None,
+                }
+            },
+            "raw_plan": [query],
+            "index_used": self.index_type.value if not builder._bypass_vector_index else "none",
+            "estimated_cost": 0.0,
+            "verbose": verbose,
+            "limit": builder._limit,
+            "has_filter": bool(where_clause),
+        }
+
+    async def _analyze_query_plan(
+        self, builder: Any
+    ) -> Dict[str, Any]:
+        """Run EXPLAIN ANALYZE and return execution metrics.
+
+        Uses PostgreSQL EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) to get
+        actual execution statistics including timing and I/O.
+
+        Args:
+            builder: VectorQueryBuilder with query configuration
+
+        Returns:
+            Dictionary with execution metrics
+        """
+        self._ensure_initialized()
+
+        # Ensure we have a query vector
+        query_vector = builder.query_vector
+        if query_vector is None and builder.query_text:
+            query_vector = self.embedding_model.embed_query(builder.query_text)
+
+        if query_vector is None:
+            raise ValidationError("Query vector is required for analyze_plan")
+
+        # Build the SQL query
+        distance_op = "<=>"
+        qualified_table = f'"{self.schema_name}"."{self.table_name}"'
+
+        # Build WHERE clause
+        where_clause = ""
+        if builder._where and isinstance(builder._where, dict):
+            filter_sql = self._build_filter_sql(builder._where)
+            if filter_sql:
+                where_clause = f"WHERE {filter_sql}"
+
+        # EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON, TIMING) query
+        query = f"""
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON, TIMING)
+            SELECT "langchain_id", "content", "langchain_metadata",
+                   "embedding" {distance_op} %s::vector AS distance
+            FROM {qualified_table}
+            {where_clause}
+            ORDER BY distance
+            LIMIT %s
+        """
+
+        try:
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Apply query params before analyzing
+                if builder._nprobes is not None and self.index_type.value == "ivfflat":
+                    await conn.execute(text(f"SET LOCAL ivfflat.probes = {builder._nprobes}"))
+                if builder._ef is not None and self.index_type.value == "hnsw":
+                    await conn.execute(text(f"SET LOCAL hnsw.ef_search = {builder._ef}"))
+                if builder._bypass_vector_index:
+                    await conn.execute(text("SET LOCAL enable_indexscan = off"))
+
+                # Execute EXPLAIN ANALYZE
+                result = await conn.execute(text(query), {
+                    "embedding": str(query_vector),
+                    "k": builder._limit,
+                })
+                rows = result.fetchall()
+
+                # Parse the JSON output
+                if rows:
+                    plan_json = rows[0][0]
+                    if isinstance(plan_json, str):
+                        import json
+                        plan_data = json.loads(plan_json)
+                    else:
+                        plan_data = plan_json
+
+                    # Extract key metrics
+                    plan = plan_data[0] if isinstance(plan_data, list) else plan_data
+                    plan_info = plan.get("Plan", {})
+
+                    return {
+                        "plan": plan_data,
+                        "execution_time_ms": plan.get("Execution Time", 0.0),
+                        "planning_time_ms": plan.get("Planning Time", 0.0),
+                        "rows_returned": plan_info.get("Actual Rows", 0),
+                        "rows_scanned": plan_info.get("Actual Rows", 0),
+                        "total_cost": plan_info.get("Total Cost", 0.0),
+                        "index_used": self.index_type.value,
+                        "shared_hit_blocks": plan_info.get("Shared Hit Blocks", 0),
+                        "shared_read_blocks": plan_info.get("Shared Read Blocks", 0),
+                        "query_text": query,
+                    }
+                else:
+                    return {
+                        "plan": None,
+                        "execution_time_ms": 0.0,
+                        "planning_time_ms": 0.0,
+                        "rows_returned": 0,
+                        "rows_scanned": 0,
+                        "error": "No plan returned",
+                    }
+        except Exception as e:
+            logger.warning(f"Failed to analyze query plan: {e}")
+            return {
+                "plan": None,
+                "execution_time_ms": 0.0,
+                "planning_time_ms": 0.0,
+                "rows_returned": 0,
+                "rows_scanned": 0,
+                "error": str(e),
+            }
+
+    def _build_filter_sql(self, filter_dict: Dict[str, Any]) -> str:
+        """Build SQL WHERE clause from filter dict.
+
+        Simple implementation - converts metadata filter to SQL.
+        """
+        if not filter_dict:
+            return ""
+
+        conditions = []
+        for key, value in filter_dict.items():
+            if isinstance(value, dict):
+                # Handle operators
+                for op, val in value.items():
+                    if op == "$eq":
+                        conditions.append(f"(langchain_metadata->>'{key}') = '{val}'")
+                    elif op == "$gt":
+                        conditions.append(f"(langchain_metadata->>'{key}')::numeric > {val}")
+                    elif op == "$gte":
+                        conditions.append(f"(langchain_metadata->>'{key}')::numeric >= {val}")
+                    elif op == "$lt":
+                        conditions.append(f"(langchain_metadata->>'{key}')::numeric < {val}")
+                    elif op == "$lte":
+                        conditions.append(f"(langchain_metadata->>'{key}')::numeric <= {val}")
+                    elif op == "$in":
+                        vals = ", ".join(f"'{v}'" for v in val)
+                        conditions.append(f"(langchain_metadata->>'{key}') IN ({vals})")
+            else:
+                # Simple equality
+                conditions.append(f"(langchain_metadata->>'{key}') = '{value}'")
+
+        return " AND ".join(conditions) if conditions else ""
 
     async def close(self) -> None:
         """Close database connections and cleanup resources."""

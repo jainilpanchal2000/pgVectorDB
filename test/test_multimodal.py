@@ -14,20 +14,20 @@ Run:
     .venv\\Scripts\\python -m pytest test/test_multimodal.py -v
 """
 
+import datetime
+
 import pytest
 import pytest_asyncio
-import datetime
 from langchain_core.documents import Document
 
-from pgvectordb import pgVectorDB, IndexType
+from pgvectordb import IndexType, pgVectorDB
 from pgvectordb.spaces import (
-    TextSpace,
-    NumberSpace,
     CategorySpace,
+    NumberSpace,
     RecencySpace,
+    TextSpace,
     TimeUnit,
 )
-
 
 pytestmark = pytest.mark.integration
 
@@ -231,7 +231,7 @@ class TestRerankSearch:
 
         try:
             reranker = CrossEncoderReranker(
-                model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"
+                model="cross-encoder/ms-marco-MiniLM-L-6-v2"
             )
             res = await rag_mm.rerank_search(
                 query="technology",

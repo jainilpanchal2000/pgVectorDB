@@ -15,8 +15,7 @@ import pytest
 import pytest_asyncio
 from langchain_core.documents import Document
 
-from pgvectordb import pgVectorDB, IndexType
-
+from pgvectordb import IndexType, pgVectorDB
 
 pytestmark = pytest.mark.integration
 

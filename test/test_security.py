@@ -12,16 +12,16 @@ Run:
     python -m pytest test/test_security.py -v
 """
 
-import pytest
 import re
 
-from pgvectordb import (
-    pgVectorDB,
-    IndexType,
-    ValidationError,
-    InitializationError,
-)
+import pytest
 
+from pgvectordb import (
+    IndexType,
+    InitializationError,
+    ValidationError,
+    pgVectorDB,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -73,14 +73,14 @@ class TestIdentifierValidation:
 
     def test_valid_name_accepted(self, embeddings):
         """Valid names with letters, numbers, underscores should not raise."""
-        rag = _make_rag(collection_name="valid_collection_123", embeddings=embeddings)
-        assert rag is not None
+        pgvdb = _make_rag(collection_name="valid_collection_123", embeddings=embeddings)
+        assert pgvdb is not None
 
     def test_valid_name_with_hyphen(self, embeddings):
         """Hyphens are usually allowed via quoting — at minimum should not crash."""
         try:
-            rag = _make_rag(collection_name="valid-collection", embeddings=embeddings)
-            assert rag is not None
+            pgvdb = _make_rag(collection_name="valid-collection", embeddings=embeddings)
+            assert pgvdb is not None
         except (ValidationError, Exception):
             pass  # Stricter validation is also acceptable
 
@@ -93,7 +93,7 @@ class TestIdentifierValidation:
 class TestInputValidation:
     """
     These tests verify ValidationError is raised BEFORE hitting the DB.
-    They require a real rag instance but test pre-flight validation, so
+    They require a real pgvdb instance but test pre-flight validation, so
     they can be used even without a running DB for the constructor path.
     """
 
@@ -148,7 +148,7 @@ class TestInitializationGuard:
     @pytest.mark.integration
     async def test_search_before_initialize_raises(self, embeddings, connection_string):
         """Calling semantic_search before initialize() must raise InitializationError."""
-        rag = pgVectorDB(
+        pgvdb = pgVectorDB(
             collection_name="sec_uninit_guard",
             embedding_model=embeddings,
             connection_string=connection_string,
@@ -156,7 +156,7 @@ class TestInitializationGuard:
             index_type=IndexType.HNSW,
         )
         with pytest.raises(InitializationError):
-            await rag.semantic_search("test", k=5)
+            await pgvdb.semantic_search("test", k=5)
 
     @pytest.mark.integration
     async def test_add_documents_before_initialize_raises(
@@ -165,7 +165,7 @@ class TestInitializationGuard:
         """Calling add_documents before initialize() must raise InitializationError."""
         from langchain_core.documents import Document
 
-        rag = pgVectorDB(
+        pgvdb = pgVectorDB(
             collection_name="sec_uninit_docs",
             embedding_model=embeddings,
             connection_string=connection_string,
@@ -173,7 +173,7 @@ class TestInitializationGuard:
             index_type=IndexType.HNSW,
         )
         with pytest.raises(InitializationError):
-            await rag.add_documents([Document(page_content="test", metadata={})])
+            await pgvdb.add_documents([Document(page_content="test", metadata={})])
 
 
 # ---------------------------------------------------------------------------

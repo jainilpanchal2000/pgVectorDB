@@ -34,7 +34,7 @@ Examples:
     ... )
     >>>
     >>> # Rerank via core method
-    >>> results = await rag.rerank_search(
+    >>> results = await pgvdb.rerank_search(
     ...     query="best noise cancelling headphones under $200",
     ...     reranker=reranker,
     ...     k=100,           # Retrieve 100 candidates
@@ -241,7 +241,7 @@ class CohereReranker(BaseReranker):
         max_chunks_per_doc: int = 10,
     ):
         try:
-            import cohere
+            import cohere  # type: ignore[import-untyped]
         except ImportError:
             raise ImportError(
                 "cohere is required for CohereReranker. "

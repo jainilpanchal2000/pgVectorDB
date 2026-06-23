@@ -84,6 +84,15 @@ CREATE EXTENSION IF NOT EXISTS vector;    -- pgvector: vector storage + HNSW/IVF
 CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- trigram fuzzy search
 ```
 
+**Docker Auto-Initialization:** When using Docker, the `docker/init-extensions.sql` file automatically creates these extensions on first container startup. This script is mounted via `docker-compose.yml`:
+
+```yaml
+volumes:
+  - ./docker/init-extensions.sql:/docker-entrypoint-initdb.d/init.sql
+```
+
+See `docker/init-extensions.sql` in the repo for the exact commands.
+
 ### Optional (unlocks more features)
 
 ```sql

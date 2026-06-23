@@ -86,6 +86,7 @@ nav:
     - Metrics & Evaluation: user_guide/metrics_and_evaluation.md
     - Analytics & Diagnostics: user_guide/analytics_and_diagnostics.md
     - LangChain Integration: user_guide/langchain_integration.md
+    - Migration Guide: user_guide/migration_guide.md
   - Advanced:
     - Indexing & Performance: advanced/indexing.md
     - Configuration: advanced/configuration.md

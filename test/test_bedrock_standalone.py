@@ -47,8 +47,8 @@ def test_bedrock_embeddings():
     # Check dependencies
     print("\n📦 Checking dependencies...")
     try:
-        from langchain_aws import BedrockEmbeddings
         import boto3
+        from langchain_aws import BedrockEmbeddings
 
         print("   ✅ langchain-aws installed")
         print("   ✅ boto3 installed")

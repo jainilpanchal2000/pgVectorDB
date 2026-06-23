@@ -11,24 +11,27 @@ for the pgVectorDB system. It includes:
 - Trigram fuzzy search
 """
 
-import re
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
 from sqlalchemy import text
 
 from .base import (
+    DatabaseError,
     IndexType,
+    InitializationError,
     KeywordSearchType,
     QueryResult,
     ValidationError,
-    DatabaseError,
-    InitializationError,
 )
+
+from .mixins._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class SearchMixin:
+class SearchMixin(MixinBase):
     """
     Mixin class providing search capabilities to pgVectorDB.
 
@@ -335,7 +338,7 @@ class SearchMixin:
                 ts_query_str = " | ".join(sanitized_words)
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        ts_rank(content_tsvector, to_tsquery('english', :query)) as rank
                 FROM "{self.schema_name}"."{self.table_name}"
                 WHERE content_tsvector @@ to_tsquery('english', :query)
@@ -372,7 +375,7 @@ class SearchMixin:
             qualified_index = f'"{self.schema_name}"."{index_name}"'
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        -(content <@> to_bm25query(:query, '{qualified_index}')) as score
                 FROM "{self.schema_name}"."{self.table_name}"
                 ORDER BY content <@> to_bm25query(:query, '{qualified_index}') ASC
@@ -494,7 +497,7 @@ class SearchMixin:
                 full_where_clause = " OR ".join(where_conditions)
 
                 full_query = text(f"""
-                    SELECT "langchain_id", "content", "langchain_metadata", 
+                    SELECT "langchain_id", "content", "langchain_metadata",
                            ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {full_where_clause}
@@ -548,7 +551,7 @@ class SearchMixin:
                 params["labels"] = label_filter
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        "embedding" <=> :embedding AS distance
                 FROM "{self.schema_name}"."{self.table_name}"
                 {where_clause}
@@ -601,7 +604,7 @@ class SearchMixin:
                 params["labels"] = label_filter
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        "embedding" <=> :embedding AS distance
                 FROM "{self.schema_name}"."{self.table_name}"
                 {where_clause}
@@ -752,7 +755,7 @@ class SearchMixin:
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {filter_clauses}
                 )
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
                 FROM filtered_docs
                 WHERE content_tsvector @@ plainto_tsquery('english', :query)
@@ -810,7 +813,7 @@ class SearchMixin:
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {filter_clauses}
                 )
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        "embedding" <=> :embedding AS distance
                 FROM filtered_docs
                 ORDER BY distance LIMIT :k
@@ -955,7 +958,7 @@ class SearchMixin:
 
         try:
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        similarity("content", :query) as score
                 FROM "{self.schema_name}"."{self.table_name}"
                 WHERE similarity("content", :query) > :threshold
@@ -1001,7 +1004,7 @@ class SearchMixin:
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {filter_clauses}
                 )
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        similarity("content", :query) as score
                 FROM filtered_docs
                 WHERE similarity("content", :query) > :threshold

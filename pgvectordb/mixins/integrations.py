@@ -7,16 +7,17 @@ Provides: as_retriever with custom VectorStoreRetriever for LangChain compatibil
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
-from langchain_core.documents import Document
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
 
+from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class IntegrationsMixin:
+class IntegrationsMixin(MixinBase):
     """Mixin providing LangChain ecosystem integration."""
 
     def as_retriever(
@@ -44,10 +45,10 @@ class IntegrationsMixin:
 
         Examples:
             >>> # Basic semantic retriever
-            >>> retriever = rag.as_retriever()
+            >>> retriever = pgvdb.as_retriever()
             >>>
             >>> # Hybrid search retriever with custom parameters
-            >>> retriever = rag.as_retriever(
+            >>> retriever = pgvdb.as_retriever(
             ...     search_method="hybrid_search",
             ...     search_kwargs={"k": 10, "weights": (0.7, 0.3)}
             ... )
@@ -59,8 +60,9 @@ class IntegrationsMixin:
             ...     retriever=retriever
             ... )
         """
-        from langchain_core.retrievers import BaseRetriever
         from typing import List as TypingList
+
+        from langchain_core.retrievers import BaseRetriever
 
         search_kwargs = search_kwargs or {"k": 4}
 
@@ -89,7 +91,7 @@ class IntegrationsMixin:
                 self,
                 query: str,
                 *,
-                run_manager: Optional[CallbackManagerForRetrieverRun] = None,
+                run_manager: Any = None,  # AsyncCallbackManagerForRetrieverRun
             ) -> TypingList[Document]:
                 """Async retrieval using configured search method."""
                 # Get the search method from vectorstore

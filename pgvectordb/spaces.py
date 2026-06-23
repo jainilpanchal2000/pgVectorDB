@@ -26,9 +26,9 @@ Examples:
     ...     CategorySpace(name="city", field="city",
     ...                   categories=["New York", "San Francisco", "Chicago"]),
     ... ]
-    >>> rag.register_spaces(spaces)
-    >>> await rag.add_documents_multimodal(docs)
-    >>> results = await rag.multimodal_search(
+    >>> pgvdb.register_spaces(spaces)
+    >>> await pgvdb.add_documents_multimodal(docs)
+    >>> results = await pgvdb.multimodal_search(
     ...     query_params={"description": "modern downtown apartment", "price": 500000,
     ...                   "city": "New York"},
     ...     weights={"description": 0.5, "price": 0.3, "city": 0.2},
@@ -38,13 +38,13 @@ Examples:
 Version: 0.0.3
 """
 
+import logging
 import math
 import time as _time
-import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -354,7 +354,7 @@ class TextSpace(VectorSpace):
             self.detect_dimensions(model)
 
         if not value or (isinstance(value, str) and not value.strip()):
-            return [0.0] * self._dimensions
+            return [0.0] * (self._dimensions or 0)
 
         text = str(value)
         return model.embed_query(text)

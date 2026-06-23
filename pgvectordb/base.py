@@ -18,10 +18,40 @@ Examples:
 """
 
 from enum import Enum
-from typing import Dict, Any, TypedDict
-
+from typing import Any, Dict, TypedDict
 
 # ==================== Enums ====================
+
+
+class SearchMethod(str, Enum):
+    """
+    Search method types for query operations.
+
+    This enum replaces string-based search methods with type-safe values.
+    Being a str Enum, it maintains backward compatibility with string comparisons.
+
+    Attributes:
+        SEMANTIC: Vector similarity search using embeddings
+        KEYWORD: Full-text search (FTS or BM25)
+        HYBRID: Combined vector + keyword search with fusion
+        TRIGRAM: Fuzzy text matching using trigram similarity
+        METADATA_FILTER: Pure metadata filtering without search
+
+    Examples:
+        >>> from pgvectordb import SearchMethod
+        >>> method = SearchMethod.SEMANTIC
+        >>> if method == SearchMethod.SEMANTIC:
+        ...     print("Using semantic search")
+        >>> # String comparison also works
+        >>> method == "semantic"
+        True
+    """
+
+    SEMANTIC = "semantic"
+    KEYWORD = "keyword"
+    HYBRID = "hybrid"
+    TRIGRAM = "trigram"
+    METADATA_FILTER = "metadata_filter"
 
 
 class IndexType(str, Enum):
@@ -49,7 +79,7 @@ class IndexType(str, Enum):
 
     Examples:
         >>> from pgvectordb.base import IndexType
-        >>> rag = pgVectorDB(
+        >>> pgvdb = pgVectorDB(
         ...     collection_name="docs",
         ...     index_type=IndexType.HNSW,  # Fast for small datasets
         ...     ...
@@ -78,7 +108,7 @@ class KeywordSearchType(str, Enum):
 
     Examples:
         >>> from pgvectordb.base import KeywordSearchType
-        >>> results = await rag.keyword_search(
+        >>> results = await pgvdb.keyword_search(
         ...     "machine learning",
         ...     search_type=KeywordSearchType.BM25  # Better relevance ranking
         ... )
@@ -107,7 +137,7 @@ class StorageLayout(str, Enum):
 
     Examples:
         >>> from pgvectordb.base import StorageLayout
-        >>> await rag.build_index(
+        >>> await pgvdb.build_index(
         ...     storage_layout=StorageLayout.MEMORY_OPTIMIZED  # 75% less memory
         ... )
     """
@@ -155,7 +185,7 @@ class DistanceMetric(str, Enum):
 
     Examples:
         >>> from pgvectordb.base import DistanceMetric
-        >>> await rag.build_index(metric=DistanceMetric.COSINE)
+        >>> await pgvdb.build_index(metric=DistanceMetric.COSINE)
     """
 
     COSINE = "cosine"  # <=> operator
@@ -189,7 +219,7 @@ class VectorPrecision(str, Enum):
 
     Examples:
         >>> from pgvectordb.base import VectorPrecision
-        >>> await rag.create_halfvec_table()  # Uses FLOAT16
+        >>> await pgvdb.create_halfvec_table()  # Uses FLOAT16
     """
 
     FLOAT32 = "float32"  # Default: 4 bytes per dimension
@@ -220,7 +250,7 @@ class IterativeScanMode(str, Enum):
 
     Examples:
         >>> from pgvectordb.base import IterativeScanMode
-        >>> await rag.set_iterative_scan(IterativeScanMode.RELAXED_ORDER)
+        >>> await pgvdb.set_iterative_scan(IterativeScanMode.RELAXED_ORDER)
     """
 
     OFF = "off"
@@ -298,7 +328,7 @@ class RetrievalSystemError(Exception):
 
     Examples:
         >>> try:
-        ...     await rag.semantic_search("query")
+        ...     await pgvdb.semantic_search("query")
         ... except RetrievalSystemError as e:
         ...     print(f"pgVectorDB error: {e}")
     """
@@ -319,12 +349,12 @@ class InitializationError(RetrievalSystemError):
         - Database connection issues during initialization
 
     Examples:
-        >>> rag = pgVectorDB(...)
-        >>> await rag.semantic_search("query")  # Raises InitializationError
+        >>> pgvdb = pgVectorDB(...)
+        >>> await pgvdb.semantic_search("query")  # Raises InitializationError
         InitializationError: System not initialized. Call initialize() first.
 
-        >>> await rag.initialize()
-        >>> await rag.semantic_search("query")  # Works now
+        >>> await pgvdb.initialize()
+        >>> await pgvdb.semantic_search("query")  # Works now
     """
 
     pass
@@ -344,10 +374,10 @@ class ValidationError(RetrievalSystemError):
         - Invalid filter operator syntax
 
     Examples:
-        >>> await rag.semantic_search("", k=5)
+        >>> await pgvdb.semantic_search("", k=5)
         ValidationError: query must be a non-empty string
 
-        >>> await rag.semantic_search("query", k=-1)
+        >>> await pgvdb.semantic_search("query", k=-1)
         ValidationError: k must be a positive integer
     """
 
@@ -369,7 +399,7 @@ class DatabaseError(RetrievalSystemError):
         - SQL syntax errors (internal)
 
     Examples:
-        >>> await rag.add_documents(docs)
+        >>> await pgvdb.add_documents(docs)
         DatabaseError: Failed to add documents: connection refused
     """
 
@@ -394,10 +424,10 @@ class RateLimitError(RetrievalSystemError):
 
     Examples:
         >>> try:
-        ...     await rag.add_documents_batch(large_batch)
+        ...     await pgvdb.add_documents_batch(large_batch)
         ... except RateLimitError:
         ...     await asyncio.sleep(60)  # Wait before retry
-        ...     await rag.add_documents_batch(large_batch, batch_size=50)  # Smaller batches
+        ...     await pgvdb.add_documents_batch(large_batch, batch_size=50)  # Smaller batches
     """
 
     pass
@@ -426,7 +456,7 @@ class QueryResult(TypedDict):
         - Hybrid search: Normalized/fused scores
 
     Examples:
-        >>> results: List[QueryResult] = await rag.semantic_search("query")
+        >>> results: List[QueryResult] = await pgvdb.semantic_search("query")
         >>> for result in results:
         ...     print(f"ID: {result['id']}")
         ...     print(f"Score: {result['score']:.4f}")
@@ -457,6 +487,7 @@ EXTENSION_REQUIREMENTS = {
 
 __all__ = [
     # Enums
+    "SearchMethod",
     "IndexType",
     "KeywordSearchType",
     "StorageLayout",

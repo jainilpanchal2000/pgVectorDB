@@ -1,0 +1,318 @@
+"""
+pgVectorDB v0.0.6 Demo - Fluent API
+===================================
+
+This script demonstrates the new LanceDB-style fluent API:
+- Query builder pattern with method chaining
+- Explain/Analyze query plans
+- Advanced query parameters (ef, nprobes, refine_factor)
+- Scalar indexes for metadata filtering
+
+Run with: python examples/fluent_api_demo.py
+"""
+
+import asyncio
+import logging
+from langchain_core.documents import Document
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Configuration
+DB_HOST = "localhost"
+DB_PORT = "5433"  # Test container port
+DB_NAME = "testdb"
+DB_USER = "testuser"
+DB_PASSWORD = "testpass"
+CONNECTION_STRING = (
+    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
+
+
+async def main():
+    """Main demo function."""
+    print("=" * 80)
+    print("pgVectorDB v0.0.6 - Fluent API Demo")
+    print("Search methods now use: search().where().limit().to_list()")
+    print("=" * 80)
+
+    # Import pgVectorDB
+    print("\n📦 Importing pgVectorDB...")
+    from pgvectordb import pgVectorDB, IndexType, DistanceMetric
+
+    # Initialize embeddings
+    try:
+        from langchain_huggingface import HuggingFaceEmbeddings
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        print("✓ HuggingFace embeddings loaded")
+    except ImportError:
+        print("❌ Install langchain-huggingface: pip install langchain-huggingface")
+        return
+
+    # Create database instance
+    db = pgVectorDB(
+        collection_name="fluent_demo",
+        embedding_model=embeddings,
+        connection_string=CONNECTION_STRING,
+        schema_name="public",
+        index_type=IndexType.HNSW,
+    )
+    print(f"✓ pgVectorDB created")
+
+    # Initialize database
+    print("\n💾 Initializing database...")
+    await db.initialize(overwrite_existing=True)
+    print("✓ Database initialized")
+
+    # Add sample documents
+    print("\n📄 Adding sample documents...")
+    sample_docs = [
+        Document(
+            page_content="Machine learning enables computers to learn from data.",
+            metadata={"category": "ai", "topic": "ml", "year": 2024, "priority": 9},
+        ),
+        Document(
+            page_content="Deep learning uses neural networks with multiple layers.",
+            metadata={"category": "ai", "topic": "deep_learning", "year": 2024, "priority": 8},
+        ),
+        Document(
+            page_content="Natural language processing allows computers to understand text.",
+            metadata={"category": "ai", "topic": "nlp", "year": 2023, "priority": 7},
+        ),
+        Document(
+            page_content="PostgreSQL is a powerful open-source database system.",
+            metadata={"category": "database", "topic": "postgres", "year": 2024, "priority": 8},
+        ),
+        Document(
+            page_content="Vector databases enable efficient similarity search.",
+            metadata={"category": "database", "topic": "vector_db", "year": 2024, "priority": 9},
+        ),
+        Document(
+            page_content="Python is popular for data science and machine learning.",
+            metadata={"category": "programming", "topic": "python", "year": 2024, "priority": 10},
+        ),
+        Document(
+            page_content="Transformers revolutionized NLP with attention mechanisms.",
+            metadata={"category": "ai", "topic": "transformers", "year": 2024, "priority": 10},
+        ),
+        Document(
+            page_content="RAG combines search with language models for accurate answers.",
+            metadata={"category": "ai", "topic": "pgvdb", "year": 2024, "priority": 9},
+        ),
+    ]
+
+    doc_ids = await db.add_documents(sample_docs)
+    print(f"✓ Added {len(doc_ids)} documents")
+
+    # Build indexes
+    print("\n🔨 Building indexes...")
+    await db.build_index(metric=DistanceMetric.COSINE, m=16, ef_construction=64)
+    print("✓ HNSW index built")
+
+    # Create scalar indexes for faster filtering
+    await db.create_scalar_index("category", index_type="bitmap")
+    await db.create_scalar_index("year", index_type="btree")
+    print("✓ Scalar indexes created (category: bitmap, year: btree)")
+
+    # ============================================================
+    # DEMO 1: Basic Semantic Search
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 1: Basic Semantic Search")
+    print("Code: db.search('machine learning').limit(3).to_list()")
+    print("=" * 60)
+
+    test_query = "machine learning AI"
+
+    results = await db.search(test_query).limit(3).to_list()
+    for i, r in enumerate(results, 1):
+        print(f"  {i}. [{r['score']:.4f}] {r['content'][:60]}...")
+
+    # ============================================================
+    # DEMO 2: Filtered Search
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 2: Filtered Search (category='ai')")
+    print("Code: db.search('machine learning').where({'category': 'ai'}).limit(3).to_list()")
+    print("=" * 60)
+
+    results = await (
+        db.search(test_query)
+        .where({"category": "ai"})
+        .limit(3)
+        .to_list()
+    )
+    for i, r in enumerate(results, 1):
+        print(f"  {i}. [{r['score']:.4f}] {r['content'][:60]}...")
+        print(f"      Metadata: {r['metadata']}")
+
+    # ============================================================
+    # DEMO 3: Complex Filter
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 3: Complex Filter (AI + year=2024 + priority >= 8)")
+    print("=" * 60)
+
+    results = await (
+        db.search("AI technology")
+        .where({
+            "$and": [
+                {"category": "ai"},
+                {"year": 2024},
+                {"priority": {"$gte": 8}}
+            ]
+        })
+        .limit(5)
+        .to_list()
+    )
+    for i, r in enumerate(results, 1):
+        print(f"  {i}. [{r['score']:.4f}] {r['content'][:60]}...")
+        print(f"      Metadata: {r['metadata']}")
+
+    # ============================================================
+    # DEMO 4: Explain Query Plan
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 4: Explain Query Plan")
+    print("Code: db.search('query').where({'category': 'ai'}).explain_plan()")
+    print("=" * 60)
+
+    plan = db.search("machine learning").where({"category": "ai"}).explain_plan()
+    print(f"  Plan Type: {plan.get('plan_type', 'N/A')}")
+    print(f"  Using Index: {plan.get('using_index', False)}")
+    print(f"  Index Name: {plan.get('index_name', 'N/A')}")
+    print(f"  Estimated Cost: {plan.get('estimated_cost', 'N/A')}")
+    print(f"  Estimated Rows: {plan.get('estimated_rows', 'N/A')}")
+
+    # ============================================================
+    # DEMO 5: Analyze Query Plan (with timings)
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 5: Analyze Query Plan (with execution metrics)")
+    print("Code: await db.search('query').analyze_plan()")
+    print("=" * 60)
+
+    metrics = await db.search("database systems").analyze_plan()
+    print(f"  Execution Time: {metrics.get('execution_time_ms', 'N/A')} ms")
+    print(f"  Planning Time: {metrics.get('planning_time_ms', 'N/A')} ms")
+    print(f"  Actual Rows: {metrics.get('actual_rows', 'N/A')}")
+    print(f"  Cache Hits: {metrics.get('shared_hit_blocks', 'N/A')}")
+    print(f"  Disk Reads: {metrics.get('shared_read_blocks', 'N/A')}")
+    print(f"  Using Index: {metrics.get('using_index', False)}")
+
+    # ============================================================
+    # DEMO 6: Advanced Query Parameters
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 6: Advanced Query Parameters (ef=100 for better recall)")
+    print("Code: db.search('query').ef(100).limit(3).to_list()")
+    print("=" * 60)
+
+    results = await db.search("neural networks").ef(100).limit(3).to_list()
+    for i, r in enumerate(results, 1):
+        print(f"  {i}. [{r['score']:.4f}] {r['content'][:60]}...")
+
+    # ============================================================
+    # DEMO 7: Bypass Vector Index (Exact Search)
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 7: Exact Search (bypass_vector_index)")
+    print("Code: db.search('query').bypass_vector_index().limit(3).to_list()")
+    print("=" * 60)
+
+    exact_results = await db.search("machine learning").bypass_vector_index().limit(3).to_list()
+    ann_results = await db.search("machine learning").limit(3).to_list()
+
+    print("  Exact search results:")
+    for i, r in enumerate(exact_results, 1):
+        print(f"    {i}. [{r['score']:.4f}]")
+
+    print("  ANN search results:")
+    for i, r in enumerate(ann_results, 1):
+        print(f"    {i}. [{r['score']:.4f}]")
+
+    # Calculate simple recall
+    exact_ids = {r['id'] for r in exact_results}
+    ann_ids = {r['id'] for r in ann_results}
+    recall = len(exact_ids & ann_ids) / len(exact_ids) if exact_ids else 0
+    print(f"  Recall@3: {recall:.0%}")
+
+    # ============================================================
+    # DEMO 8: Output Formats
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 8: Different Output Formats")
+    print("=" * 60)
+
+    # to_list() - default
+    list_results = await db.search("python").limit(2).to_list()
+    print(f"  to_list() type: {type(list_results).__name__}")
+    print(f"  to_list() sample: {list_results[0]['content'][:40]}...")
+
+    # to_pandas()
+    df = await db.search("python").limit(2).to_pandas()
+    print(f"  to_pandas() type: {type(df).__name__}")
+    print(f"  to_pandas() columns: {list(df.columns)}")
+
+    # to_arrow()
+    table = await db.search("python").limit(2).to_arrow()
+    print(f"  to_arrow() type: {type(table).__name__}")
+    print(f"  to_arrow() rows: {len(table)}")
+
+    # ============================================================
+    # DEMO 9: Hybrid Search
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 9: Hybrid Search (Vector + Text)")
+    print("Code: db.search([vector]).nearest_to_text('text').limit(3).to_list()")
+    print("=" * 60)
+
+    # Create a hybrid query builder
+    from pgvectordb.query.builder import VectorQueryBuilder, HybridQueryBuilder
+
+    # Get a vector query builder and convert to hybrid
+    vector_query = db.search("neural networks")  # Returns VectorQueryBuilder
+    # Note: nearest_to_text would be called as:
+    # results = await vector_query.nearest_to_text("deep learning").limit(3).to_list()
+    print("  Hybrid search combines vector and text search")
+    print("  Use: db.search(...).nearest_to_text(...).to_list()")
+
+    # ============================================================
+    # DEMO 10: Statistics
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 10: Collection Statistics")
+    print("=" * 60)
+
+    stats = await db.get_stats()
+    print(f"  Documents: {stats.get('document_count', 'N/A')}")
+    print(f"  Index Type: {stats.get('index_type', 'N/A')}")
+    print(f"  Index Built: {stats.get('index_built', 'N/A')}")
+    print(f"  Table Size: {stats.get('table_size', 'N/A')}")
+
+    # ============================================================
+    # Summary
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("Demo Complete!")
+    print("=" * 60)
+    print("\nKey takeaways:")
+    print("  1. Use .search() for semantic search with fluent API")
+    print("  2. Use .where() for metadata filtering")
+    print("  3. Use .explain_plan() to check query plans")
+    print("  4. Use .ef(), .nprobes() for tuning recall")
+    print("  5. Use .bypass_vector_index() for exact search")
+    print("  6. Use .to_list(), .to_pandas(), .to_arrow() for outputs")
+
+    # Cleanup
+    await db.close()
+    print("\n✓ Connection closed")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

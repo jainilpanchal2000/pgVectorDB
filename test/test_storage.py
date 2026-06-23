@@ -11,14 +11,14 @@ Run:
     .venv\\Scripts\\python -m pytest test/test_storage.py -v
 """
 
-import pytest
-import pytest_asyncio
-import tempfile
 import json
+import tempfile
 from pathlib import Path
 
-from pgvectordb import pgVectorDB, IndexType
+import pytest
+import pytest_asyncio
 
+from pgvectordb import IndexType, pgVectorDB
 
 pytestmark = pytest.mark.integration
 

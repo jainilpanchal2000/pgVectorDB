@@ -12,8 +12,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from pgvectordb import ExtensionManager, InitializationError
-
+from pgvectordb import ExtensionManager
 
 pytestmark = pytest.mark.integration
 
@@ -141,19 +140,16 @@ class TestFeatureAvailability:
 
 
 class TestRequireMethods:
-    async def test_require_vectorscale_raises_when_absent(self, checked_manager):
-        if not checked_manager.has_vectorscale:
-            with pytest.raises(InitializationError) as exc_info:
-                checked_manager.require_vectorscale("test operation")
-            assert "vectorscale" in str(exc_info.value).lower()
-        else:
-            # Extension is present — should NOT raise
-            checked_manager.require_vectorscale("test operation")
+    """Test require_*() methods - now no-ops for graceful degradation."""
 
-    async def test_require_pg_textsearch_raises_when_absent(self, checked_manager):
-        if not checked_manager.has_pg_textsearch:
-            with pytest.raises(InitializationError) as exc_info:
-                checked_manager.require_pg_textsearch("test operation")
-            assert "pg_textsearch" in str(exc_info.value).lower()
-        else:
-            checked_manager.require_pg_textsearch("test operation")
+    async def test_require_vectorscale_no_longer_raises(self, checked_manager):
+        """require_vectorscale() is now a no-op for graceful degradation."""
+        # Should NOT raise even when extension is absent
+        checked_manager.require_vectorscale("test operation")
+        # Method should complete without error
+
+    async def test_require_pg_textsearch_no_longer_raises(self, checked_manager):
+        """require_pg_textsearch() is now a no-op for graceful degradation."""
+        # Should NOT raise even when extension is absent
+        checked_manager.require_pg_textsearch("test operation")
+        # Method should complete without error

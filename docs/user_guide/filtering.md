@@ -1,9 +1,23 @@
 # Metadata Filtering
 
-pgVectorDB implements MongoDB-style JSON queries that translate to secure PostgreSQL `JSONB` clauses. Supports **13 filter operators**.
+pgVectorDB implements MongoDB-style JSON queries that translate to secure PostgreSQL `JSONB` clauses. Use with the fluent API via `.where()`.
 
-!!! tip "Use with Any Search Method"
-    The filter parameter works with ALL search methods: `semantic_search`, `hybrid_search`, `ensemble_search`, etc.
+---
+
+## The `.where()` Method
+
+Add filters to any search:
+
+```python
+results = await (
+    db.search("machine learning")
+    .where({"category": "ai", "status": "published"})
+    .limit(10)
+    .to_list()
+)
+```
+
+**Key point**: Filters are applied **before** the vector search (pre-filter) by default, ensuring accurate results.
 
 ---
 
@@ -13,26 +27,44 @@ pgVectorDB implements MongoDB-style JSON queries that translate to secure Postgr
 
 #### `$eq` - Equality (Implicit)
 ```python
-filter = {"department": "HR"}
+# Implicit equality (preferred)
+results = await db.search("query").where({"department": "HR"}).to_list()
+
 # SQL: langchain_metadata->>'department' = 'HR'
 ```
 
 #### `$ne` - Not Equal
 ```python
-filter = {"status": {"$ne": "archived"}}
+results = await (
+    db.search("query")
+    .where({"status": {"$ne": "archived"}})
+    .to_list()
+)
 # SQL: langchain_metadata->>'status' != 'archived'
 ```
 
 #### `$lt`, `$lte`, `$gt`, `$gte` - Numeric Comparisons
 ```python
-filter = {"price": {"$lt": 100}}
-filter = {"rating": {"$gte": 4.5}}
+results = await (
+    db.search("query")
+    .where({"price": {"$lt": 100}})
+    .to_list()
+)
+results = await (
+    db.search("query")
+    .where({"rating": {"$gte": 4.5}})
+    .to_list()
+)
 # SQL: (langchain_metadata->>'price')::numeric < 100
 ```
 
 #### `$between` - Range (Inclusive)
 ```python
-filter = {"year": {"$between": [2020, 2023]}}
+results = await (
+    db.search("quarterly report")
+    .where({"year": {"$between": [2020, 2023]}})
+    .to_list()
+)
 # SQL: (langchain_metadata->>'year')::numeric BETWEEN 2020 AND 2023
 ```
 
@@ -40,24 +72,36 @@ filter = {"year": {"$between": [2020, 2023]}}
 
 #### `$in` - In Array
 ```python
-filter = {"category": {"$in": ["tech", "science"]}}
-# SQL: langchain_metadata->>'category' = ANY(ARRAY['tech', 'science'])
+results = await (
+    db.search("technology")
+    .where({"category": {"$in": ["tech", "science", "engineering"]}})
+    .to_list()
+)
+# SQL: langchain_metadata->>'category' = ANY(ARRAY['tech', 'science', 'engineering'])
 ```
 
 #### `$nin` - Not In Array
 ```python
-filter = {"tag": {"$nin": ["draft", "deleted"]}}
-# SQL: langchain_metadata->>'tag' != ALL(ARRAY['draft', 'deleted'])
+results = await (
+    db.search("query")
+    .where({"tag": {"$nin": ["draft", "deleted", "archived"]}})
+    .to_list()
+)
+# SQL: langchain_metadata->>'tag' != ALL(ARRAY['draft', 'deleted', 'archived'])
 ```
 
 ### Existence Operators
 
 #### `$exists` - Key Existence
 ```python
-filter = {
-    "deleted_at": {"$exists": False},  # Must NOT exist
-    "premium_tier": {"$exists": True}   # Must exist
-}
+results = await (
+    db.search("premium content")
+    .where({
+        "deleted_at": {"$exists": False},  # Must NOT exist
+        "premium_tier": {"$exists": True}   # Must exist
+    })
+    .to_list()
+)
 # SQL: langchain_metadata->>'deleted_at' IS NULL AND langchain_metadata->>'premium_tier' IS NOT NULL
 ```
 
@@ -65,10 +109,14 @@ filter = {
 
 #### `$like`, `$ilike` - SQL LIKE Patterns
 ```python
-filter = {
-    "email": {"$like": "%@company.com"},
-    "title": {"$ilike": "%database%"}  # Case insensitive
-}
+results = await (
+    db.search("corporate email")
+    .where({
+        "email": {"$like": "%@company.com"},
+        "title": {"$ilike": "%database%"}  # Case insensitive
+    })
+    .to_list()
+)
 # SQL: langchain_metadata->>'email' LIKE '%@company.com'
 ```
 
@@ -76,77 +124,185 @@ filter = {
 
 #### `$and` - AND Grouping
 ```python
-filter = {
-    "$and": [
-        {"department": "finance"},
-        {"level": {"$gte": 3}}
-    ]
-}
+results = await (
+    db.search("finance report")
+    .where({
+        "$and": [
+            {"department": "finance"},
+            {"level": {"$gte": 3}},
+            {"status": "active"}
+        ]
+    })
+    .to_list()
+)
 ```
 
 #### `$or` - OR Grouping
 ```python
-filter = {
-    "$or": [
-        {"status": "published"},
-        {"author": {"$eq": "admin"}}
-    ]
-}
+results = await (
+    db.search("urgent items")
+    .where({
+        "$or": [
+            {"priority": "critical"},
+            {"created_at": {"$gte": "2024-01-01"}, "status": "unread"}
+        ]
+    })
+    .to_list()
+)
 ```
 
 #### Nested Logic
 ```python
-filter = {
-    "$and": [
-        {"year": {"$between": [2020, 2023]}},
-        {"$or": [
-            {"category": "tech"},
-            {"views": {"$gt": 1000}}
-        ]}
-    ]
-}
+results = await (
+    db.search("research papers")
+    .where({
+        "$and": [
+            {"year": {"$between": [2020, 2023]}},
+            {"$or": [
+                {"category": "ai"},
+                {"citations": {"$gt": 1000}}
+            ]}
+        ]
+    })
+    .to_list()
+)
 ```
 
 ---
 
 ## Usage Examples
 
-### With Semantic Search
+### Multi-tenant Isolation
+
 ```python
-results = await db.semantic_search(
-    query="database optimization",
-    filter={"tenant_id": "org_123", "status": "published"},
-    k=5
+# Essential for SaaS applications
+results = await (
+    db.search("project documentation")
+    .where({"tenant_id": current_user.tenant_id})  # Always filter by tenant
+    .limit(10)
+    .to_list()
 )
 ```
 
-### With Hybrid Search
+### Category + Date Range
+
 ```python
-results = await db.hybrid_search(
-    query="machine learning",
-    k=5,
-    filter={"department": "ai"},
-    weights=(0.7, 0.3)
+results = await (
+    db.search("breaking news")
+    .where({
+        "category": "news",
+        "published_at": {"$gte": "2024-01-01"},
+        "status": "published"
+    })
+    .limit(20)
+    .to_list()
 )
 ```
 
-### With Count
+### Permission-based Search
+
 ```python
-count = await db.count_by_metadata(
-    filter={"status": "active", "department": "HR"}
+results = await (
+    db.search("confidential documents")
+    .where({
+        "$or": [
+            {"owner_id": current_user.id},
+            {"shared_with": {"$in": current_user.teams}},
+            {"visibility": "public"}
+        ]
+    })
+    .limit(50)
+    .to_list()
+)
+```
+
+### Product Catalog Search
+
+```python
+results = await (
+    db.search("wireless headphones")
+    .where({
+        "category": "electronics",
+        "price": {"$between": [50, 200]},
+        "in_stock": True,
+        "rating": {"$gte": 4.0}
+    })
+    .limit(10)
+    .to_list()
 )
 ```
 
 ---
 
-## Production Indexing
+## Scalar Index Creation
 
-For large collections (10M+), create B-Tree indexes on frequently filtered fields:
+For large collections (100K+ documents), create B-Tree or GIN indexes on frequently filtered fields:
 
-```sql
--- For equality ($eq)
-CREATE INDEX idx_tenant_id ON vector_docs ((langchain_metadata->>'tenant_id'));
+```python
+# B-Tree index for range queries ($gt, $lt, $between)
+await db.create_scalar_index("price", index_type="btree")
 
--- For numeric range ($gt, $between)
-CREATE INDEX idx_price ON vector_docs (((langchain_metadata->>'price')::numeric));
+# GIN index for low-cardinality fields ($eq, $in)
+await db.create_scalar_index("category", index_type="bitmap")  # Uses GIN
+```
+
+**Benefits:**
+- 10-100x faster filtered queries
+- Reduced PostgreSQL CPU usage
+- Better multi-tenant performance
+
+See [Indexing & Performance](../advanced/indexing.md) for details.
+
+---
+
+## Complete Example
+
+```python
+import asyncio
+from pgvectordb import pgVectorDB
+from langchain_huggingface import HuggingFaceEmbeddings
+
+async def main():
+    db = pgVectorDB(
+        collection_name="documents",
+        embedding_model=HuggingFaceEmbeddings(),
+        connection_string="postgresql+asyncpg://..."
+    )
+    await db.initialize()
+    
+    # Add sample documents
+    await db.add_texts(
+        texts=["AI research paper", "Database guide", "ML tutorial"],
+        metadatas=[
+            {"category": "ai", "year": 2024, "citations": 150},
+            {"category": "tech", "year": 2023, "citations": 80},
+            {"category": "ai", "year": 2024, "citations": 230},
+        ]
+    )
+    
+    # Search with complex filter
+    results = await (
+        db.search("machine learning")
+        .where({
+            "$and": [
+                {"category": "ai"},
+                {"year": {"$gte": 2024}},
+                {"$or": [
+                    {"citations": {"$gt": 100}},
+                    {"featured": True}
+                ]}
+            ]
+        })
+        .limit(5)
+        .to_list()
+    )
+    
+    for r in results:
+        print(f"[{r['score']:.4f}] {r['content']}")
+        print(f"    Metadata: {r['metadata']}")
+    
+    await db.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```

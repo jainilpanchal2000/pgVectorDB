@@ -138,11 +138,11 @@ class TestIterativeScanMode:
 class TestExceptionHierarchy:
     def test_retrieval_system_error_is_base(self):
         from pgvectordb import (
-            RetrievalSystemError,
-            InitializationError,
-            ValidationError,
             DatabaseError,
+            InitializationError,
             RateLimitError,
+            RetrievalSystemError,
+            ValidationError,
         )
 
         assert issubclass(InitializationError, RetrievalSystemError)
@@ -152,11 +152,11 @@ class TestExceptionHierarchy:
 
     def test_all_exceptions_are_exceptions(self):
         from pgvectordb import (
-            RetrievalSystemError,
-            InitializationError,
-            ValidationError,
             DatabaseError,
+            InitializationError,
             RateLimitError,
+            RetrievalSystemError,
+            ValidationError,
         )
 
         for exc_cls in [
@@ -296,7 +296,7 @@ class TestPublicAPI:
         assert RAGEvaluator is not None
 
     def test_spaces_importable(self):
-        from pgvectordb import TextSpace, NumberSpace, CategorySpace, RecencySpace
+        from pgvectordb import CategorySpace, NumberSpace, RecencySpace, TextSpace
 
         assert TextSpace is not None
         assert NumberSpace is not None

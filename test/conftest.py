@@ -4,7 +4,7 @@ Shared pytest fixtures for pgVectorDB test suite.
 
 Provides:
   - embeddings      : session-scoped HuggingFace embeddings
-  - connection_string: session-scoped DB URL (Docker on 9002)
+  - connection_string: session-scoped DB URL (Docker on 5433)
   - db_schema       : session-scoped — creates/drops the "test" schema
   - rag_hnsw        : function-scoped HNSW pgVectorDB instance (init + close)
   - small_docs      : 20-doc list (function-scoped)
@@ -22,24 +22,22 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-# noqa: E402
 import pytest
 import pytest_asyncio
 from langchain_core.documents import Document
-from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from pgvectordb import pgVectorDB, IndexType
-
+from pgvectordb import IndexType, pgVectorDB
 
 # ---------------------------------------------------------------------------
-# Database constants — always target Docker on port 9002
+# Database constants — target Docker on port 5433
 # ---------------------------------------------------------------------------
 DB_HOST = "localhost"
-DB_PORT = "9002"
-DB_NAME = "postgres"
-DB_USER = "user"
-DB_PASSWORD = "root"
+DB_PORT = "5433"
+DB_NAME = "testdb"
+DB_USER = "testuser"
+DB_PASSWORD = "testpass"
 SCHEMA_NAME = "test"
 CONNECTION_STRING = (
     f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -226,16 +224,26 @@ async def db_schema(connection_string):
 @pytest_asyncio.fixture
 async def rag_hnsw(db_schema, embeddings, connection_string):
     """Function-scoped HNSW pgVectorDB instance, fresh table per test."""
-    rag = pgVectorDB(
+    pgvdb = pgVectorDB(
         collection_name="test_hnsw",
         embedding_model=embeddings,
         connection_string=connection_string,
         schema_name=db_schema,
         index_type=IndexType.HNSW,
     )
-    await rag.initialize(overwrite_existing=True)
-    yield rag
-    await rag.close()
+    await pgvdb.initialize(overwrite_existing=True)
+    yield pgvdb
+    await pgvdb.close()
+
+
+@pytest_asyncio.fixture
+async def db_with_docs(rag_hnsw, medium_docs):
+    """pgVectorDB instance pre-populated with documents."""
+    docs, _ = medium_docs
+    await rag_hnsw.add_documents(docs)
+    # Build index for search tests
+    await rag_hnsw.build_index()
+    yield rag_hnsw
 
 
 @pytest.fixture

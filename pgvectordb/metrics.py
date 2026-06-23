@@ -17,13 +17,14 @@ Key Distinctions:
 - MRR focuses only on position of FIRST relevant document
 - NDCG@K penalizes relevant documents appearing lower in rankings
 
-Based on: https://medium.com/@autorag/tips-to-understand-rag-retrieval-metrics-71e9a2bd4b96
+Based on: https://medium.com/@autorag/tips-to-understand-pgvdb-retrieval-metrics-71e9a2bd4b96
 """
 
-import numpy as np
-from typing import List, Dict, Any, Tuple, Optional
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 
 @dataclass

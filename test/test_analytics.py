@@ -20,8 +20,7 @@ Run:
 import pytest
 import pytest_asyncio
 
-from pgvectordb import pgVectorDB, IndexType, IterativeScanMode
-
+from pgvectordb import IndexType, IterativeScanMode, pgVectorDB
 
 pytestmark = pytest.mark.integration
 
@@ -251,8 +250,9 @@ class TestBM25IndexStats:
     async def test_bm25_stats_if_available(
         self, db_schema, embeddings, connection_string, small_docs
     ):
-        from pgvectordb import ExtensionManager
         from sqlalchemy.ext.asyncio import create_async_engine
+
+        from pgvectordb import ExtensionManager
 
         engine = create_async_engine(connection_string, pool_pre_ping=True)
         mgr = ExtensionManager(engine)
@@ -262,17 +262,17 @@ class TestBM25IndexStats:
         if not mgr.has_pg_textsearch:
             pytest.skip("pg_textsearch not installed")
 
-        rag = pgVectorDB(
+        pgvdb = pgVectorDB(
             collection_name="test_bm25stats",
             embedding_model=embeddings,
             connection_string=connection_string,
             schema_name=db_schema,
             index_type=IndexType.HNSW,
         )
-        await rag.initialize(overwrite_existing=True)
+        await pgvdb.initialize(overwrite_existing=True)
         docs, _ = small_docs
-        await rag.add_documents(docs)
-        await rag.build_bm25_index()
-        stats = await rag.get_bm25_index_stats()
+        await pgvdb.add_documents(docs)
+        await pgvdb.build_bm25_index()
+        stats = await pgvdb.get_bm25_index_stats()
         assert isinstance(stats, dict)
-        await rag.close()
+        await pgvdb.close()
