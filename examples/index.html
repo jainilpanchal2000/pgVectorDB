@@ -11,28 +11,28 @@
       
       
       
-        <link rel="prev" href="../analytics_and_diagnostics/">
+        <link rel="prev" href="../design/fluent_api_redesign/">
       
       
-        <link rel="next" href="../migration_guide/">
+        <link rel="next" href="../api_reference/pgvectordb/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/logo.svg">
+      <link rel="icon" href="../assets/logo.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>LangChain Integration - pgVectorDB</title>
+        <title>Examples - pgVectorDB</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,11 +51,11 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#langchain-integration" class="md-skip">
+        <a href="#examples" class="md-skip">
           Skip to content
         </a>
       
@@ -94,9 +94,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="pgVectorDB" class="md-header__button md-logo" aria-label="pgVectorDB" data-md-component="logo">
+    <a href=".." title="pgVectorDB" class="md-header__button md-logo" aria-label="pgVectorDB" data-md-component="logo">
       
-  <img src="../../assets/logo.svg" alt="logo">
+  <img src="../assets/logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              LangChain Integration
+              Examples
             
           </span>
         </div>
@@ -231,7 +231,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href=".." class="md-tabs__link">
         
   
   
@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting_started/installation/" class="md-tabs__link">
+        <a href="../getting_started/installation/" class="md-tabs__link">
           
   
   
@@ -270,13 +270,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../vector_store/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../user_guide/vector_store/" class="md-tabs__link">
           
   
   
@@ -298,7 +296,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../advanced/indexing/" class="md-tabs__link">
+        <a href="../advanced/indexing/" class="md-tabs__link">
           
   
   
@@ -316,9 +314,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../../examples/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -339,7 +339,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../api_reference/pgvectordb/" class="md-tabs__link">
+        <a href="../api_reference/pgvectordb/" class="md-tabs__link">
           
   
   
@@ -375,9 +375,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="pgVectorDB" class="md-nav__button md-logo" aria-label="pgVectorDB" data-md-component="logo">
+    <a href=".." title="pgVectorDB" class="md-nav__button md-logo" aria-label="pgVectorDB" data-md-component="logo">
       
-  <img src="../../assets/logo.svg" alt="logo">
+  <img src="../assets/logo.svg" alt="logo">
 
     </a>
     pgVectorDB
@@ -404,7 +404,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -491,7 +491,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting_started/installation/" class="md-nav__link">
+      <a href="../getting_started/installation/" class="md-nav__link">
         
   
   
@@ -519,7 +519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting_started/quickstart/" class="md-nav__link">
+      <a href="../getting_started/quickstart/" class="md-nav__link">
         
   
   
@@ -547,7 +547,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting_started/core_concepts/" class="md-nav__link">
+      <a href="../getting_started/core_concepts/" class="md-nav__link">
         
   
   
@@ -579,10 +579,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -610,22 +608,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -643,7 +638,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -661,7 +656,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../vector_store/" class="md-nav__link">
+      <a href="../user_guide/vector_store/" class="md-nav__link">
         
   
   
@@ -689,7 +684,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../embeddings_and_spaces/" class="md-nav__link">
+      <a href="../user_guide/embeddings_and_spaces/" class="md-nav__link">
         
   
   
@@ -717,7 +712,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../multimodal_search/" class="md-nav__link">
+      <a href="../user_guide/multimodal_search/" class="md-nav__link">
         
   
   
@@ -745,7 +740,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../search_and_retrieval/" class="md-nav__link">
+      <a href="../user_guide/search_and_retrieval/" class="md-nav__link">
         
   
   
@@ -773,7 +768,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../filtering/" class="md-nav__link">
+      <a href="../user_guide/filtering/" class="md-nav__link">
         
   
   
@@ -801,7 +796,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reranking/" class="md-nav__link">
+      <a href="../user_guide/reranking/" class="md-nav__link">
         
   
   
@@ -829,7 +824,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics_and_evaluation/" class="md-nav__link">
+      <a href="../user_guide/metrics_and_evaluation/" class="md-nav__link">
         
   
   
@@ -857,7 +852,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analytics_and_diagnostics/" class="md-nav__link">
+      <a href="../user_guide/analytics_and_diagnostics/" class="md-nav__link">
         
   
   
@@ -882,37 +877,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LangChain Integration
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../user_guide/langchain_integration/" class="md-nav__link">
         
   
   
@@ -928,87 +896,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#using-as-a-langchain-retriever" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Using as a LangChain Retriever
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#advanced-retrievers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Advanced Retrievers
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Advanced Retrievers">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#multiqueryretriever" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MultiQueryRetriever
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#contextual-compression-retriever" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contextual Compression Retriever
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-langchain-documents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding LangChain Documents
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1021,7 +908,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../migration_guide/" class="md-nav__link">
+      <a href="../user_guide/migration_guide/" class="md-nav__link">
         
   
   
@@ -1116,7 +1003,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced/indexing/" class="md-nav__link">
+      <a href="../advanced/indexing/" class="md-nav__link">
         
   
   
@@ -1144,7 +1031,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced/configuration/" class="md-nav__link">
+      <a href="../advanced/configuration/" class="md-nav__link">
         
   
   
@@ -1228,7 +1115,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/fluent_api_redesign/" class="md-nav__link">
+      <a href="../design/fluent_api_redesign/" class="md-nav__link">
         
   
   
@@ -1268,10 +1155,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../examples/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1287,6 +1201,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#coverage-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluation-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation Scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1364,7 +1320,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api_reference/pgvectordb/" class="md-nav__link">
+      <a href="../api_reference/pgvectordb/" class="md-nav__link">
         
   
   
@@ -1392,7 +1348,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api_reference/spaces/" class="md-nav__link">
+      <a href="../api_reference/spaces/" class="md-nav__link">
         
   
   
@@ -1420,7 +1376,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api_reference/rerankers/" class="md-nav__link">
+      <a href="../api_reference/rerankers/" class="md-nav__link">
         
   
   
@@ -1448,7 +1404,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api_reference/metrics/" class="md-nav__link">
+      <a href="../api_reference/metrics/" class="md-nav__link">
         
   
   
@@ -1476,7 +1432,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api_reference/config/" class="md-nav__link">
+      <a href="../api_reference/config/" class="md-nav__link">
         
   
   
@@ -1504,7 +1460,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api_reference/exceptions/" class="md-nav__link">
+      <a href="../api_reference/exceptions/" class="md-nav__link">
         
   
   
@@ -1559,10 +1515,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#using-as-a-langchain-retriever" class="md-nav__link">
+  <a href="#coverage-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Using as a LangChain Retriever
+        Coverage Matrix
       
     </span>
   </a>
@@ -1570,49 +1526,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#advanced-retrievers" class="md-nav__link">
+  <a href="#evaluation-scripts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Advanced Retrievers
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Advanced Retrievers">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#multiqueryretriever" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MultiQueryRetriever
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#contextual-compression-retriever" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contextual Compression Retriever
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-langchain-documents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding LangChain Documents
+        Evaluation Scripts
       
     </span>
   </a>
@@ -1636,7 +1553,7 @@
 
 
   
-    <a href="https://github.com/jainilpanchal2000/pgVectorDB/edit/master/docs/user_guide/langchain_integration.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/jainilpanchal2000/pgVectorDB/edit/master/docs/examples.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1645,95 +1562,151 @@
     
       
     
-    <a href="https://github.com/jainilpanchal2000/pgVectorDB/raw/master/docs/user_guide/langchain_integration.md" title="View source of this page" class="md-content__button md-icon">
+    <a href="https://github.com/jainilpanchal2000/pgVectorDB/raw/master/docs/examples.md" title="View source of this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
     </a>
   
 
 
-<h1 id="langchain-integration">LangChain Integration<a class="headerlink" href="#langchain-integration" title="Permanent link">&para;</a></h1>
-<p>pgVectorDB is designed to work seamlessly with the LangChain ecosystem. While it operates as a standalone vector database, it fully implements the required interfaces to be used as a LangChain <code>VectorStore</code> retriever.</p>
-<h2 id="using-as-a-langchain-retriever">Using as a LangChain Retriever<a class="headerlink" href="#using-as-a-langchain-retriever" title="Permanent link">&para;</a></h2>
-<p>If you are building a LangChain chain or agent, you can easily convert your <code>pgVectorDB</code> instance into a LangChain <code>Retriever</code>.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pgvectordb</span><span class="w"> </span><span class="kn">import</span> <span class="n">pgVectorDB</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatPromptTemplate</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.output_parsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrOutputParser</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.runnables</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunnablePassthrough</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_openai</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatOpenAI</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># 1. Initialize your DB</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">db</span> <span class="o">=</span> <span class="n">pgVectorDB</span><span class="p">(</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">collection_name</span><span class="o">=</span><span class="s2">&quot;knowledge_base&quot;</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">embedding_model</span><span class="o">=</span><span class="n">my_embeddings</span><span class="p">,</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">connection_string</span><span class="o">=</span><span class="s2">&quot;postgresql+asyncpg://user:pass@localhost/db&quot;</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># 2. Convert to LangChain Retriever</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># You can pass search arguments like &#39;k&#39; or &#39;filter&#39; here</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">retriever</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">as_retriever</span><span class="p">(</span><span class="n">search_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;k&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">})</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># 3. Setup a basic RAG chain in LangChain</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">template</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;Answer the question based only on the following context:</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="si">{context}</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="s2">Question: </span><span class="si">{question}</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="s2">&quot;&quot;&quot;</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">prompt</span> <span class="o">=</span> <span class="n">ChatPromptTemplate</span><span class="o">.</span><span class="n">from_template</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">llm</span> <span class="o">=</span> <span class="n">ChatOpenAI</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="k">def</span><span class="w"> </span><span class="nf">format_docs</span><span class="p">(</span><span class="n">docs</span><span class="p">):</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">d</span><span class="o">.</span><span class="n">page_content</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">])</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="n">chain</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="p">{</span><span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="n">retriever</span> <span class="o">|</span> <span class="n">format_docs</span><span class="p">,</span> <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="n">RunnablePassthrough</span><span class="p">()}</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="o">|</span> <span class="n">prompt</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="o">|</span> <span class="n">llm</span>
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="o">|</span> <span class="n">StrOutputParser</span><span class="p">()</span>
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="p">)</span>
-</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>
-</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="c1"># 4. Invoke the chain</span>
-</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">chain</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="s2">&quot;What are the system requirements?&quot;</span><span class="p">)</span>
-</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="advanced-retrievers">Advanced Retrievers<a class="headerlink" href="#advanced-retrievers" title="Permanent link">&para;</a></h2>
-<p>Because pgVectorDB is fully compatible, you can wrap it in LangChain's advanced retrievers.</p>
-<h3 id="multiqueryretriever">MultiQueryRetriever<a class="headerlink" href="#multiqueryretriever" title="Permanent link">&para;</a></h3>
-<p>Generates multiple versions of the user's query using an LLM to overcome wording variations, executing all of them against pgVectorDB.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain.retrievers.multi_query</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiQueryRetriever</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">retriever_from_llm</span> <span class="o">=</span> <span class="n">MultiQueryRetriever</span><span class="o">.</span><span class="n">from_llm</span><span class="p">(</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">retriever</span><span class="o">=</span><span class="n">db</span><span class="o">.</span><span class="n">as_retriever</span><span class="p">(),</span> <span class="n">llm</span><span class="o">=</span><span class="n">llm</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="contextual-compression-retriever">Contextual Compression Retriever<a class="headerlink" href="#contextual-compression-retriever" title="Permanent link">&para;</a></h3>
-<p>While pgVectorDB has native reranking, you can also use LangChain's Contextual Compression pipeline to extract relevant snippets from the returned documents.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain.retrievers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextualCompressionRetriever</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain.retrievers.document_compressors</span><span class="w"> </span><span class="kn">import</span> <span class="n">LLMChainExtractor</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">compressor</span> <span class="o">=</span> <span class="n">LLMChainExtractor</span><span class="o">.</span><span class="n">from_llm</span><span class="p">(</span><span class="n">llm</span><span class="p">)</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">compression_retriever</span> <span class="o">=</span> <span class="n">ContextualCompressionRetriever</span><span class="p">(</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">base_compressor</span><span class="o">=</span><span class="n">compressor</span><span class="p">,</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">base_retriever</span><span class="o">=</span><span class="n">db</span><span class="o">.</span><span class="n">as_retriever</span><span class="p">(</span><span class="n">search_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;k&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">})</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="adding-langchain-documents">Adding LangChain Documents<a class="headerlink" href="#adding-langchain-documents" title="Permanent link">&para;</a></h2>
-<p>When working with LangChain Document Loaders (like PDFLoader or WebBaseLoader), they return LangChain <code>Document</code> objects. You can insert these directly into pgVectorDB.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_community.document_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebBaseLoader</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_text_splitters</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecursiveCharacterTextSplitter</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># 1. Load data</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">WebBaseLoader</span><span class="p">(</span><span class="s2">&quot;https://lilianweng.github.io/posts/2023-06-23-agent/&quot;</span><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">data</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># 2. Split into chunks</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">text_splitter</span> <span class="o">=</span> <span class="n">RecursiveCharacterTextSplitter</span><span class="p">(</span><span class="n">chunk_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">chunk_overlap</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">all_splits</span> <span class="o">=</span> <span class="n">text_splitter</span><span class="o">.</span><span class="n">split_documents</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="c1"># 3. Add to pgVectorDB</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">add_documents</span><span class="p">(</span><span class="n">all_splits</span><span class="p">)</span>
-</span></code></pre></div>
+<h1 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h1>
+<p>Use these scripts and notebooks as starting points for real pgVectorDB workflows. The examples live in the repository and are grouped here by what they demonstrate.</p>
+<table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Example</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First working collection</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/01_quickstart.ipynb">examples/01_quickstart.ipynb</a></td>
+<td>install, initialize, ingest, search</td>
+</tr>
+<tr>
+<td>Fluent API walkthrough</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">examples/fluent_api_demo.py</a></td>
+<td><code>db.query(...)</code>, search modes, filters, analysis</td>
+</tr>
+<tr>
+<td>Unified query notebook</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/06_unified_api_quickstart.ipynb">examples/06_unified_api_quickstart.ipynb</a></td>
+<td>fluent API, lazy execution, outputs</td>
+</tr>
+<tr>
+<td>Advanced retrieval</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/02_advanced_search.ipynb">examples/02_advanced_search.ipynb</a></td>
+<td>semantic, keyword, hybrid, filters</td>
+</tr>
+<tr>
+<td>Multimodal ranking</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/03_multimodal_search.ipynb">examples/03_multimodal_search.ipynb</a></td>
+<td><code>TextSpace</code>, <code>NumberSpace</code>, <code>CategorySpace</code>, <code>RecencySpace</code></td>
+</tr>
+<tr>
+<td>Storage optimization</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/04_storage_optimization.ipynb">examples/04_storage_optimization.ipynb</a></td>
+<td>DiskANN, quantization, storage choices</td>
+</tr>
+<tr>
+<td>RAG evaluation</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/05_rag_evaluation.ipynb">examples/05_rag_evaluation.ipynb</a></td>
+<td><code>RAGEvaluator</code>, metrics, K-value analysis</td>
+</tr>
+<tr>
+<td>Product search</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/product_search.py">examples/product_search.py</a></td>
+<td>catalog metadata, filters, ranking</td>
+</tr>
+<tr>
+<td>Real-estate natural language search</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/real_estate_nlq.py">examples/real_estate_nlq.py</a></td>
+<td>multimodal business signals, recency, numeric preferences</td>
+</tr>
+<tr>
+<td>Minimal demo</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/demo.py">examples/demo.py</a></td>
+<td>compact end-to-end usage</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coverage-matrix">Coverage Matrix<a class="headerlink" href="#coverage-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Differentiator</th>
+<th>Where to learn</th>
+<th>Example path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fluent API</td>
+<td><a href="../getting_started/quickstart/">Quickstart</a>, <a href="../user_guide/search_and_retrieval/">Search &amp; Retrieval</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">fluent_api_demo.py</a></td>
+</tr>
+<tr>
+<td>RecencySpace</td>
+<td><a href="../getting_started/core_concepts/">Core Concepts</a>, <a href="../user_guide/multimodal_search/">Multimodal Search</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/03_multimodal_search.ipynb">03_multimodal_search.ipynb</a></td>
+</tr>
+<tr>
+<td>Built-in evaluators</td>
+<td><a href="../user_guide/metrics_and_evaluation/">Metrics &amp; Evaluation</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/05_rag_evaluation.ipynb">05_rag_evaluation.ipynb</a></td>
+</tr>
+<tr>
+<td>SQL analyzers</td>
+<td><a href="../user_guide/search_and_retrieval/">Search &amp; Retrieval</a>, <a href="../user_guide/analytics_and_diagnostics/">Analytics &amp; Diagnostics</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">fluent_api_demo.py</a></td>
+</tr>
+<tr>
+<td>Optimization</td>
+<td><a href="../advanced/indexing/">Indexing &amp; Performance</a>, <a href="../user_guide/filtering/">Metadata Filtering</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/04_storage_optimization.ipynb">04_storage_optimization.ipynb</a></td>
+</tr>
+<tr>
+<td>Reranking</td>
+<td><a href="../user_guide/reranking/">Reranking</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/02_advanced_search.ipynb">02_advanced_search.ipynb</a></td>
+</tr>
+<tr>
+<td>LangChain integration</td>
+<td><a href="../user_guide/langchain_integration/">LangChain Integration</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/01_quickstart.ipynb">01_quickstart.ipynb</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="evaluation-scripts">Evaluation Scripts<a class="headerlink" href="#evaluation-scripts" title="Permanent link">&para;</a></h2>
+<p>The <code>eval/</code> folder contains benchmark and dataset utilities for deeper retrieval testing.</p>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/eval/scripts/benchmark_all_methods.py">eval/scripts/benchmark_all_methods.py</a></td>
+<td>Compare retrieval methods across a benchmark set.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/eval/scripts/optimize_k.py">eval/scripts/optimize_k.py</a></td>
+<td>Analyze K-value tradeoffs.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/eval/scripts/test_metrics_correctness.py">eval/scripts/test_metrics_correctness.py</a></td>
+<td>Validate metric behavior.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/eval/scripts/generate_synthetic_dataset.py">eval/scripts/generate_synthetic_dataset.py</a></td>
+<td>Generate synthetic evaluation data.</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -1771,7 +1744,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../analytics_and_diagnostics/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Analytics &amp; Diagnostics">
+          <a href="../design/fluent_api_redesign/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Fluent API Redesign">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1781,20 +1754,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Analytics & Diagnostics
+                Fluent API Redesign
               </div>
             </div>
           </a>
         
         
           
-          <a href="../migration_guide/" class="md-footer__link md-footer__link--next" aria-label="Next: Migration Guide">
+          <a href="../api_reference/pgvectordb/" class="md-footer__link md-footer__link--next" aria-label="Next: pgVectorDB Core">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Migration Guide
+                pgVectorDB Core
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1849,10 +1822,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "header.autohide", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.code.select", "content.tabs.link", "content.action.edit", "content.action.view", "announcement.dismiss"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "header.autohide", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.code.select", "content.tabs.link", "content.action.edit", "content.action.view", "announcement.dismiss"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

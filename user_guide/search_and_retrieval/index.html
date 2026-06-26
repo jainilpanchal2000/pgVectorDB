@@ -20,7 +20,7 @@
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/logo.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
@@ -46,12 +46,14 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
     
       <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -69,7 +71,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#search-retrieval-the-developers-deep-dive" class="md-skip">
+        <a href="#search-retrieval" class="md-skip">
           Skip to content
         </a>
       
@@ -94,8 +96,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="pgVectorDB" class="md-header__button md-logo" aria-label="pgVectorDB" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -125,7 +126,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -135,7 +136,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -202,7 +203,7 @@
         <a href="https://github.com/jainilpanchal2000/pgVectorDB" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
   </div>
   <div class="md-source__repository">
     jainilpanchal2000/pgVectorDB
@@ -316,6 +317,25 @@
   
   
   
+    <li class="md-tabs__item">
+      <a href="../../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
     
     
       <li class="md-tabs__item">
@@ -357,8 +377,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="pgVectorDB" class="md-nav__button md-logo" aria-label="pgVectorDB" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/logo.svg" alt="logo">
 
     </a>
     pgVectorDB
@@ -368,7 +387,7 @@
       <a href="https://github.com/jainilpanchal2000/pgVectorDB" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
   </div>
   <div class="md-source__repository">
     jainilpanchal2000/pgVectorDB
@@ -566,6 +585,8 @@
   
     
     
+      
+        
       
         
       
@@ -784,10 +805,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-return-type-queryresult" class="md-nav__link">
+  <a href="#fluent-query-pattern" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Return Type: QueryResult
+        Fluent Query Pattern
       
     </span>
   </a>
@@ -795,22 +816,110 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-keyword_search" class="md-nav__link">
+  <a href="#semantic-search" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. keyword_search
+        Semantic Search
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="1. keyword_search">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyword-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyword Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hybrid-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hybrid Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trigram-fuzzy-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trigram Fuzzy Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Filters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reranking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reranking
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sql-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SQL Analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Recipes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Recipes">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#under-the-hood" class="md-nav__link">
+  <a href="#multi-tenant-rag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Under the Hood
+        Multi-tenant RAG
       
     </span>
   </a>
@@ -818,10 +927,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#signature-parameters" class="md-nav__link">
+  <a href="#date-bounded-semantic-search" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Signature &amp; Parameters
+        Date-bounded semantic search
       
     </span>
   </a>
@@ -829,10 +938,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
+  <a href="#recall-check-with-exact-search" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Usage
+        Recall check with exact search
       
     </span>
   </a>
@@ -845,364 +954,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-universal_keyword_search" class="md-nav__link">
+  <a href="#score-direction" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. universal_keyword_search
+        Score Direction
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="2. universal_keyword_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-semantic_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. semantic_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="3. semantic_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-metadata_filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. metadata_filter
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4. metadata_filter">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-metadata_keyword_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. metadata_keyword_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="5. metadata_keyword_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-metadata_semantic_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. metadata_semantic_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="6. metadata_semantic_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#7-hybrid_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. hybrid_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="7. hybrid_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood-fusion-mechanisms" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood (Fusion Mechanisms)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#8-ensemble_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        8. ensemble_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="8. ensemble_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#usage_5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#9-trigram_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        9. trigram_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="9. trigram_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_6" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_6" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#10-metadata_trigram_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        10. metadata_trigram_search
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#additional-search-methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Additional Search Methods
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Additional Search Methods">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#11-asimilarity_search_by_vector" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        11. asimilarity_search_by_vector
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#12-asimilarity_search_with_score" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        12. asimilarity_search_with_score
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1355,6 +1113,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1370,6 +1156,8 @@
   
     
     
+      
+        
       
         
       
@@ -1476,9 +1264,128 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design Notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design Notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/fluent_api_redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fluent API Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1517,10 +1424,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1538,8 +1445,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1751,10 +1658,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-return-type-queryresult" class="md-nav__link">
+  <a href="#fluent-query-pattern" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Return Type: QueryResult
+        Fluent Query Pattern
       
     </span>
   </a>
@@ -1762,22 +1669,110 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-keyword_search" class="md-nav__link">
+  <a href="#semantic-search" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. keyword_search
+        Semantic Search
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="1. keyword_search">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyword-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyword Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hybrid-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hybrid Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trigram-fuzzy-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trigram Fuzzy Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Filters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reranking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reranking
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sql-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SQL Analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Recipes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Recipes">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#under-the-hood" class="md-nav__link">
+  <a href="#multi-tenant-rag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Under the Hood
+        Multi-tenant RAG
       
     </span>
   </a>
@@ -1785,10 +1780,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#signature-parameters" class="md-nav__link">
+  <a href="#date-bounded-semantic-search" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Signature &amp; Parameters
+        Date-bounded semantic search
       
     </span>
   </a>
@@ -1796,10 +1791,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
+  <a href="#recall-check-with-exact-search" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Usage
+        Recall check with exact search
       
     </span>
   </a>
@@ -1812,364 +1807,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-universal_keyword_search" class="md-nav__link">
+  <a href="#score-direction" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. universal_keyword_search
+        Score Direction
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="2. universal_keyword_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-semantic_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. semantic_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="3. semantic_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-metadata_filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. metadata_filter
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4. metadata_filter">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-metadata_keyword_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. metadata_keyword_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="5. metadata_keyword_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-metadata_semantic_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. metadata_semantic_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="6. metadata_semantic_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#7-hybrid_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. hybrid_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="7. hybrid_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood-fusion-mechanisms" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood (Fusion Mechanisms)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#8-ensemble_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        8. ensemble_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="8. ensemble_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#usage_5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#9-trigram_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        9. trigram_search
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="9. trigram_search">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#under-the-hood_6" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Under the Hood
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#usage_6" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#10-metadata_trigram_search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        10. metadata_trigram_search
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#additional-search-methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Additional Search Methods
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Additional Search Methods">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#11-asimilarity_search_by_vector" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        11. asimilarity_search_by_vector
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#12-asimilarity_search_with_score" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        12. asimilarity_search_with_score
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2206,228 +1850,338 @@
   
 
 
-<h1 id="search-retrieval-the-developers-deep-dive">Search &amp; Retrieval: The Developer's Deep Dive<a class="headerlink" href="#search-retrieval-the-developers-deep-dive" title="Permanent link">&para;</a></h1>
-<p>pgVectorDB implements the <code>SearchMixin</code>, providing an unparalleled <strong>10 distinct search methods</strong>. This guide is an exhaustive, developer-grade deep dive into how each method functions, the underlying SQL generated, exact parameter definitions, and when to use them in production architectures.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><strong>Score Interpretation</strong>: Semantic distance (Cosine) means <em>lower is better</em>. BM25, FTS rank, and RRF fusion scores mean <em>higher is better</em>.</p>
-</div>
-<hr />
-<h2 id="the-return-type-queryresult">The Return Type: <code>QueryResult</code><a class="headerlink" href="#the-return-type-queryresult" title="Permanent link">&para;</a></h2>
-<p>All search methods (unless otherwise specified) return a <code>List[QueryResult]</code>. The <code>QueryResult</code> is a TypedDict containing:</p>
+<h1 id="search-retrieval">Search &amp; Retrieval<a class="headerlink" href="#search-retrieval" title="Permanent link">&para;</a></h1>
+<p>pgVectorDB’s search API is centered on <code>db.query(...)</code>. Start with a text query, choose a mode, add filters and tuning, then execute.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;how to tune filtered vector search&quot;</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">.</span><span class="n">hybrid</span><span class="p">()</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">.</span><span class="n">where</span><span class="p">({</span><span class="s2">&quot;topic&quot;</span><span class="p">:</span> <span class="s2">&quot;optimization&quot;</span><span class="p">})</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">.</span><span class="n">weights</span><span class="p">(</span><span class="n">semantic</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">keyword</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="fluent-query-pattern">Fluent Query Pattern<a class="headerlink" href="#fluent-query-pattern" title="Permanent link">&para;</a></h2>
+<p>The builder is lazy. Chained methods only update configuration; execution happens when you call an output or analysis method.</p>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
+<th>Stage</th>
+<th>Methods</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>id</code></td>
-<td>str</td>
-<td>The internal LangChain UUID of the document</td>
+<td>Choose retrieval mode</td>
+<td><code>.semantic()</code>, <code>.keyword()</code>, <code>.hybrid()</code>, <code>.trigram()</code>, <code>.search_mode(...)</code></td>
 </tr>
 <tr>
-<td><code>content</code></td>
-<td>str</td>
-<td>The raw text chunk</td>
+<td>Add constraints</td>
+<td><code>.where(...)</code>, <code>.select(...)</code>, <code>.limit(...)</code>, <code>.offset(...)</code></td>
 </tr>
 <tr>
-<td><code>metadata</code></td>
-<td>dict</td>
-<td>The associated JSONB metadata</td>
+<td>Tune search</td>
+<td><code>.ef(...)</code>, <code>.nprobes(...)</code>, <code>.refine_factor(...)</code>, <code>.distance_range(...)</code>, <code>.bypass_vector_index()</code></td>
 </tr>
 <tr>
-<td><code>score</code></td>
-<td>float</td>
-<td>The relevance score</td>
+<td>Tune keyword/hybrid</td>
+<td><code>.bm25()</code>, <code>.fts(...)</code>, <code>.bm25_params(...)</code>, <code>.weights(...)</code>, <code>.rrf(...)</code>, <code>.phrase(...)</code>, <code>.universal(...)</code></td>
+</tr>
+<tr>
+<td>Improve ranking</td>
+<td><code>.rerank(...)</code></td>
+</tr>
+<tr>
+<td>Execute</td>
+<td><code>.to_list()</code>, <code>.to_pandas()</code>, <code>.to_arrow()</code>, <code>.analyze_plan()</code></td>
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pgvectordb</span><span class="w"> </span><span class="kn">import</span> <span class="n">QueryResult</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">QueryResult</span><span class="p">]</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">semantic_search</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ID: </span><span class="si">{</span><span class="n">doc</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Content: </span><span class="si">{</span><span class="n">doc</span><span class="p">[</span><span class="s1">&#39;content&#39;</span><span class="p">][:</span><span class="mi">100</span><span class="p">]</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Score: </span><span class="si">{</span><span class="n">doc</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metadata: </span><span class="si">{</span><span class="n">doc</span><span class="p">[</span><span class="s1">&#39;metadata&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<h2 id="semantic-search">Semantic Search<a class="headerlink" href="#semantic-search" title="Permanent link">&para;</a></h2>
+<p>Use semantic search when meaning matters more than exact wording.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;customer cannot access account&quot;</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="o">.</span><span class="n">semantic</span><span class="p">()</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="1-keyword_search">1. <code>keyword_search</code><a class="headerlink" href="#1-keyword_search" title="Permanent link">&para;</a></h2>
-<p>Performs a pure text search on the <code>content</code> column without utilizing vector embeddings.</p>
-<h3 id="under-the-hood">Under the Hood<a class="headerlink" href="#under-the-hood" title="Permanent link">&para;</a></h3>
-<p>Depending on <code>search_type</code>:
-- <code>KeywordSearchType.FTS</code>: Uses PostgreSQL's built-in <code>ts_rank</code> and <code>plainto_tsquery</code>. It leverages the <code>content_tsvector</code> column and the GIN index created during <code>initialize()</code>.
-- <code>KeywordSearchType.BM25</code>: Uses the custom <code>&lt;@&gt;</code> operator provided by the <code>pg_textsearch</code> extension. This calculates true BM25 scores (returned as negative values in SQL, which pgVectorDB normalizes).</p>
-<h3 id="signature-parameters">Signature &amp; Parameters<a class="headerlink" href="#signature-parameters" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">keyword_search</span><span class="p">(</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="nb">filter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">search_type</span><span class="p">:</span> <span class="n">KeywordSearchType</span> <span class="o">=</span> <span class="n">KeywordSearchType</span><span class="o">.</span><span class="n">FTS</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">k1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.2</span><span class="p">,</span>           <span class="c1"># BM25 parameter (Term frequency saturation)</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">b</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">,</span>           <span class="c1"># BM25 parameter (Length normalization)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">text_config</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;english&quot;</span> <span class="c1"># Dictionary for stemming</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">QueryResult</span><span class="p">]</span>
+<p>Add vector-index tuning for recall-sensitive workloads:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;database backup retention policy&quot;</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="o">.</span><span class="n">semantic</span><span class="p">()</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="o">.</span><span class="n">ef</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="o">.</span><span class="n">refine_factor</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">keyword_search</span><span class="p">(</span><span class="s2">&quot;database replication&quot;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">search_type</span><span class="o">=</span><span class="n">KeywordSearchType</span><span class="o">.</span><span class="n">BM25</span><span class="p">)</span>
-</span></code></pre></div>
-<hr />
-<h2 id="2-universal_keyword_search">2. <code>universal_keyword_search</code><a class="headerlink" href="#2-universal_keyword_search" title="Permanent link">&para;</a></h2>
-<p>A highly specialized FTS/BM25 search that boosts the final score if the query terms are also found inside specific JSONB <code>metadata</code> fields.</p>
-<h3 id="under-the-hood_1">Under the Hood<a class="headerlink" href="#under-the-hood_1" title="Permanent link">&para;</a></h3>
-<p>It dynamically constructs a <code>CASE WHEN</code> SQL clause. For every field specified in <code>metadata_fields</code>, it performs an <code>ILIKE :like_query</code>. If true, it adds <code>1.0</code> to the base FTS/BM25 score.</p>
-<h3 id="usage_1">Usage<a class="headerlink" href="#usage_1" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Finds documents about &quot;scaling&quot;, but heavily favors documents where </span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># &quot;scaling&quot; is in the &#39;title&#39; or &#39;category&#39; tags.</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">universal_keyword_search</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;scaling&quot;</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">metadata_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;category&quot;</span><span class="p">]</span> 
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Index family</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.ef(n)</code></td>
+<td>HNSW</td>
+<td>Visits more graph candidates. Higher recall, higher latency.</td>
+</tr>
+<tr>
+<td><code>.nprobes(n)</code></td>
+<td>IVFFlat</td>
+<td>Searches more clusters. Higher recall, higher latency.</td>
+</tr>
+<tr>
+<td><code>.refine_factor(n)</code></td>
+<td>ANN refinement</td>
+<td>Fetches more candidates before returning final top-k.</td>
+</tr>
+<tr>
+<td><code>.bypass_vector_index()</code></td>
+<td>Any</td>
+<td>Exact search for ground truth and recall measurement.</td>
+</tr>
+<tr>
+<td><code>.distance_range(low, high)</code></td>
+<td>Vector search</td>
+<td>Keeps only results in a distance window.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keyword-search">Keyword Search<a class="headerlink" href="#keyword-search" title="Permanent link">&para;</a></h2>
+<p>Use keyword search when exact terms, names, codes, and domain vocabulary matter.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;SOC 2 encryption retention&quot;</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="o">.</span><span class="n">keyword</span><span class="p">()</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="o">.</span><span class="n">fts</span><span class="p">(</span><span class="n">text_config</span><span class="o">=</span><span class="s2">&quot;english&quot;</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="3-semantic_search">3. <code>semantic_search</code><a class="headerlink" href="#3-semantic_search" title="Permanent link">&para;</a></h2>
-<p>The core dense vector retrieval method. </p>
-<h3 id="under-the-hood_2">Under the Hood<a class="headerlink" href="#under-the-hood_2" title="Permanent link">&para;</a></h3>
-<p>Calculates the embedding of the query using your <code>embedding_model</code>, then executes an Approximate Nearest Neighbor (ANN) search using the <code>&lt;=&gt;</code> operator (Cosine Distance) against the <code>embedding</code> column.</p>
-<h3 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>use_exact_search</code> (bool): If set to <code>True</code>, pgVectorDB executes <code>SET LOCAL enable_indexscan = off</code> immediately before the query. This forces PostgreSQL to perform a sequential scan, bypassing HNSW/IVFFlat for 100% accurate recall at the cost of high latency.</li>
-</ul>
-<h3 id="usage_2">Usage<a class="headerlink" href="#usage_2" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">semantic_search</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;How to migrate to the cloud?&quot;</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">use_exact_search</span><span class="o">=</span><span class="kc">False</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
+<p>Use BM25 when <code>pg_textsearch</code> is available and you want stronger keyword ranking.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;database optimization guide&quot;</span><span class="p">)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="o">.</span><span class="n">keyword</span><span class="p">()</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="o">.</span><span class="n">bm25_params</span><span class="p">(</span><span class="n">k1</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mf">0.75</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="4-metadata_filter">4. <code>metadata_filter</code><a class="headerlink" href="#4-metadata_filter" title="Permanent link">&para;</a></h2>
-<p>A strict filtering operation returning documents without any text or vector search involved.</p>
-<h3 id="under-the-hood_3">Under the Hood<a class="headerlink" href="#under-the-hood_3" title="Permanent link">&para;</a></h3>
-<p>Translates your JSON dictionary into raw SQL <code>WHERE</code> clauses against the <code>langchain_metadata</code> JSONB column. All returned documents are assigned a dummy score of <code>1.0</code>.</p>
-<h3 id="parameters_1">Parameters<a class="headerlink" href="#parameters_1" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>order_by</code> (str): Specific metadata key to order the results by (e.g., "created_at").</li>
-<li><code>ascending</code> (bool): Sort direction.</li>
-</ul>
-<h3 id="usage_3">Usage<a class="headerlink" href="#usage_3" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">metadata_filter</span><span class="p">(</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;published&quot;</span><span class="p">,</span> <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;admin&quot;</span><span class="p">},</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">order_by</span><span class="o">=</span><span class="s2">&quot;published_date&quot;</span><span class="p">,</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
+<table>
+<thead>
+<tr>
+<th>BM25 setting</th>
+<th>Increase when...</th>
+<th>Decrease when...</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>k1</code></td>
+<td>Repeated terms should matter more.</td>
+<td>You want less term-frequency saturation.</td>
+</tr>
+<tr>
+<td><code>b</code></td>
+<td>You want stronger document-length normalization.</td>
+<td>Short and long documents should be treated similarly.</td>
+</tr>
+</tbody>
+</table>
+<p>Phrase and universal keyword search are useful for stricter matching or metadata-aware keyword search.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">phrase_results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;zero downtime index&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">keyword</span><span class="p">()</span><span class="o">.</span><span class="n">phrase</span><span class="p">()</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">universal_results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;premium support&quot;</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="o">.</span><span class="n">keyword</span><span class="p">()</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="o">.</span><span class="n">universal</span><span class="p">(</span><span class="n">metadata_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;tags&quot;</span><span class="p">,</span> <span class="s2">&quot;plan&quot;</span><span class="p">])</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="5-metadata_keyword_search">5. <code>metadata_keyword_search</code><a class="headerlink" href="#5-metadata_keyword_search" title="Permanent link">&para;</a></h2>
-<p>Applies strict metadata filtering <em>before</em> executing keyword search. </p>
-<h3 id="under-the-hood_4">Under the Hood<a class="headerlink" href="#under-the-hood_4" title="Permanent link">&para;</a></h3>
-<p>Constructs a Common Table Expression (CTE) to pre-filter the table using your <code>filter</code> dict. The <code>ts_rank</code> / BM25 search is then executed <em>only</em> on the smaller CTE result set.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">metadata_keyword_search</span><span class="p">(</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;connection pooling&quot;</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;component&quot;</span><span class="p">:</span> <span class="s2">&quot;database&quot;</span><span class="p">,</span> <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;$gt&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}},</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span>
+<h2 id="hybrid-search">Hybrid Search<a class="headerlink" href="#hybrid-search" title="Permanent link">&para;</a></h2>
+<p>Hybrid search combines vector similarity and keyword ranking. It is the default choice for RAG systems that need both semantic recall and exact term precision.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;HNSW filtered recall&quot;</span><span class="p">)</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="o">.</span><span class="n">hybrid</span><span class="p">()</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="o">.</span><span class="n">weights</span><span class="p">(</span><span class="n">semantic</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">keyword</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="o">.</span><span class="n">where</span><span class="p">({</span><span class="s2">&quot;topic&quot;</span><span class="p">:</span> <span class="s2">&quot;optimization&quot;</span><span class="p">})</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="6-metadata_semantic_search">6. <code>metadata_semantic_search</code><a class="headerlink" href="#6-metadata_semantic_search" title="Permanent link">&para;</a></h2>
-<p>Applies strict metadata filtering <em>before</em> executing vector search. This is the foundation of multi-tenant RAG systems.</p>
-<h3 id="under-the-hood_5">Under the Hood<a class="headerlink" href="#under-the-hood_5" title="Permanent link">&para;</a></h3>
-<p>Appends the filter clauses directly into the <code>WHERE</code> clause alongside the vector <code>&lt;=&gt;</code> operator. The HNSW index handles this pre-filtering efficiently.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">metadata_semantic_search</span><span class="p">(</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;Reset password&quot;</span><span class="p">,</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;tenant_id&quot;</span><span class="p">:</span> <span class="s2">&quot;org_555&quot;</span><span class="p">},</span> <span class="c1"># Essential for data isolation</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">3</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">)</span>
+<p>Use Reciprocal Rank Fusion when the score scales between semantic and keyword search are difficult to compare.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;PostgreSQL vector index tuning&quot;</span><span class="p">)</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="o">.</span><span class="n">hybrid</span><span class="p">()</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="o">.</span><span class="n">rrf</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="7-hybrid_search">7. <code>hybrid_search</code><a class="headerlink" href="#7-hybrid_search" title="Permanent link">&para;</a></h2>
-<p>Combines <code>keyword_search</code> and <code>semantic_search</code> into a single ranked list.</p>
-<h3 id="under-the-hood-fusion-mechanisms">Under the Hood (Fusion Mechanisms)<a class="headerlink" href="#under-the-hood-fusion-mechanisms" title="Permanent link">&para;</a></h3>
-<p>pgVectorDB executes both queries asynchronously. It then merges the results using one of two algorithms:
-1. <strong>Reciprocal Rank Fusion (RRF)</strong>: Used by default. Ranks are converted to scores via <code>1 / (rrf_k + rank)</code>. Excellent because it doesn't require vector distances and TF-IDF scores to be normalized to the same scale.
-2. <strong>Weighted Fusion</strong>: Used if the <code>weights</code> parameter (tuple of 2 floats summing to 1.0) is provided. It normalizes both sets of scores to a <code>0-1</code> range (inverting semantic distances so 1 is best) and applies the weights.</p>
-<h3 id="parameters_2">Parameters<a class="headerlink" href="#parameters_2" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>rrf_k</code> (int): Smoothing constant for RRF. Default is <code>60</code>.</li>
-<li><code>weights</code> (Tuple[float, float], optional): e.g., <code>(0.7, 0.3)</code> means 70% semantic, 30% keyword.</li>
-</ul>
-<h3 id="usage_4">Usage<a class="headerlink" href="#usage_4" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">hybrid_search</span><span class="p">(</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;Machine learning performance&quot;</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">keyword_type</span><span class="o">=</span><span class="n">KeywordSearchType</span><span class="o">.</span><span class="n">BM25</span><span class="p">,</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">rrf_k</span><span class="o">=</span><span class="mi">60</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span>
+<table>
+<thead>
+<tr>
+<th>Fusion</th>
+<th>Use when</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.weights(semantic, keyword)</code></td>
+<td>You know which signal should dominate.</td>
+<td>Needs tuning and evaluation.</td>
+</tr>
+<tr>
+<td><code>.rrf(k=60)</code></td>
+<td>You want robust rank fusion without score calibration.</td>
+<td>Less direct control over signal strength.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="trigram-fuzzy-search">Trigram Fuzzy Search<a class="headerlink" href="#trigram-fuzzy-search" title="Permanent link">&para;</a></h2>
+<p>Trigram search uses PostgreSQL <code>pg_trgm</code> for typo-tolerant text matching.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;vectro databse&quot;</span><span class="p">)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="o">.</span><span class="n">trigram</span><span class="p">()</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="mf">0.2</span><span class="p">)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="8-ensemble_search">8. <code>ensemble_search</code><a class="headerlink" href="#8-ensemble_search" title="Permanent link">&para;</a></h2>
-<p>The ultimate search method. It performs <code>metadata_filter</code> to isolate a subset of documents, and then performs a <code>hybrid_search</code> (with RRF or weights) on that exact subset.</p>
-<h3 id="usage_5">Usage<a class="headerlink" href="#usage_5" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">ensemble_search</span><span class="p">(</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;Financial reports Q3&quot;</span><span class="p">,</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;department&quot;</span><span class="p">:</span> <span class="s2">&quot;finance&quot;</span><span class="p">,</span> <span class="s2">&quot;year&quot;</span><span class="p">:</span> <span class="mi">2023</span><span class="p">},</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">weights</span><span class="o">=</span><span class="p">(</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">)</span>
+<p>Use it for misspellings, product names, titles, people names, and query autosuggest-style workflows. Lower thresholds admit fuzzier matches; higher thresholds improve precision.</p>
+<h2 id="metadata-filters">Metadata Filters<a class="headerlink" href="#metadata-filters" title="Permanent link">&para;</a></h2>
+<p>Filters apply to every search mode through <code>.where(...)</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;wireless headphones&quot;</span><span class="p">)</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="o">.</span><span class="n">hybrid</span><span class="p">()</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="o">.</span><span class="n">where</span><span class="p">({</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;electronics&quot;</span><span class="p">,</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;$between&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">200</span><span class="p">]},</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;$gte&quot;</span><span class="p">:</span> <span class="mf">4.0</span><span class="p">},</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="p">})</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="9-trigram_search">9. <code>trigram_search</code><a class="headerlink" href="#9-trigram_search" title="Permanent link">&para;</a></h2>
-<p>Fuzzy text search highly tolerant to spelling mistakes. </p>
-<h3 id="under-the-hood_6">Under the Hood<a class="headerlink" href="#under-the-hood_6" title="Permanent link">&para;</a></h3>
-<p>Utilizes the <code>pg_trgm</code> extension. It uses the <code>gin_trgm_ops</code> index created during <code>initialize()</code>. It calculates the similarity between the query string and document content by counting matching 3-letter combinations (trigrams).</p>
-<h3 id="usage_6">Usage<a class="headerlink" href="#usage_6" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Will match documents containing &quot;PostgreSQL&quot;</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">trigram_search</span><span class="p">(</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;PostgreSQLLLL&quot;</span><span class="p">,</span> 
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">)</span>
+<p>Use scalar indexes for frequently filtered fields:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">create_scalar_index</span><span class="p">(</span><span class="s2">&quot;price&quot;</span><span class="p">,</span> <span class="n">index_type</span><span class="o">=</span><span class="s2">&quot;btree&quot;</span><span class="p">)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">create_scalar_index</span><span class="p">(</span><span class="s2">&quot;category&quot;</span><span class="p">,</span> <span class="n">index_type</span><span class="o">=</span><span class="s2">&quot;bitmap&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<hr />
-<h2 id="10-metadata_trigram_search">10. <code>metadata_trigram_search</code><a class="headerlink" href="#10-metadata_trigram_search" title="Permanent link">&para;</a></h2>
-<p>Combines metadata filtering with fuzzy trigram matching. Uses a CTE for pre-filtering.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">metadata_trigram_search</span><span class="p">(</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;useer auth&quot;</span><span class="p">,</span> <span class="c1"># Typo &quot;useer&quot;</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;documentation&quot;</span><span class="p">},</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">)</span>
+<p>See <a href="../filtering/">Metadata Filtering</a> for all operators and indexing guidance.</p>
+<h2 id="reranking">Reranking<a class="headerlink" href="#reranking" title="Permanent link">&para;</a></h2>
+<p>Reranking is a two-stage pattern: retrieve more candidates than you need, score them with a stronger model, then return fewer final results.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pgvectordb.rerankers</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrossEncoderReranker</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">reranker</span> <span class="o">=</span> <span class="n">CrossEncoderReranker</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;cross-encoder/ms-marco-MiniLM-L-6-v2&quot;</span><span class="p">)</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;how to configure diskann&quot;</span><span class="p">)</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="o">.</span><span class="n">hybrid</span><span class="p">()</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="o">.</span><span class="n">rerank</span><span class="p">(</span><span class="n">reranker</span><span class="p">)</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="p">)</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="n">top_results</span> <span class="o">=</span> <span class="n">results</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
 </span></code></pre></div>
-<hr />
-<h2 id="additional-search-methods">Additional Search Methods<a class="headerlink" href="#additional-search-methods" title="Permanent link">&para;</a></h2>
-<h3 id="11-asimilarity_search_by_vector">11. <code>asimilarity_search_by_vector</code><a class="headerlink" href="#11-asimilarity_search_by_vector" title="Permanent link">&para;</a></h3>
-<p>Search using pre-computed embeddings instead of generating from a text query. Useful when you've already embedded documents externally or want to compare embedding models.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Use the same embedding model to generate embeddings</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">query_embedding</span> <span class="o">=</span> <span class="n">embedding_model</span><span class="o">.</span><span class="n">embed_query</span><span class="p">(</span><span class="s2">&quot;machine learning foundations&quot;</span><span class="p">)</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">asimilarity_search_by_vector</span><span class="p">(</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">embedding</span><span class="o">=</span><span class="n">query_embedding</span><span class="p">,</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">label_filter</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>  <span class="c1"># Optional: DiskANN label filtering</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="p">)</span>
+<p>Use reranking when top result order matters more than raw retrieval latency, especially for answer generation, support search, legal search, and high-value product search. In fluent queries, <code>.limit(...)</code> controls the candidate set that reaches the reranker; slice the returned list for the final result count. See <a href="../reranking/">Reranking</a> for backend setup and candidate-count guidance.</p>
+<h2 id="sql-analysis">SQL Analysis<a class="headerlink" href="#sql-analysis" title="Permanent link">&para;</a></h2>
+<p>Use <code>explain_plan()</code> before executing when you want to understand the planned search shape.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">plan</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;filtered vector search&quot;</span><span class="p">)</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="o">.</span><span class="n">semantic</span><span class="p">()</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="o">.</span><span class="n">where</span><span class="p">({</span><span class="s2">&quot;topic&quot;</span><span class="p">:</span> <span class="s2">&quot;optimization&quot;</span><span class="p">})</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="o">.</span><span class="n">explain_plan</span><span class="p">()</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">)</span>
 </span></code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Use this when comparing embedding models - generate embeddings once and reuse them.</p>
-</div>
-<h3 id="12-asimilarity_search_with_score">12. <code>asimilarity_search_with_score</code><a class="headerlink" href="#12-asimilarity_search_with_score" title="Permanent link">&para;</a></h3>
-<p>Returns <code>(QueryResult, float)</code> tuples instead of a plain list. Useful when you need raw scores for custom processing.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">asimilarity_search_with_score</span><span class="p">(</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;database optimization&quot;</span><span class="p">,</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">k</span><span class="o">=</span><span class="mi">5</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="p">)</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="k">for</span> <span class="n">doc</span><span class="p">,</span> <span class="n">raw_score</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Doc: </span><span class="si">{</span><span class="n">doc</span><span class="p">[</span><span class="s1">&#39;content&#39;</span><span class="p">][:</span><span class="mi">50</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Raw Score: </span><span class="si">{</span><span class="n">raw_score</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p>Use <code>analyze_plan()</code> to execute the configured query and return timing plus configuration metadata.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">metrics</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;filtered vector search&quot;</span><span class="p">)</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="o">.</span><span class="n">semantic</span><span class="p">()</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="o">.</span><span class="n">where</span><span class="p">({</span><span class="s2">&quot;topic&quot;</span><span class="p">:</span> <span class="s2">&quot;optimization&quot;</span><span class="p">})</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="o">.</span><span class="n">ef</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="o">.</span><span class="n">analyze_plan</span><span class="p">()</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="p">)</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;execution_time_ms&quot;</span><span class="p">])</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;rows_returned&quot;</span><span class="p">])</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;search_method&quot;</span><span class="p">])</span>
 </span></code></pre></div>
+<p>For deeper PostgreSQL <code>EXPLAIN (ANALYZE, BUFFERS, VERBOSE)</code> output, use <code>explain_query()</code> from the diagnostics guide.</p>
+<h2 id="output-formats">Output Formats<a class="headerlink" href="#output-formats" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;search quality&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">semantic</span><span class="p">()</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">frame</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;search quality&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">semantic</span><span class="p">()</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">to_pandas</span><span class="p">()</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">arrow_table</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;search quality&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">semantic</span><span class="p">()</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">to_arrow</span><span class="p">()</span>
+</span></code></pre></div>
+<p>Use <code>to_list()</code> for application code, <code>to_pandas()</code> for analysis notebooks, and <code>to_arrow()</code> for larger tabular pipelines.</p>
+<h2 id="common-recipes">Common Recipes<a class="headerlink" href="#common-recipes" title="Permanent link">&para;</a></h2>
+<h3 id="multi-tenant-rag">Multi-tenant RAG<a class="headerlink" href="#multi-tenant-rag" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;API documentation&quot;</span><span class="p">)</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="o">.</span><span class="n">hybrid</span><span class="p">()</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="o">.</span><span class="n">where</span><span class="p">({</span><span class="s2">&quot;tenant_id&quot;</span><span class="p">:</span> <span class="n">tenant_id</span><span class="p">,</span> <span class="s2">&quot;visibility&quot;</span><span class="p">:</span> <span class="s2">&quot;published&quot;</span><span class="p">})</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="date-bounded-semantic-search">Date-bounded semantic search<a class="headerlink" href="#date-bounded-semantic-search" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;quarterly revenue risks&quot;</span><span class="p">)</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="o">.</span><span class="n">semantic</span><span class="p">()</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="o">.</span><span class="n">where</span><span class="p">({</span><span class="s2">&quot;year&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;$between&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">2026</span><span class="p">]}})</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="o">.</span><span class="n">ef</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="recall-check-with-exact-search">Recall check with exact search<a class="headerlink" href="#recall-check-with-exact-search" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">exact</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;index tuning&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">semantic</span><span class="p">()</span><span class="o">.</span><span class="n">bypass_vector_index</span><span class="p">()</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">ann</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;index tuning&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">semantic</span><span class="p">()</span><span class="o">.</span><span class="n">ef</span><span class="p">(</span><span class="mi">80</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">exact_ids</span> <span class="o">=</span> <span class="p">{</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">exact</span><span class="p">}</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">ann_ids</span> <span class="o">=</span> <span class="p">{</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">ann</span><span class="p">}</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="n">recall_at_10</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">exact_ids</span> <span class="o">&amp;</span> <span class="n">ann_ids</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">exact_ids</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="score-direction">Score Direction<a class="headerlink" href="#score-direction" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Search type</th>
+<th>Score direction</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Semantic</td>
+<td>Lower distance is better in raw vector distance; normalized query results may expose relevance-style scores depending on method.</td>
+<td></td>
+</tr>
+<tr>
+<td>Keyword / BM25</td>
+<td>Higher is better.</td>
+<td>PostgreSQL FTS or BM25 rank.</td>
+</tr>
+<tr>
+<td>Hybrid</td>
+<td>Higher is better.</td>
+<td>Fused score from weighted or RRF ranking.</td>
+</tr>
+<tr>
+<td>Trigram</td>
+<td>Higher is better.</td>
+<td>Similarity score from trigram matching.</td>
+</tr>
+</tbody>
+</table>
+<p>Always validate ranking with your own ground truth using <a href="../metrics_and_evaluation/">Metrics &amp; Evaluation</a> before committing to production tuning.</p>
 
 
 
@@ -2445,6 +2199,8 @@
             </div>
           
           
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
@@ -2458,14 +2214,70 @@
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../multimodal_search/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Multimodal Search">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Multimodal Search
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../filtering/" class="md-footer__link md-footer__link--next" aria-label="Next: Metadata Filtering">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Metadata Filtering
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
   
   
-    Made with
-    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-      Material for MkDocs
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/jainilpanchal2000/pgVectorDB" target="_blank" rel="noopener" title="pgVectorDB on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://pypi.org/project/pgvectordb/" target="_blank" rel="noopener" title="pgVectorDB on PyPI" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
     </a>
   
 </div>
@@ -2479,11 +2291,13 @@
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
     
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "content.action.view", "announcement.dismiss"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "header.autohide", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.code.select", "content.tabs.link", "content.action.edit", "content.action.view", "announcement.dismiss"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
