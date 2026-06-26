@@ -11,24 +11,27 @@ for the pgVectorDB system. It includes:
 - Trigram fuzzy search
 """
 
-import re
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
+
 from sqlalchemy import text
 
 from .base import (
+    DatabaseError,
     IndexType,
+    InitializationError,
     KeywordSearchType,
     QueryResult,
     ValidationError,
-    DatabaseError,
-    InitializationError,
 )
+from .mixins._base import MixinBase
+from .options import HybridSearchOptions
+from .query.filters import MetadataFilterCompiler
 
 logger = logging.getLogger(__name__)
 
 
-class SearchMixin:
+class SearchMixin(MixinBase):
     """
     Mixin class providing search capabilities to pgVectorDB.
 
@@ -55,7 +58,7 @@ class SearchMixin:
         if k <= 0:
             raise ValidationError("k must be positive")
 
-    def _validate_weights(self, weights: Tuple[float, float]) -> None:
+    def _validate_weights(self, weights: tuple[float, float]) -> None:
         """Validate hybrid search weights."""
         if len(weights) != 2:
             raise ValidationError("weights must be a tuple of 2 floats")
@@ -67,154 +70,33 @@ class SearchMixin:
 
     # ==================== FILTER BUILDERS ====================
 
-    def _build_filter_clauses(
-        self, filter: Dict[str, Any]
-    ) -> Tuple[str, Dict[str, Any]]:
+    def _build_filter_clauses(self, filter: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         """Build SQL WHERE clauses from filter dictionary."""
-        if not filter:
-            return "1=1", {}
-        where_clause, params, _ = self._parse_filter(filter, {}, 0)
-        return where_clause, params
+        return MetadataFilterCompiler().build(filter)
 
     def _parse_filter(
-        self, filter: Dict[str, Any], params: Dict[str, Any], counter: int
-    ) -> Tuple[str, Dict[str, Any], int]:
+        self, filter: dict[str, Any], params: dict[str, Any], counter: int
+    ) -> tuple[str, dict[str, Any], int]:
         """Recursively parse filter conditions."""
-        filter_expressions = []
-
-        for key, condition in filter.items():
-            if key == "$and":
-                and_clauses = []
-                for sub_filter in condition:
-                    clause, params, counter = self._parse_filter(
-                        sub_filter, params, counter
-                    )
-                    and_clauses.append(f"({clause})")
-                filter_expressions.append(" AND ".join(and_clauses))
-                continue
-
-            if key == "$or":
-                or_clauses = []
-                for sub_filter in condition:
-                    clause, params, counter = self._parse_filter(
-                        sub_filter, params, counter
-                    )
-                    or_clauses.append(f"({clause})")
-                filter_expressions.append("(" + " OR ".join(or_clauses) + ")")
-                continue
-
-            if isinstance(condition, dict):
-                for op_key, value in condition.items():
-                    expr, params, counter = self._build_single_condition(
-                        key, op_key, value, params, counter
-                    )
-                    filter_expressions.append(expr)
-            else:
-                expr, params, counter = self._build_single_condition(
-                    key, "$eq", condition, params, counter
-                )
-                filter_expressions.append(expr)
-
-        where_clause = " AND ".join(filter_expressions) if filter_expressions else "1=1"
-        return where_clause, params, counter
+        return MetadataFilterCompiler().parse(filter, params, counter)
 
     def _build_single_condition(
-        self, key: str, operator: str, value: Any, params: Dict[str, Any], counter: int
-    ) -> Tuple[str, Dict[str, Any], int]:
+        self, key: str, operator: str, value: Any, params: dict[str, Any], counter: int
+    ) -> tuple[str, dict[str, Any], int]:
         """Build a single filter condition with proper type handling."""
-        param_name = f"param_{counter}"
-        counter += 1
-
-        # Security validation: Ensure key contains only alphanumeric chars and underscores
-        if not re.match(r"^[a-zA-Z0-9_]+$", key):
-            raise ValidationError(
-                f"Invalid metadata key: '{key}'. Keys must be alphanumeric."
-            )
-
-        is_numeric = isinstance(value, (int, float))
-        if (
-            operator == "$between"
-            and isinstance(value, (list, tuple))
-            and len(value) > 0
-        ):
-            is_numeric = isinstance(value[0], (int, float))
-
-        field_expr = (
-            f"(langchain_metadata->>'{key}')::numeric"
-            if is_numeric
-            else f"langchain_metadata->>'{key}'"
+        return MetadataFilterCompiler().build_single_condition(
+            key, operator, value, params, counter
         )
 
-        op_map = {
-            "$eq": "=",
-            "$ne": "!=",
-            "$lt": "<",
-            "$lte": "<=",
-            "$gt": ">",
-            "$gte": ">=",
-        }
-        if operator in op_map:
-            params[param_name] = value
-            return f"{field_expr} {op_map[operator]} :{param_name}", params, counter
-
-        elif operator == "$in":
-            if not isinstance(value, (list, tuple)):
-                value = [value]
-            if not is_numeric:
-                value = [str(v) for v in value]
-            params[param_name] = tuple(value)
-            return f"{field_expr} = ANY(:{param_name})", params, counter
-
-        elif operator == "$nin":
-            if not isinstance(value, (list, tuple)):
-                value = [value]
-            if not is_numeric:
-                value = [str(v) for v in value]
-            params[param_name] = tuple(value)
-            return f"{field_expr} != ALL(:{param_name})", params, counter
-
-        elif operator == "$between":
-            if not isinstance(value, (list, tuple)) or len(value) != 2:
-                raise ValidationError(
-                    f"$between requires a list/tuple of 2 values, got: {value}"
-                )
-            param_name_2 = f"param_{counter}"
-            counter += 1
-            params[param_name] = value[0]
-            params[param_name_2] = value[1]
-            return (
-                f"{field_expr} BETWEEN :{param_name} AND :{param_name_2}",
-                params,
-                counter,
-            )
-
-        elif operator == "$exists":
-            condition = "IS NOT NULL" if value else "IS NULL"
-            return f"langchain_metadata->>'{key}' {condition}", params, counter
-
-        elif operator == "$like":
-            params[param_name] = value
-            return f"langchain_metadata->>'{key}' LIKE :{param_name}", params, counter
-
-        elif operator == "$ilike":
-            params[param_name] = value
-            return f"langchain_metadata->>'{key}' ILIKE :{param_name}", params, counter
-
-        else:
-            raise ValidationError(f"Unsupported operator: {operator}")
-
-    def _build_filter_clauses_wrapper(
-        self, filter: Dict[str, Any]
-    ) -> Tuple[str, Dict[str, Any]]:
+    def _build_filter_clauses_wrapper(self, filter: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         """Wrapper for backward compatibility."""
-        where_clause, params, _ = self._parse_filter(filter, {}, 0)
-        return where_clause, params
+        return self._build_filter_clauses(filter)
 
     # ==================== SCORING & FUSION ====================
 
     def _normalize_scores(
-        self, scores: Dict[str, float], inverse: bool = False
-    ) -> Dict[str, float]:
+        self, scores: dict[str, float], inverse: bool = False
+    ) -> dict[str, float]:
         """Normalize scores to 0-1 range."""
         if not scores:
             return {}
@@ -227,22 +109,17 @@ class SearchMixin:
             return {k: 1.0 for k in scores.keys()}
 
         if inverse:
-            return {
-                k: 1.0 - (v - min_score) / (max_score - min_score)
-                for k, v in scores.items()
-            }
+            return {k: 1.0 - (v - min_score) / (max_score - min_score) for k, v in scores.items()}
         else:
-            return {
-                k: (v - min_score) / (max_score - min_score) for k, v in scores.items()
-            }
+            return {k: (v - min_score) / (max_score - min_score) for k, v in scores.items()}
 
     def _fuse_results(
         self,
-        semantic_results: List[QueryResult],
-        keyword_results: List[QueryResult],
-        weights: Tuple[float, float],
+        semantic_results: list[QueryResult],
+        keyword_results: list[QueryResult],
+        weights: tuple[float, float],
         k: int,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """Common fusion logic for hybrid and ensemble search using weighted scores."""
         semantic_scores = self._normalize_scores(
             {r["id"]: r["score"] for r in semantic_results}, inverse=True
@@ -251,29 +128,21 @@ class SearchMixin:
             {r["id"]: r["score"] for r in keyword_results}, inverse=False
         )
 
-        combined_scores: Dict[str, float] = {}
-        doc_map: Dict[str, QueryResult] = {}
+        combined_scores: dict[str, float] = {}
+        doc_map: dict[str, QueryResult] = {}
 
         for res in semantic_results:
             doc_map[res["id"]] = res
-            combined_scores[res["id"]] = (
-                semantic_scores.get(res["id"], 0.0) * weights[0]
-            )
+            combined_scores[res["id"]] = semantic_scores.get(res["id"], 0.0) * weights[0]
 
         for res in keyword_results:
             doc_map[res["id"]] = res
             if res["id"] in combined_scores:
-                combined_scores[res["id"]] += (
-                    keyword_scores.get(res["id"], 0.0) * weights[1]
-                )
+                combined_scores[res["id"]] += keyword_scores.get(res["id"], 0.0) * weights[1]
             else:
-                combined_scores[res["id"]] = (
-                    keyword_scores.get(res["id"], 0.0) * weights[1]
-                )
+                combined_scores[res["id"]] = keyword_scores.get(res["id"], 0.0) * weights[1]
 
-        sorted_ids = sorted(
-            combined_scores.keys(), key=lambda x: combined_scores[x], reverse=True
-        )
+        sorted_ids = sorted(combined_scores.keys(), key=lambda x: combined_scores[x], reverse=True)
 
         return [
             QueryResult(
@@ -287,14 +156,14 @@ class SearchMixin:
 
     def _fuse_results_rrf(
         self,
-        semantic_results: List[QueryResult],
-        keyword_results: List[QueryResult],
+        semantic_results: list[QueryResult],
+        keyword_results: list[QueryResult],
         k: int,
         rrf_k: int = 60,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """Reciprocal Rank Fusion (RRF) scoring for hybrid searches."""
-        combined_scores: Dict[str, float] = {}
-        doc_map: Dict[str, QueryResult] = {}
+        combined_scores: dict[str, float] = {}
+        doc_map: dict[str, QueryResult] = {}
 
         # Add semantic search rankings
         for rank, res in enumerate(semantic_results, start=1):
@@ -309,9 +178,7 @@ class SearchMixin:
             else:
                 combined_scores[res["id"]] = 1.0 / (rrf_k + rank)
 
-        sorted_ids = sorted(
-            combined_scores.keys(), key=lambda x: combined_scores[x], reverse=True
-        )
+        sorted_ids = sorted(combined_scores.keys(), key=lambda x: combined_scores[x], reverse=True)
 
         return [
             QueryResult(
@@ -325,7 +192,7 @@ class SearchMixin:
 
     # ==================== SEARCH METHODS ====================
 
-    async def _keyword_search_fts(self, query: str, k: int) -> List[QueryResult]:
+    async def _keyword_search_fts(self, query: str, k: int) -> list[QueryResult]:
         """Internal method for FTS (Full-Text Search) using PostgreSQL ts_rank."""
         try:
             sanitized_words = [w for w in query.split() if w.isalnum()]
@@ -335,7 +202,7 @@ class SearchMixin:
                 ts_query_str = " | ".join(sanitized_words)
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        ts_rank(content_tsvector, to_tsquery('english', :query)) as rank
                 FROM "{self.schema_name}"."{self.table_name}"
                 WHERE content_tsvector @@ to_tsquery('english', :query)
@@ -361,7 +228,7 @@ class SearchMixin:
 
     async def _keyword_search_bm25(
         self, query: str, k: int, k1: float, b: float, text_config: str
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """Internal method for BM25 search using pg_textsearch."""
         # Check extension availability (v2.2.0)
         if hasattr(self, "_extensions") and self._extensions is not None:
@@ -372,7 +239,7 @@ class SearchMixin:
             qualified_index = f'"{self.schema_name}"."{index_name}"'
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        -(content <@> to_bm25query(:query, '{qualified_index}')) as score
                 FROM "{self.schema_name}"."{self.table_name}"
                 ORDER BY content <@> to_bm25query(:query, '{qualified_index}') ASC
@@ -402,12 +269,12 @@ class SearchMixin:
         self,
         query: str,
         k: int = 4,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         search_type: KeywordSearchType = KeywordSearchType.FTS,
         k1: float = 1.2,
         b: float = 0.75,
         text_config: str = "english",
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """METHOD 1: Keyword search using FTS or BM25."""
         self._ensure_initialized()
         self._validate_search_params(query, k)
@@ -426,12 +293,12 @@ class SearchMixin:
         self,
         query: str,
         k: int = 4,
-        metadata_fields: Optional[List[str]] = None,
+        metadata_fields: list[str] | None = None,
         search_type: KeywordSearchType = KeywordSearchType.FTS,
         k1: float = 1.2,
         b: float = 0.75,
         text_config: str = "english",
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """METHOD 2: Searches keywords in both content and metadata."""
         self._ensure_initialized()
         self._validate_search_params(query, k)
@@ -475,9 +342,7 @@ class SearchMixin:
 
             else:
                 # FTS Logic
-                where_conditions = [
-                    "content_tsvector @@ plainto_tsquery('english', :query)"
-                ]
+                where_conditions = ["content_tsvector @@ plainto_tsquery('english', :query)"]
 
                 if metadata_fields:
                     if not isinstance(metadata_fields, list):
@@ -494,7 +359,7 @@ class SearchMixin:
                 full_where_clause = " OR ".join(where_conditions)
 
                 full_query = text(f"""
-                    SELECT "langchain_id", "content", "langchain_metadata", 
+                    SELECT "langchain_id", "content", "langchain_metadata",
                            ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {full_where_clause}
@@ -524,10 +389,10 @@ class SearchMixin:
         self,
         query: str,
         k: int = 4,
-        label_filter: Optional[List[int]] = None,
-        filter: Optional[Dict[str, Any]] = None,
+        label_filter: list[int] | None = None,
+        filter: dict[str, Any] | None = None,
         use_exact_search: bool = False,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """METHOD 3: Semantic search using vector embeddings."""
         self._ensure_initialized()
         self._validate_search_params(query, k)
@@ -548,7 +413,7 @@ class SearchMixin:
                 params["labels"] = label_filter
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        "embedding" <=> :embedding AS distance
                 FROM "{self.schema_name}"."{self.table_name}"
                 {where_clause}
@@ -575,11 +440,11 @@ class SearchMixin:
 
     async def asimilarity_search_by_vector(
         self,
-        embedding: List[float],
+        embedding: list[float],
         k: int = 4,
-        label_filter: Optional[List[int]] = None,
+        label_filter: list[int] | None = None,
         use_exact_search: bool = False,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """Search using pre-computed embeddings."""
         self._ensure_initialized()
 
@@ -601,7 +466,7 @@ class SearchMixin:
                 params["labels"] = label_filter
 
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        "embedding" <=> :embedding AS distance
                 FROM "{self.schema_name}"."{self.table_name}"
                 {where_clause}
@@ -630,20 +495,20 @@ class SearchMixin:
         self,
         query: str,
         k: int = 4,
-        label_filter: Optional[List[int]] = None,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[Tuple[QueryResult, float]]:
+        label_filter: list[int] | None = None,
+        filter: dict[str, Any] | None = None,
+    ) -> list[tuple[QueryResult, float]]:
         """Semantic search returning (document, score) tuples."""
         results = await self.semantic_search(query, k, label_filter, filter=filter)
         return [(result, result["score"]) for result in results]
 
     async def metadata_filter(
         self,
-        filter: Dict[str, Any],
+        filter: dict[str, Any],
         k: int = 4,
-        order_by: Optional[str] = None,
+        order_by: str | None = None,
         ascending: bool = True,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """METHOD 4: Pure metadata filtering without any search query."""
         self._ensure_initialized()
 
@@ -661,9 +526,7 @@ class SearchMixin:
                 if not order_by.replace("_", "").isalnum():
                     raise ValidationError(f"Invalid field name: {order_by}")
                 direction = "ASC" if ascending else "DESC"
-                order_clause = (
-                    f"ORDER BY (langchain_metadata->>'{order_by}') {direction}"
-                )
+                order_clause = f"ORDER BY (langchain_metadata->>'{order_by}') {direction}"
             else:
                 order_clause = "ORDER BY langchain_id"
 
@@ -678,15 +541,13 @@ class SearchMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(full_query, params)
                 return [
-                    QueryResult(
-                        id=str(row[0]), content=row[1], metadata=row[2] or {}, score=1.0
-                    )
+                    QueryResult(id=str(row[0]), content=row[1], metadata=row[2] or {}, score=1.0)
                     for row in result.fetchall()
                 ]
         except Exception as e:
             raise DatabaseError(f"Metadata filter failed: {e}") from e
 
-    async def count_by_metadata(self, filter: Optional[Dict[str, Any]] = None) -> int:
+    async def count_by_metadata(self, filter: dict[str, Any] | None = None) -> int:
         """Count documents matching filter criteria without retrieval."""
         self._ensure_initialized()
 
@@ -714,13 +575,13 @@ class SearchMixin:
     async def metadata_keyword_search(
         self,
         query: str,
-        filter: Dict[str, Any],
+        filter: dict[str, Any],
         k: int = 4,
         search_type: KeywordSearchType = KeywordSearchType.FTS,
         k1: float = 1.2,
         b: float = 0.75,
         text_config: str = "english",
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """METHOD 5: MANDATORY metadata filtering FIRST, then keyword search."""
         self._ensure_initialized()
 
@@ -752,7 +613,7 @@ class SearchMixin:
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {filter_clauses}
                 )
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
                 FROM filtered_docs
                 WHERE content_tsvector @@ plainto_tsquery('english', :query)
@@ -776,10 +637,10 @@ class SearchMixin:
     async def metadata_semantic_search(
         self,
         query: str,
-        filter: Dict[str, Any],
+        filter: dict[str, Any],
         k: int = 4,
         use_exact_search: bool = False,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """METHOD 6: MANDATORY metadata filtering FIRST, then semantic search."""
         self._ensure_initialized()
 
@@ -795,9 +656,7 @@ class SearchMixin:
             logger.warning(
                 "No filter provided for metadata_semantic_search, falling back to semantic_search"
             )
-            return await self.semantic_search(
-                query, k, use_exact_search=use_exact_search
-            )
+            return await self.semantic_search(query, k, use_exact_search=use_exact_search)
 
         try:
             embedding = self.embedding_model.embed_query(query)
@@ -810,7 +669,7 @@ class SearchMixin:
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {filter_clauses}
                 )
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        "embedding" <=> :embedding AS distance
                 FROM filtered_docs
                 ORDER BY distance LIMIT :k
@@ -838,17 +697,31 @@ class SearchMixin:
         self,
         query: str,
         k: int = 4,
-        weights: Tuple[float, float] = (0.5, 0.5),
-        label_filter: Optional[List[int]] = None,
+        weights: tuple[float, float] = (0.5, 0.5),
+        label_filter: list[int] | None = None,
         use_rrf: bool = False,
         rrf_k: int = 60,
         keyword_type: KeywordSearchType = KeywordSearchType.FTS,
         bm25_k1: float = 1.2,
         bm25_b: float = 0.75,
         text_config: str = "english",
-    ) -> List[QueryResult]:
+        options: HybridSearchOptions | None = None,
+        filter: dict[str, Any] | None = None,
+    ) -> list[QueryResult]:
         """METHOD 7: Combines keyword and semantic search."""
         self._ensure_initialized()
+
+        if options is not None:
+            k = options.k
+            weights = options.weights
+            label_filter = options.label_filter
+            use_rrf = options.use_rrf
+            rrf_k = options.rrf_k
+            keyword_type = options.keyword_type
+            bm25_k1 = options.bm25_k1
+            bm25_b = options.bm25_b
+            text_config = options.text_config
+            filter = options.filter
 
         if not query or not query.strip():
             raise ValidationError("hybrid_search requires a non-empty query")
@@ -859,22 +732,32 @@ class SearchMixin:
             self._validate_weights(weights)
 
         try:
-            semantic_results = await self.semantic_search(
-                query, k=k * 2, label_filter=label_filter
-            )
-            keyword_results = await self.keyword_search(
-                query,
-                k=k * 2,
-                search_type=keyword_type,
-                k1=bm25_k1,
-                b=bm25_b,
-                text_config=text_config,
-            )
+            if filter:
+                semantic_results = await self.metadata_semantic_search(query, filter, k=k * 2)
+                keyword_results = await self.metadata_keyword_search(
+                    query,
+                    filter,
+                    k=k * 2,
+                    search_type=keyword_type,
+                    k1=bm25_k1,
+                    b=bm25_b,
+                    text_config=text_config,
+                )
+            else:
+                semantic_results = await self.semantic_search(
+                    query, k=k * 2, label_filter=label_filter
+                )
+                keyword_results = await self.keyword_search(
+                    query,
+                    k=k * 2,
+                    search_type=keyword_type,
+                    k1=bm25_k1,
+                    b=bm25_b,
+                    text_config=text_config,
+                )
 
             if use_rrf:
-                return self._fuse_results_rrf(
-                    semantic_results, keyword_results, k, rrf_k
-                )
+                return self._fuse_results_rrf(semantic_results, keyword_results, k, rrf_k)
             else:
                 return self._fuse_results(semantic_results, keyword_results, weights, k)
         except Exception as e:
@@ -883,18 +766,30 @@ class SearchMixin:
     async def ensemble_search(
         self,
         query: str,
-        filter: Dict[str, Any],
+        filter: dict[str, Any],
         k: int = 4,
-        weights: Tuple[float, float] = (0.5, 0.5),
+        weights: tuple[float, float] = (0.5, 0.5),
         use_rrf: bool = False,
         rrf_k: int = 60,
         keyword_type: KeywordSearchType = KeywordSearchType.FTS,
         bm25_k1: float = 1.2,
         bm25_b: float = 0.75,
         text_config: str = "english",
-    ) -> List[QueryResult]:
+        options: HybridSearchOptions | None = None,
+    ) -> list[QueryResult]:
         """METHOD 8: Ensemble search (filtered hybrid)."""
         self._ensure_initialized()
+
+        if options is not None:
+            k = options.k
+            weights = options.weights
+            use_rrf = options.use_rrf
+            rrf_k = options.rrf_k
+            keyword_type = options.keyword_type
+            bm25_k1 = options.bm25_k1
+            bm25_b = options.bm25_b
+            text_config = options.text_config
+
         self._validate_search_params(query, k)
 
         if not use_rrf:
@@ -911,12 +806,11 @@ class SearchMixin:
                 bm25_k1=bm25_k1,
                 bm25_b=bm25_b,
                 text_config=text_config,
+                options=options,
             )
 
         try:
-            semantic_results = await self.metadata_semantic_search(
-                query, filter, k=k * 2
-            )
+            semantic_results = await self.metadata_semantic_search(query, filter, k=k * 2)
             keyword_results = await self.metadata_keyword_search(
                 query,
                 filter,
@@ -928,9 +822,7 @@ class SearchMixin:
             )
 
             if use_rrf:
-                return self._fuse_results_rrf(
-                    semantic_results, keyword_results, k, rrf_k
-                )
+                return self._fuse_results_rrf(semantic_results, keyword_results, k, rrf_k)
             else:
                 return self._fuse_results(semantic_results, keyword_results, weights, k)
         except Exception as e:
@@ -941,8 +833,8 @@ class SearchMixin:
         query: str,
         k: int = 4,
         threshold: float = 0.3,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[QueryResult]:
+        filter: dict[str, Any] | None = None,
+    ) -> list[QueryResult]:
         """METHOD 9: Fuzzy text matching using trigram similarity."""
         self._ensure_initialized()
         self._validate_search_params(query, k)
@@ -955,7 +847,7 @@ class SearchMixin:
 
         try:
             full_query = text(f"""
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        similarity("content", :query) as score
                 FROM "{self.schema_name}"."{self.table_name}"
                 WHERE similarity("content", :query) > :threshold
@@ -979,8 +871,8 @@ class SearchMixin:
             raise DatabaseError(f"Trigram search failed: {e}") from e
 
     async def metadata_trigram_search(
-        self, query: str, filter: Dict[str, Any], k: int = 4, threshold: float = 0.3
-    ) -> List[QueryResult]:
+        self, query: str, filter: dict[str, Any], k: int = 4, threshold: float = 0.3
+    ) -> list[QueryResult]:
         """METHOD 10: Metadata filtering + fuzzy text matching."""
         self._ensure_initialized()
         self._validate_search_params(query, k)
@@ -1001,7 +893,7 @@ class SearchMixin:
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE {filter_clauses}
                 )
-                SELECT "langchain_id", "content", "langchain_metadata", 
+                SELECT "langchain_id", "content", "langchain_metadata",
                        similarity("content", :query) as score
                 FROM filtered_docs
                 WHERE similarity("content", :query) > :threshold

@@ -16,8 +16,7 @@ import pytest
 import pytest_asyncio
 from langchain_core.documents import Document
 
-from pgvectordb import pgVectorDB, IndexType, KeywordSearchType, DistanceMetric
-
+from pgvectordb import DistanceMetric, IndexType, KeywordSearchType, pgVectorDB
 
 pytestmark = pytest.mark.integration
 
@@ -75,9 +74,7 @@ class TestSemanticSearch:
             assert isinstance(r["score"], float)
 
     async def test_with_metadata_filter(self, rag_with_data):
-        res = await rag_with_data.semantic_search(
-            "Python", k=5, filter={"category": "programming"}
-        )
+        res = await rag_with_data.semantic_search("Python", k=5, filter={"category": "programming"})
         for r in res:
             assert r["metadata"]["category"] == "programming"
 
@@ -103,9 +100,7 @@ class TestKeywordSearch:
             assert "score" in r
 
     async def test_fts_with_filter(self, rag_with_data):
-        res = await rag_with_data.keyword_search(
-            "Python", k=5, filter={"category": "programming"}
-        )
+        res = await rag_with_data.keyword_search("Python", k=5, filter={"category": "programming"})
         for r in res:
             assert r["metadata"]["category"] == "programming"
 
@@ -146,9 +141,7 @@ class TestMetadataFilter:
 
 class TestMetadataKeywordSearch:
     async def test_basic(self, rag_with_data):
-        res = await rag_with_data.metadata_keyword_search(
-            "dev", {"category": "programming"}, k=5
-        )
+        res = await rag_with_data.metadata_keyword_search("dev", {"category": "programming"}, k=5)
         assert isinstance(res, list)
 
 
@@ -159,9 +152,7 @@ class TestMetadataKeywordSearch:
 
 class TestMetadataSemanticSearch:
     async def test_basic(self, rag_with_data):
-        res = await rag_with_data.metadata_semantic_search(
-            "Python", {"year": 2023}, k=5
-        )
+        res = await rag_with_data.metadata_semantic_search("Python", {"year": 2023}, k=5)
         assert isinstance(res, list)
 
 
@@ -192,9 +183,7 @@ class TestHybridSearch:
 
 class TestEnsembleSearch:
     async def test_basic(self, rag_with_data):
-        res = await rag_with_data.ensemble_search(
-            "Python", {"category": "programming"}, k=5
-        )
+        res = await rag_with_data.ensemble_search("Python", {"category": "programming"}, k=5)
         assert isinstance(res, list)
 
 
@@ -209,9 +198,7 @@ class TestTrigramSearch:
         assert isinstance(res, list)
 
     async def test_metadata_trigram(self, rag_with_data):
-        res = await rag_with_data.metadata_trigram_search(
-            "dev", {"category": "programming"}, k=5
-        )
+        res = await rag_with_data.metadata_trigram_search("dev", {"category": "programming"}, k=5)
         assert isinstance(res, list)
 
 
@@ -311,15 +298,11 @@ class TestFilterOperators:
             ),
         ],
     )
-    async def test_filter_operator(
-        self, rag_with_data, op_name, filter_dict, validator
-    ):
+    async def test_filter_operator(self, rag_with_data, op_name, filter_dict, validator):
         res = await rag_with_data.metadata_filter(filter=filter_dict, k=20)
         assert len(res) > 0, f"No results for operator {op_name}"
         for r in res:
-            assert validator(r), (
-                f"Result doesn't match filter {op_name}: {r['metadata']}"
-            )
+            assert validator(r), f"Result doesn't match filter {op_name}: {r['metadata']}"
 
 
 # ---------------------------------------------------------------------------
@@ -328,15 +311,14 @@ class TestFilterOperators:
 
 
 class TestBM25PositiveScore:
-    async def test_bm25_scores_are_positive(
-        self, db_schema, embeddings, connection_string
-    ):
+    async def test_bm25_scores_are_positive(self, db_schema, embeddings, connection_string):
         """
         BM25 <@> operator returns raw negative numbers; pgVectorDB must negate
         them so callers receive positive scores (higher = more relevant).
         """
-        from pgvectordb import ExtensionManager
         from sqlalchemy.ext.asyncio import create_async_engine
+
+        from pgvectordb import ExtensionManager
 
         engine = create_async_engine(connection_string, pool_pre_ping=True)
         mgr = ExtensionManager(engine)
@@ -346,27 +328,23 @@ class TestBM25PositiveScore:
         if not mgr.has_pg_textsearch:
             pytest.skip("pg_textsearch not installed — skipping BM25 test")
 
-        rag = pgVectorDB(
+        pgvdb = pgVectorDB(
             collection_name="test_bm25_score",
             embedding_model=embeddings,
             connection_string=connection_string,
             schema_name=db_schema,
             index_type=IndexType.HNSW,
         )
-        await rag.initialize(overwrite_existing=True)
+        await pgvdb.initialize(overwrite_existing=True)
         docs = [
             Document(page_content="PostgreSQL database is great", metadata={"id": 1}),
             Document(page_content="Something else entirely", metadata={"id": 2}),
         ]
-        await rag.add_documents(docs)
-        await rag.build_bm25_index()
+        await pgvdb.add_documents(docs)
+        await pgvdb.build_bm25_index()
 
-        res = await rag.keyword_search(
-            "database", k=1, search_type=KeywordSearchType.BM25
-        )
-        await rag.close()
+        res = await pgvdb.keyword_search("database", k=1, search_type=KeywordSearchType.BM25)
+        await pgvdb.close()
 
         assert res, "BM25 search returned no results"
-        assert res[0]["score"] > 0, (
-            f"BM25 score should be positive but got {res[0]['score']}"
-        )
+        assert res[0]["score"] > 0, f"BM25 score should be positive but got {res[0]['score']}"

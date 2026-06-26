@@ -1,6 +1,6 @@
 """
-Real Estate NLQ (Natural Language Query) Agent — pgVectorDB v0.0.3
-===================================================================
+Real Estate NLQ (Natural Language Query) Agent — pgVectorDB
+===========================================================
 
 Inspired by Superlinked's Real Estate NLQ article, this example demonstrates
 how to replace rigid SQL filters with flexible, weighted multimodal search.
@@ -9,7 +9,7 @@ Traditional approach (rigid):
     WHERE price < 500000 AND bedrooms >= 2 AND city = 'NYC'
     → Misses great near-matches, requires exact criteria
 
-Multimodal approach (flexible):
+Direct per-space multimodal approach (flexible):
     query_params={
         "description": "spacious modern apartment with city views",
         "price": 400000,       # Soft preference, not hard filter
@@ -22,7 +22,7 @@ Multimodal approach (flexible):
 The magic: weights can be adjusted at query-time without re-indexing.
 
 Requirements:
-    pip install pgvectordb langchain-openai asyncpg asyncio
+    pip install pgvectordb langchain-openai asyncpg
     PostgreSQL with pgvector extension enabled
 
 Usage:
@@ -36,14 +36,13 @@ try:
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
     # from pgvectordb.rerankers import CohereReranker, create_reranker
 except ImportError:
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
 
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
-
 
 # ==================== Sample Real Estate Data ====================
 
@@ -156,9 +155,7 @@ def print_listing(idx: int, r) -> None:
     sqft = meta.get("sqft", "?")
     city = meta.get("city", "?")
     hood = meta.get("neighborhood", "?")
-    print(
-        f"\n  {idx}. [score={r.score:.3f}] ${price:,} | {beds}BR/{baths}ba | {sqft} sqft"
-    )
+    print(f"\n  {idx}. [score={r.score:.3f}] ${price:,} | {beds}BR/{baths}ba | {sqft} sqft")
     print(f"     📍 {hood}, {city}")
     print(f"     {r.content[:100]}...")
 
@@ -175,12 +172,12 @@ async def run_real_estate_nlq():
         openai_api_key=os.environ.get("OPENAI_API_KEY", "your-key-here"),
     )
 
-    rag = pgVectorDB(
+    pgvdb = pgVectorDB(
         collection_name="real_estate",
         embedding_model=embeddings,
         connection_string=conn_str,
     )
-    await rag.initialize()
+    await pgvdb.initialize()
     print("✓ pgVectorDB initialized")
 
     # ==================== Vector Spaces ====================
@@ -219,15 +216,13 @@ async def run_real_estate_nlq():
         ),
     ]
 
-    rag.register_spaces(spaces)
-    print(
-        f"✓ Registered {len(spaces)} spaces: description, price, bedrooms, bathrooms, city"
-    )
+    pgvdb.register_spaces(spaces)
+    print(f"✓ Registered {len(spaces)} spaces: description, price, bedrooms, bathrooms, city")
 
     # ==================== Ingest Listings ====================
     print(f"\nIndexing {len(REAL_ESTATE_LISTINGS)} listings...")
-    ids = await rag.add_documents_multimodal(REAL_ESTATE_LISTINGS)
-    await rag.build_multimodal_index()
+    ids = await pgvdb.add_documents_multimodal(REAL_ESTATE_LISTINGS)
+    await pgvdb.build_multimodal_index()
     print(f"✓ Indexed {len(ids)} listings with per-space HNSW indexes")
 
     # ==================== NLQ Query 1: Young professional ====================
@@ -236,7 +231,7 @@ async def run_real_estate_nlq():
     print("=" * 65)
     print("(Weights: description=0.4, price=0.35, bedrooms=0.15, city=0.1)")
 
-    results = await rag.multimodal_search(
+    results = await pgvdb.multimodal_search(
         query_params={
             "description": "modern apartment good transit access bright",
             "price": 450_000,
@@ -260,7 +255,7 @@ async def run_real_estate_nlq():
     print("=" * 65)
     print("(Weights: description=0.3, price=0.2, bedrooms=0.35, bathrooms=0.15)")
 
-    results = await rag.multimodal_search(
+    results = await pgvdb.multimodal_search(
         query_params={
             "description": "family home outdoor space garden parking",
             "price": 1_000_000,
@@ -284,7 +279,7 @@ async def run_real_estate_nlq():
     print("=" * 65)
     print("(Weights: description=0.7, bathrooms=0.2, city=0.1 — price ignored)")
 
-    results = await rag.multimodal_search(
+    results = await pgvdb.multimodal_search(
         query_params={
             "description": "luxury panoramic views high-end finishes premium building amenities",
             "bathrooms": 2,
@@ -305,7 +300,7 @@ async def run_real_estate_nlq():
     print("NLQ QUERY 4: Multimodal Hybrid Search (vector + BM25 keywords)")
     print("=" * 65)
 
-    results = await rag.multimodal_hybrid_search(
+    results = await pgvdb.multimodal_hybrid_search(
         query_params={
             "description": "renovated Brooklyn apartment near park",
             "price": 500_000,

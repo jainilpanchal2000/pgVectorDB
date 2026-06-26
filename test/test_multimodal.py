@@ -14,20 +14,20 @@ Run:
     .venv\\Scripts\\python -m pytest test/test_multimodal.py -v
 """
 
+import datetime
+
 import pytest
 import pytest_asyncio
-import datetime
 from langchain_core.documents import Document
 
-from pgvectordb import pgVectorDB, IndexType
+from pgvectordb import IndexType, pgVectorDB
 from pgvectordb.spaces import (
-    TextSpace,
-    NumberSpace,
     CategorySpace,
+    NumberSpace,
     RecencySpace,
+    TextSpace,
     TimeUnit,
 )
-
 
 pytestmark = pytest.mark.integration
 
@@ -110,15 +110,11 @@ class TestRegisterSpaces:
         rag_mm.register_spaces(spaces)
 
     async def test_register_category_space(self, rag_mm):
-        spaces = [
-            CategorySpace(name="cat", field="category", categories=["a", "b", "c"])
-        ]
+        spaces = [CategorySpace(name="cat", field="category", categories=["a", "b", "c"])]
         rag_mm.register_spaces(spaces)
 
     async def test_register_recency_space(self, rag_mm):
-        spaces = [
-            RecencySpace(name="recency", field="created_at", time_unit=TimeUnit.DAY)
-        ]
+        spaces = [RecencySpace(name="recency", field="created_at", time_unit=TimeUnit.DAY)]
         rag_mm.register_spaces(spaces)
 
 
@@ -131,9 +127,7 @@ class TestAddDocumentsMultimodal:
     async def test_adds_docs(self, rag_mm, spaces):
         rag_mm.register_spaces(spaces)
         docs = make_multimodal_docs(10)
-        ids = await rag_mm.add_documents_multimodal(
-            docs, batch_size=5, show_progress=False
-        )
+        ids = await rag_mm.add_documents_multimodal(docs, batch_size=5, show_progress=False)
         assert len(ids) == 10
 
     async def test_count_persisted(self, rag_mm, spaces):
@@ -197,6 +191,55 @@ class TestMultimodalSearch:
 
 
 # ---------------------------------------------------------------------------
+# multimodal_hybrid_search
+# ---------------------------------------------------------------------------
+
+
+class TestMultimodalHybridSearch:
+    async def test_forwards_metadata_filter_to_keyword_stage(self):
+        from pgvectordb.base import QueryResult
+        from pgvectordb.mixins.multimodal import MultimodalMixin
+
+        class FakeMultimodalDB(MultimodalMixin):
+            def __init__(self):
+                self._spaces = [TextSpace(name="text", field="content")]
+                self.keyword_call_kwargs = None
+                self.multimodal_filter = None
+
+            def _ensure_initialized(self):
+                return None
+
+            async def multimodal_search(self, *args, **kwargs):
+                self.multimodal_filter = kwargs.get("filter")
+                return [
+                    QueryResult(
+                        id="allowed",
+                        content="allowed topic",
+                        metadata={"category": "tech"},
+                        score=1.0,
+                    )
+                ]
+
+            async def keyword_search(self, *args, **kwargs):
+                self.keyword_call_kwargs = kwargs
+                return []
+
+            def _fuse_results(self, semantic_results, keyword_results, weights, k):
+                return semantic_results[:k]
+
+        pgvdb = FakeMultimodalDB()
+        filter_spec = {"category": "tech"}
+
+        await pgvdb.multimodal_hybrid_search(
+            query_params={"text": "topics"},
+            filter=filter_spec,
+        )
+
+        assert pgvdb.multimodal_filter is filter_spec
+        assert pgvdb.keyword_call_kwargs["filter"] is filter_spec
+
+
+# ---------------------------------------------------------------------------
 # get_multimodal_index_stats
 # ---------------------------------------------------------------------------
 
@@ -230,9 +273,7 @@ class TestRerankSearch:
         await rag_mm.build_index()  # also build base index for reranking stage
 
         try:
-            reranker = CrossEncoderReranker(
-                model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"
-            )
+            reranker = CrossEncoderReranker(model="cross-encoder/ms-marco-MiniLM-L-6-v2")
             res = await rag_mm.rerank_search(
                 query="technology",
                 reranker=reranker,

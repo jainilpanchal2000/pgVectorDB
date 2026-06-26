@@ -8,9 +8,10 @@
 #   pip install -e ".[aws]"            # + AWS Bedrock
 #   pip install -e ".[rerankers]"      # + Local reranker models
 #   pip install -e ".[cohere]"         # + Cohere API
+#   pip install -e ".[dataframe]"     # + pandas/pyarrow exports
 #   pip install -e ".[jupyter]"        # + Jupyter/notebook support
 #   pip install -e ".[all]"            # All optional extras
-#   pip install -e ".[dev]"            # Development tools (pytest, ruff, mypy)
+#   pip install -e "[dev]"            # Development tools (pytest, ruff, pyright, mypy)
 #
 # Or install from PyPI:
 #

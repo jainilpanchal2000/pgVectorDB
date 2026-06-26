@@ -6,34 +6,62 @@ repo_name: jainilpanchal2000/pgVectorDB
 
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
   features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
     - navigation.tabs
     - navigation.sections
     - navigation.top
     - navigation.indexes
+    - navigation.footer
+    - header.autohide
+    - toc.follow
     - search.suggest
     - search.highlight
     - search.share
     - content.code.copy
     - content.code.annotate
+    - content.code.select
+    - content.tabs.link
     - content.action.edit
     - content.action.view
     - announcement.dismiss
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: teal
+      accent: amber
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: teal
+      accent: amber
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jainilpanchal2000/pgVectorDB
+      name: pgVectorDB on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pgvectordb/
+      name: pgVectorDB on PyPI
 
 plugins:
   - search
@@ -49,8 +77,21 @@ plugins:
             members_order: source
 
 markdown_extensions:
+  - abbr
   - admonition
+  - def_list
+  - footnotes
+  - tables
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
   - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -61,10 +102,13 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
+  - pymdownx.keys
   - pymdownx.snippets
+  - pymdownx.smartsymbols
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.mark
+  - pymdownx.tilde
   - toc:
       permalink: true
   - attr_list
@@ -86,9 +130,13 @@ nav:
     - Metrics & Evaluation: user_guide/metrics_and_evaluation.md
     - Analytics & Diagnostics: user_guide/analytics_and_diagnostics.md
     - LangChain Integration: user_guide/langchain_integration.md
+    - Migration Guide: user_guide/migration_guide.md
   - Advanced:
     - Indexing & Performance: advanced/indexing.md
     - Configuration: advanced/configuration.md
+    - Design Notes:
+      - Fluent API Redesign: design/fluent_api_redesign.md
+  - Examples: examples.md
   - API Reference:
     - pgVectorDB Core: api_reference/pgvectordb.md
     - Spaces: api_reference/spaces.md

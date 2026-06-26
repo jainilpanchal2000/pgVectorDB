@@ -1,276 +1,294 @@
-# Search & Retrieval: The Developer's Deep Dive
+# Search & Retrieval
 
-pgVectorDB implements the `SearchMixin`, providing an unparalleled **10 distinct search methods**. This guide is an exhaustive, developer-grade deep dive into how each method functions, the underlying SQL generated, exact parameter definitions, and when to use them in production architectures.
-
-!!! note
-    **Score Interpretation**: Semantic distance (Cosine) means *lower is better*. BM25, FTS rank, and RRF fusion scores mean *higher is better*.
-
----
-
-## The Return Type: `QueryResult`
-
-All search methods (unless otherwise specified) return a `List[QueryResult]`. The `QueryResult` is a TypedDict containing:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | str | The internal LangChain UUID of the document |
-| `content` | str | The raw text chunk |
-| `metadata` | dict | The associated JSONB metadata |
-| `score` | float | The relevance score |
+pgVectorDB’s search API is centered on `db.query(...)`. Start with a text query, choose a mode, add filters and tuning, then execute.
 
 ```python
-from typing import List
-from pgvectordb import QueryResult
-
-results: List[QueryResult] = await db.semantic_search("query", k=5)
-
-for doc in results:
-    print(f"ID: {doc['id']}")
-    print(f"Content: {doc['content'][:100]}...")
-    print(f"Score: {doc['score']:.4f}")
-    print(f"Metadata: {doc['metadata']}")
-```
-
----
-
-## 1. `keyword_search`
-Performs a pure text search on the `content` column without utilizing vector embeddings.
-
-### Under the Hood
-Depending on `search_type`:
-- `KeywordSearchType.FTS`: Uses PostgreSQL's built-in `ts_rank` and `plainto_tsquery`. It leverages the `content_tsvector` column and the GIN index created during `initialize()`.
-- `KeywordSearchType.BM25`: Uses the custom `<@>` operator provided by the `pg_textsearch` extension. This calculates true BM25 scores (returned as negative values in SQL, which pgVectorDB normalizes).
-
-### Signature & Parameters
-
-```python
-async def keyword_search(
-    query: str,
-    k: int = 4,
-    filter: Optional[Dict[str, Any]] = None,
-    search_type: KeywordSearchType = KeywordSearchType.FTS,
-    k1: float = 1.2,           # BM25 parameter (Term frequency saturation)
-    b: float = 0.75,           # BM25 parameter (Length normalization)
-    text_config: str = "english" # Dictionary for stemming
-) -> List[QueryResult]
-
-```
-
-### Usage
-
-```python
-results = await db.keyword_search("database replication", k=10, search_type=KeywordSearchType.BM25)
-
-```
-
----
-
-## 2. `universal_keyword_search`
-A highly specialized FTS/BM25 search that boosts the final score if the query terms are also found inside specific JSONB `metadata` fields.
-
-### Under the Hood
-It dynamically constructs a `CASE WHEN` SQL clause. For every field specified in `metadata_fields`, it performs an `ILIKE :like_query`. If true, it adds `1.0` to the base FTS/BM25 score.
-
-### Usage
-
-```python
-# Finds documents about "scaling", but heavily favors documents where 
-# "scaling" is in the 'title' or 'category' tags.
-results = await db.universal_keyword_search(
-    query="scaling",
-    k=5,
-    metadata_fields=["title", "category"] 
-)
-
-```
-
----
-
-## 3. `semantic_search`
-The core dense vector retrieval method. 
-
-### Under the Hood
-Calculates the embedding of the query using your `embedding_model`, then executes an Approximate Nearest Neighbor (ANN) search using the `<=>` operator (Cosine Distance) against the `embedding` column.
-
-### Parameters
-- `use_exact_search` (bool): If set to `True`, pgVectorDB executes `SET LOCAL enable_indexscan = off` immediately before the query. This forces PostgreSQL to perform a sequential scan, bypassing HNSW/IVFFlat for 100% accurate recall at the cost of high latency.
-
-### Usage
-
-```python
-results = await db.semantic_search(
-    query="How to migrate to the cloud?",
-    k=5,
-    use_exact_search=False
-)
-
-```
-
----
-
-## 4. `metadata_filter`
-A strict filtering operation returning documents without any text or vector search involved.
-
-### Under the Hood
-Translates your JSON dictionary into raw SQL `WHERE` clauses against the `langchain_metadata` JSONB column. All returned documents are assigned a dummy score of `1.0`.
-
-### Parameters
-- `order_by` (str): Specific metadata key to order the results by (e.g., "created_at").
-- `ascending` (bool): Sort direction.
-
-### Usage
-
-```python
-results = await db.metadata_filter(
-    filter={"status": "published", "author": "admin"},
-    k=10,
-    order_by="published_date",
-    ascending=False
-)
-
-```
-
----
-
-## 5. `metadata_keyword_search`
-Applies strict metadata filtering *before* executing keyword search. 
-
-### Under the Hood
-Constructs a Common Table Expression (CTE) to pre-filter the table using your `filter` dict. The `ts_rank` / BM25 search is then executed *only* on the smaller CTE result set.
-
-```python
-results = await db.metadata_keyword_search(
-    query="connection pooling",
-    filter={"component": "database", "severity": {"$gt": 2}},
-    k=5
-)
-
-```
-
----
-
-## 6. `metadata_semantic_search`
-Applies strict metadata filtering *before* executing vector search. This is the foundation of multi-tenant RAG systems.
-
-### Under the Hood
-Appends the filter clauses directly into the `WHERE` clause alongside the vector `<=>` operator. The HNSW index handles this pre-filtering efficiently.
-
-```python
-results = await db.metadata_semantic_search(
-    query="Reset password",
-    filter={"tenant_id": "org_555"}, # Essential for data isolation
-    k=3
-)
-
-```
-
----
-
-## 7. `hybrid_search`
-Combines `keyword_search` and `semantic_search` into a single ranked list.
-
-### Under the Hood (Fusion Mechanisms)
-pgVectorDB executes both queries asynchronously. It then merges the results using one of two algorithms:
-1. **Reciprocal Rank Fusion (RRF)**: Used by default. Ranks are converted to scores via `1 / (rrf_k + rank)`. Excellent because it doesn't require vector distances and TF-IDF scores to be normalized to the same scale.
-2. **Weighted Fusion**: Used if the `weights` parameter (tuple of 2 floats summing to 1.0) is provided. It normalizes both sets of scores to a `0-1` range (inverting semantic distances so 1 is best) and applies the weights.
-
-### Parameters
-- `rrf_k` (int): Smoothing constant for RRF. Default is `60`.
-- `weights` (Tuple[float, float], optional): e.g., `(0.7, 0.3)` means 70% semantic, 30% keyword.
-
-### Usage
-
-```python
-results = await db.hybrid_search(
-    query="Machine learning performance",
-    k=5,
-    keyword_type=KeywordSearchType.BM25,
-    rrf_k=60
-)
-
-```
-
----
-
-## 8. `ensemble_search`
-The ultimate search method. It performs `metadata_filter` to isolate a subset of documents, and then performs a `hybrid_search` (with RRF or weights) on that exact subset.
-
-### Usage
-
-```python
-results = await db.ensemble_search(
-    query="Financial reports Q3",
-    filter={"department": "finance", "year": 2023},
-    k=10,
-    weights=(0.8, 0.2)
-)
-
-```
-
----
-
-## 9. `trigram_search`
-Fuzzy text search highly tolerant to spelling mistakes. 
-
-### Under the Hood
-Utilizes the `pg_trgm` extension. It uses the `gin_trgm_ops` index created during `initialize()`. It calculates the similarity between the query string and document content by counting matching 3-letter combinations (trigrams).
-
-### Usage
-
-```python
-# Will match documents containing "PostgreSQL"
-results = await db.trigram_search(
-    query="PostgreSQLLLL", 
-    k=5
-)
-
-```
-
----
-
-## 10. `metadata_trigram_search`
-Combines metadata filtering with fuzzy trigram matching. Uses a CTE for pre-filtering.
-
-```python
-results = await db.metadata_trigram_search(
-    query="useer auth", # Typo "useer"
-    filter={"category": "documentation"},
-    k=5
-)
-
-```
-
----
-
-## Additional Search Methods
-
-### 11. `asimilarity_search_by_vector`
-Search using pre-computed embeddings instead of generating from a text query. Useful when you've already embedded documents externally or want to compare embedding models.
-
-```python
-# Use the same embedding model to generate embeddings
-query_embedding = embedding_model.embed_query("machine learning foundations")
-
-results = await db.asimilarity_search_by_vector(
-    embedding=query_embedding,
-    k=5,
-    label_filter=[1, 2]  # Optional: DiskANN label filtering
+results = await (
+    db.query("how to tune filtered vector search")
+    .hybrid()
+    .where({"topic": "optimization"})
+    .weights(semantic=0.7, keyword=0.3)
+    .limit(10)
+    .to_list()
 )
 ```
 
-!!! tip
-    Use this when comparing embedding models - generate embeddings once and reuse them.
+## Fluent Query Pattern
 
-### 12. `asimilarity_search_with_score`
-Returns `(QueryResult, float)` tuples instead of a plain list. Useful when you need raw scores for custom processing.
+The builder is lazy. Chained methods only update configuration; execution happens when you call an output or analysis method.
+
+| Stage | Methods |
+| --- | --- |
+| Choose retrieval mode | `.semantic()`, `.keyword()`, `.hybrid()`, `.trigram()`, `.search_mode(...)` |
+| Add constraints | `.where(...)`, `.select(...)`, `.limit(...)`, `.offset(...)` |
+| Tune search | `.ef(...)`, `.nprobes(...)`, `.refine_factor(...)`, `.distance_range(...)`, `.bypass_vector_index()` |
+| Tune keyword/hybrid | `.bm25()`, `.fts(...)`, `.bm25_params(...)`, `.weights(...)`, `.rrf(...)`, `.phrase(...)`, `.universal(...)` |
+| Improve ranking | `.rerank(...)` |
+| Execute | `.to_list()`, `.to_pandas()`, `.to_arrow()`, `.analyze_plan()` |
+
+## Semantic Search
+
+Use semantic search when meaning matters more than exact wording.
 
 ```python
-results = await db.asimilarity_search_with_score(
-    query="database optimization",
-    k=5
+results = await (
+    db.query("customer cannot access account")
+    .semantic()
+    .limit(5)
+    .to_list()
+)
+```
+
+Add vector-index tuning for recall-sensitive workloads:
+
+```python
+results = await (
+    db.query("database backup retention policy")
+    .semantic()
+    .ef(100)
+    .refine_factor(2)
+    .limit(10)
+    .to_list()
+)
+```
+
+| Parameter | Index family | Effect |
+| --- | --- | --- |
+| `.ef(n)` | HNSW | Visits more graph candidates. Higher recall, higher latency. |
+| `.nprobes(n)` | IVFFlat | Searches more clusters. Higher recall, higher latency. |
+| `.refine_factor(n)` | ANN refinement | Fetches more candidates before returning final top-k. |
+| `.bypass_vector_index()` | Any | Exact search for ground truth and recall measurement. |
+| `.distance_range(low, high)` | Vector search | Keeps only results in a distance window. |
+
+## Keyword Search
+
+Use keyword search when exact terms, names, codes, and domain vocabulary matter.
+
+```python
+results = await (
+    db.query("SOC 2 encryption retention")
+    .keyword()
+    .fts(text_config="english")
+    .limit(10)
+    .to_list()
+)
+```
+
+Use BM25 when `pg_textsearch` is available and you want stronger keyword ranking.
+
+```python
+results = await (
+    db.query("database optimization guide")
+    .keyword()
+    .bm25_params(k1=1.2, b=0.75)
+    .limit(10)
+    .to_list()
+)
+```
+
+| BM25 setting | Increase when... | Decrease when... |
+| --- | --- | --- |
+| `k1` | Repeated terms should matter more. | You want less term-frequency saturation. |
+| `b` | You want stronger document-length normalization. | Short and long documents should be treated similarly. |
+
+Phrase and universal keyword search are useful for stricter matching or metadata-aware keyword search.
+
+```python
+phrase_results = await db.query("zero downtime index").keyword().phrase().limit(5).to_list()
+
+universal_results = await (
+    db.query("premium support")
+    .keyword()
+    .universal(metadata_fields=["title", "tags", "plan"])
+    .limit(5)
+    .to_list()
+)
+```
+
+## Hybrid Search
+
+Hybrid search combines vector similarity and keyword ranking. It is the default choice for RAG systems that need both semantic recall and exact term precision.
+
+```python
+results = await (
+    db.query("HNSW filtered recall")
+    .hybrid()
+    .weights(semantic=0.75, keyword=0.25)
+    .where({"topic": "optimization"})
+    .limit(10)
+    .to_list()
+)
+```
+
+Use Reciprocal Rank Fusion when the score scales between semantic and keyword search are difficult to compare.
+
+```python
+results = await (
+    db.query("PostgreSQL vector index tuning")
+    .hybrid()
+    .rrf(k=60)
+    .limit(10)
+    .to_list()
+)
+```
+
+| Fusion | Use when | Tradeoff |
+| --- | --- | --- |
+| `.weights(semantic, keyword)` | You know which signal should dominate. | Needs tuning and evaluation. |
+| `.rrf(k=60)` | You want robust rank fusion without score calibration. | Less direct control over signal strength. |
+
+## Trigram Fuzzy Search
+
+Trigram search uses PostgreSQL `pg_trgm` for typo-tolerant text matching.
+
+```python
+results = await (
+    db.query("vectro databse")
+    .trigram()
+    .threshold(0.2)
+    .limit(10)
+    .to_list()
+)
+```
+
+Use it for misspellings, product names, titles, people names, and query autosuggest-style workflows. Lower thresholds admit fuzzier matches; higher thresholds improve precision.
+
+## Metadata Filters
+
+Filters apply to every search mode through `.where(...)`.
+
+```python
+results = await (
+    db.query("wireless headphones")
+    .hybrid()
+    .where({
+        "category": "electronics",
+        "price": {"$between": [50, 200]},
+        "rating": {"$gte": 4.0},
+    })
+    .limit(10)
+    .to_list()
+)
+```
+
+Use scalar indexes for frequently filtered fields:
+
+```python
+await db.create_scalar_index("price", index_type="btree")
+await db.create_scalar_index("category", index_type="bitmap")
+```
+
+See [Metadata Filtering](filtering.md) for all operators and indexing guidance.
+
+## Reranking
+
+Reranking is a two-stage pattern: retrieve more candidates than you need, score them with a stronger model, then return fewer final results.
+
+```python
+from pgvectordb.rerankers import CrossEncoderReranker
+
+reranker = CrossEncoderReranker(model="cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+results = await (
+    db.query("how to configure diskann")
+    .hybrid()
+    .limit(100)
+    .rerank(reranker)
+    .to_list()
 )
 
-for doc, raw_score in results:
-    print(f"Doc: {doc['content'][:50]}")
-    print(f"Raw Score: {raw_score:.4f}")
+top_results = results[:10]
 ```
+
+Use reranking when top result order matters more than raw retrieval latency, especially for answer generation, support search, legal search, and high-value product search. In fluent queries, `.limit(...)` controls the candidate set that reaches the reranker; slice the returned list for the final result count. See [Reranking](reranking.md) for backend setup and candidate-count guidance.
+
+## SQL Analysis
+
+Use `explain_plan()` before executing when you want to understand the planned search shape.
+
+```python
+plan = (
+    db.query("filtered vector search")
+    .semantic()
+    .where({"topic": "optimization"})
+    .explain_plan()
+)
+```
+
+Use `analyze_plan()` to execute the configured query and return timing plus configuration metadata.
+
+```python
+metrics = await (
+    db.query("filtered vector search")
+    .semantic()
+    .where({"topic": "optimization"})
+    .ef(100)
+    .limit(10)
+    .analyze_plan()
+)
+
+print(metrics["execution_time_ms"])
+print(metrics["rows_returned"])
+print(metrics["search_method"])
+```
+
+For deeper PostgreSQL `EXPLAIN (ANALYZE, BUFFERS, VERBOSE)` output, use `explain_query()` from the diagnostics guide.
+
+## Output Formats
+
+```python
+results = await db.query("search quality").semantic().limit(10).to_list()
+frame = await db.query("search quality").semantic().limit(10).to_pandas()
+arrow_table = await db.query("search quality").semantic().limit(10).to_arrow()
+```
+
+Use `to_list()` for application code, `to_pandas()` for analysis notebooks, and `to_arrow()` for larger tabular pipelines.
+
+## Common Recipes
+
+### Multi-tenant RAG
+
+```python
+results = await (
+    db.query("API documentation")
+    .hybrid()
+    .where({"tenant_id": tenant_id, "visibility": "published"})
+    .limit(10)
+    .to_list()
+)
+```
+
+### Date-bounded semantic search
+
+```python
+results = await (
+    db.query("quarterly revenue risks")
+    .semantic()
+    .where({"year": {"$between": [2024, 2026]}})
+    .ef(100)
+    .limit(20)
+    .to_list()
+)
+```
+
+### Recall check with exact search
+
+```python
+exact = await db.query("index tuning").semantic().bypass_vector_index().limit(10).to_list()
+ann = await db.query("index tuning").semantic().ef(80).limit(10).to_list()
+
+exact_ids = {row["id"] for row in exact}
+ann_ids = {row["id"] for row in ann}
+recall_at_10 = len(exact_ids & ann_ids) / len(exact_ids)
+```
+
+## Score Direction
+
+| Search type | Score direction | Notes |
+| --- | --- | --- |
+| Semantic | Lower distance is better in raw vector distance; normalized query results may expose relevance-style scores depending on method. |
+| Keyword / BM25 | Higher is better. | PostgreSQL FTS or BM25 rank. |
+| Hybrid | Higher is better. | Fused score from weighted or RRF ranking. |
+| Trigram | Higher is better. | Similarity score from trigram matching. |
+
+Always validate ranking with your own ground truth using [Metrics & Evaluation](metrics_and_evaluation.md) before committing to production tuning.

@@ -11,11 +11,11 @@ Run with:
 
 import math
 import time
-import pytest
 from datetime import datetime, timezone
 
-from pgvectordb.spaces import RecencySpace, TimeUnit
+import pytest
 
+from pgvectordb.spaces import RecencySpace, TimeUnit
 
 # ==================== TimeUnit Tests ====================
 
@@ -113,9 +113,7 @@ class TestRecencySpaceEncode:
 
     def test_encode_old_timestamp_scores_near_zero(self):
         """A timestamp 30 days ago with τ=1 day should be near 0."""
-        space = RecencySpace(
-            name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=1
-        )
+        space = RecencySpace(name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=1)
         old_epoch = time.time() - 30 * 86400  # 30 days ago
         result = space.encode(old_epoch)
         assert result[0] < 0.001
@@ -148,9 +146,7 @@ class TestRecencySpaceEncode:
 
     def test_encode_iso_string(self):
         """ISO-8601 string should be parsed correctly."""
-        space = RecencySpace(
-            name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=365
-        )
+        space = RecencySpace(name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=365)
         # A timestamp from now should be near 1.0
         now_iso = datetime.now(timezone.utc).isoformat()
         result = space.encode(now_iso)
@@ -158,17 +154,13 @@ class TestRecencySpaceEncode:
 
     def test_encode_iso_string_with_z(self):
         """ISO-8601 with 'Z' suffix should parse correctly."""
-        space = RecencySpace(
-            name="ts", field="ts", time_unit=TimeUnit.WEEK, period_value=52
-        )
+        space = RecencySpace(name="ts", field="ts", time_unit=TimeUnit.WEEK, period_value=52)
         result = space.encode("2026-02-19T12:00:00Z")
         assert 0.0 <= result[0] <= 1.0
 
     def test_encode_datetime_object(self):
         """datetime object should be handled correctly."""
-        space = RecencySpace(
-            name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=365
-        )
+        space = RecencySpace(name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=365)
         now_dt = datetime.now(timezone.utc)
         result = space.encode(now_dt)
         assert result[0] > 0.99
@@ -188,9 +180,7 @@ class TestRecencySpaceEncode:
 
     def test_encode_integer_timestamp(self):
         """Integer timestamps should work."""
-        space = RecencySpace(
-            name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=365
-        )
+        space = RecencySpace(name="ts", field="ts", time_unit=TimeUnit.DAY, period_value=365)
         result = space.encode(int(time.time()))
         assert result[0] > 0.99
 

@@ -2,11 +2,11 @@
 pgVectorDB - Production PostgreSQL Vector Database
 ===================================================
 
-**Version:** 0.0.5.post1
-**Status:** Production-Ready with Multi-Embedding Support
+**Version:** 0.0.6
+**Status:** Production-ready PostgreSQL vector search and RAG toolkit
 
-A comprehensive PostgreSQL-based RAG (Retrieval-Augmented Generation) system with
-advanced vector indexing, multiple search methods, and production utilities.
+PostgreSQL-native vector search with a fluent query API, multimodal spaces,
+SQL diagnostics, reranking, and retrieval evaluation utilities.
 
 Module Structure
 ----------------
@@ -21,86 +21,94 @@ Module Structure
 Extension Requirements
 ----------------------
 - **pgvector** (REQUIRED): Core vector operations
-- **vectorscale** (OPTIONAL): DiskANN index support
-- **pg_textsearch** (OPTIONAL): BM25 keyword search
+- **vectorscale** (REQUIRED FOR DISKANN): DiskANN index support
+- **pg_textsearch** (REQUIRED FOR BM25): BM25 keyword search
 
 Quick Start
 -----------
     >>> from pgvectordb import pgVectorDB, IndexType
-    >>> rag = pgVectorDB(
+    >>> pgvdb = pgVectorDB(
     ...     collection_name="docs",
     ...     embedding_model=embeddings,
     ...     connection_string="postgresql+asyncpg://user:pass@localhost/db"
     ... )
-    >>> await rag.initialize()
-    >>> await rag.add_documents(documents)
-    >>> results = await rag.semantic_search("query", k=5)
+    >>> await pgvdb.initialize()
+    >>> await pgvdb.add_documents(documents)
+    >>> results = await pgvdb.query("query").semantic().limit(5).to_list()
 """
 
 # Import from new modular base
 from .base import (
-    # Enums
-    IndexType,
-    KeywordSearchType,
-    StorageLayout,
-    DistanceMetric,
-    VectorPrecision,
-    IterativeScanMode,
-    # Exceptions
-    RetrievalSystemError,
-    InitializationError,
-    ValidationError,
-    DatabaseError,
-    RateLimitError,
     # Constants
     ALLOWED_TEXT_CONFIGS,
-    VALID_QUERY_PARAMS,
     EXTENSION_REQUIREMENTS,
+    VALID_QUERY_PARAMS,
+    DatabaseError,
+    DistanceMetric,
+    IndexType,
+    InitializationError,
+    IterativeScanMode,
+    KeywordSearchType,
     # Types
     QueryResult,
+    RateLimitError,
+    # Exceptions
+    RetrievalSystemError,
+    # Enums
+    SearchMethod,
+    StorageLayout,
+    ValidationError,
+    VectorPrecision,
 )
-
-# Import extension manager
-from .extensions import ExtensionManager
 
 # Import main class from core (backward compatible)
 from .core import pgVectorDB
 
+# Import extension manager
+from .extensions import ExtensionManager
+
+# Import query builders (v0.0.6)
+try:
+    from .query.unified import SearchConfig, UnifiedQueryBuilder
+except ImportError:
+    UnifiedQueryBuilder = None
+    SearchConfig = None
+
 # Import metrics
+# Import config
+from .config import Config, get_production_config, get_test_config
 from .metrics import (
-    RAGEvaluator,
     EvaluationDataset,
     EvaluationResult,
     KValueAnalysis,
+    RAGEvaluator,
     create_sample_evaluation_dataset,
 )
-
-# Import config
-from .config import Config, get_test_config, get_production_config
+from .options import ConcurrentIndexBuildOptions, HybridSearchOptions, IndexBuildOptions
 
 # Import schema helpers
 from .schema import (
-    get_vector_table,
-    get_label_definitions_table,
-    quote_identifier,
     build_qualified_name,
     get_distance_operator,
     get_index_ops,
+    get_label_definitions_table,
+    get_vector_table,
+    quote_identifier,
 )
 
 # Import spaces module (v0.0.3)
 try:
     from .spaces import (
-        VectorSpace,
-        TextSpace,
-        NumberSpace,
         CategorySpace,
-        RecencySpace,
         NumberMode,
+        NumberSpace,
+        RecencySpace,
+        TextSpace,
         TimeUnit,
-        validate_spaces,
+        VectorSpace,
         encode_document_spaces,
         encode_query_spaces,
+        validate_spaces,
     )
 except ImportError:
     VectorSpace = None
@@ -114,10 +122,10 @@ except ImportError:
 # Import rerankers module (v0.0.3)
 try:
     from .rerankers import (
-        BaseReranker,
-        CrossEncoderReranker,
-        CohereReranker,
         AWSBedrockReranker,
+        BaseReranker,
+        CohereReranker,
+        CrossEncoderReranker,
         HuggingFaceReranker,
         create_reranker,
     )
@@ -129,7 +137,7 @@ except ImportError:
     HuggingFaceReranker = None
     create_reranker = None
 
-__version__ = "0.0.5.post1"
+__version__ = "0.0.6"
 
 __all__ = [
     # Core class
@@ -137,6 +145,7 @@ __all__ = [
     # Extension manager
     "ExtensionManager",
     # Enums
+    "SearchMethod",
     "IndexType",
     "KeywordSearchType",
     "StorageLayout",
@@ -163,6 +172,9 @@ __all__ = [
     "create_sample_evaluation_dataset",
     # Config
     "Config",
+    "ConcurrentIndexBuildOptions",
+    "HybridSearchOptions",
+    "IndexBuildOptions",
     "get_test_config",
     "get_production_config",
     # Schema helpers
@@ -190,4 +202,7 @@ __all__ = [
     "AWSBedrockReranker",
     "HuggingFaceReranker",
     "create_reranker",
+    # Query builders (v0.0.6)
+    "UnifiedQueryBuilder",
+    "SearchConfig",
 ]

@@ -7,22 +7,23 @@ Provides: as_retriever with custom VectorStoreRetriever for LangChain compatibil
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional, Any
+from typing import Any
 
-from langchain_core.documents import Document
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
 
+from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class IntegrationsMixin:
+class IntegrationsMixin(MixinBase):
     """Mixin providing LangChain ecosystem integration."""
 
     def as_retriever(
         self,
         search_method: str = "semantic_search",
-        search_kwargs: Optional[Dict[str, Any]] = None,
+        search_kwargs: dict[str, Any] | None = None,
     ) -> Any:
         """
         Convert to LangChain Retriever for ecosystem compatibility.
@@ -44,10 +45,10 @@ class IntegrationsMixin:
 
         Examples:
             >>> # Basic semantic retriever
-            >>> retriever = rag.as_retriever()
+            >>> retriever = pgvdb.as_retriever()
             >>>
             >>> # Hybrid search retriever with custom parameters
-            >>> retriever = rag.as_retriever(
+            >>> retriever = pgvdb.as_retriever(
             ...     search_method="hybrid_search",
             ...     search_kwargs={"k": 10, "weights": (0.7, 0.3)}
             ... )
@@ -59,8 +60,8 @@ class IntegrationsMixin:
             ...     retriever=retriever
             ... )
         """
+
         from langchain_core.retrievers import BaseRetriever
-        from typing import List as TypingList
 
         search_kwargs = search_kwargs or {"k": 4}
 
@@ -69,7 +70,7 @@ class IntegrationsMixin:
 
             vectorstore: Any
             search_method: str
-            search_kwargs: Dict[str, Any]
+            search_kwargs: dict[str, Any]
 
             class Config:
                 arbitrary_types_allowed = True
@@ -78,8 +79,8 @@ class IntegrationsMixin:
                 self,
                 query: str,
                 *,
-                run_manager: Optional[CallbackManagerForRetrieverRun] = None,
-            ) -> TypingList[Document]:
+                run_manager: CallbackManagerForRetrieverRun | None = None,
+            ) -> list[Document]:
                 """Sync version - not implemented (use async version)."""
                 raise NotImplementedError(
                     "Sync retrieval not supported. Use async methods with ainvoke() or aget_relevant_documents()"
@@ -89,8 +90,8 @@ class IntegrationsMixin:
                 self,
                 query: str,
                 *,
-                run_manager: Optional[CallbackManagerForRetrieverRun] = None,
-            ) -> TypingList[Document]:
+                run_manager: Any = None,  # AsyncCallbackManagerForRetrieverRun
+            ) -> list[Document]:
                 """Async retrieval using configured search method."""
                 # Get the search method from vectorstore
                 method = getattr(self.vectorstore, self.search_method, None)

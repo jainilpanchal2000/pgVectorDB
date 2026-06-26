@@ -1,7 +1,7 @@
 import json
 import random
-from typing import List, Dict, Any
 from pathlib import Path
+from typing import Any
 
 # Configuration
 NUM_DOCUMENTS = 1000
@@ -290,7 +290,7 @@ GOALS = [
 ]
 
 
-def generate_document(doc_id: int) -> Dict[str, Any]:
+def generate_document(doc_id: int) -> dict[str, Any]:
     category = random.choice(list(CATEGORIES.keys()))
     topic = random.choice(CATEGORIES[category])
     action = random.choice(ACTIONS)
@@ -320,7 +320,7 @@ def generate_document(doc_id: int) -> Dict[str, Any]:
     }
 
 
-def generate_query(docs: List[Dict[str, Any]], query_id: int) -> Dict[str, Any]:
+def generate_query(docs: list[dict[str, Any]], query_id: int) -> dict[str, Any]:
     # Select a target document to base the query on
     target_doc = random.choice(docs)
     topic = target_doc["metadata"]["topic"]

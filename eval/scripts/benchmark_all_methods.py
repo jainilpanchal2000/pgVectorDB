@@ -23,19 +23,19 @@ Metrics computed:
 """
 
 import asyncio
-import time
 import sys
+import time
 from pathlib import Path
-from typing import List
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from langchain_core.documents import Document
-from pgvectordb import pgVectorDB, IndexType, KeywordSearchType
-from pgvectordb.metrics import RAGEvaluator
-from pgvectordb.config import Config
 import pandas as pd
+from langchain_core.documents import Document
+
+from pgvectordb import IndexType, KeywordSearchType, pgVectorDB
+from pgvectordb.config import Config
+from pgvectordb.metrics import RAGEvaluator
 
 
 class BenchmarkDataset:
@@ -54,22 +54,20 @@ class BenchmarkDataset:
     def _load_from_file(self, filepath: str):
         import json
 
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
 
         self.documents = []
         for doc_data in data["documents"]:
             self.documents.append(
-                Document(
-                    page_content=doc_data["page_content"], metadata=doc_data["metadata"]
-                )
+                Document(page_content=doc_data["page_content"], metadata=doc_data["metadata"])
             )
 
         self.queries = data["queries"]
         self.ground_truth = data["ground_truth"]
         # self.query_metadata = data.get('query_metadata')
 
-    def _create_documents(self) -> List[Document]:
+    def _create_documents(self) -> list[Document]:
         """Create 200 realistic documents across 8 categories with detailed content."""
         docs = []
 
@@ -358,7 +356,7 @@ class BenchmarkDataset:
 
         return docs
 
-    def _create_queries(self) -> List[str]:
+    def _create_queries(self) -> list[str]:
         """Create complex and realistic test queries."""
         return [
             # Complex multi-term queries
@@ -393,7 +391,7 @@ class BenchmarkDataset:
             "zero-trust security architecture network segmentation least privilege access",
         ]
 
-    def _create_ground_truth(self) -> List[List[str]]:
+    def _create_ground_truth(self) -> list[list[str]]:
         """Define ground truth (relevant doc IDs) for each complex query."""
         return [
             # Query 0: transformer models attention NLP
@@ -450,8 +448,8 @@ class BenchmarkDataset:
 
 
 async def benchmark_method(
-    rag: pgVectorDB, method_name: str, queries: List[str], k: int, search_fn
-) -> tuple[List[List[str]], float]:
+    db: pgVectorDB, method_name: str, queries: list[str], k: int, search_fn
+) -> tuple[list[list[str]], float]:
     """
     Benchmark a single search method.
 
@@ -494,14 +492,14 @@ async def main():
     # Get connection string (respects ENVIRONMENT setting)
     connection_string = Config.get_connection_string()
 
-    rag = pgVectorDB(
+    db = pgVectorDB(
         collection_name="benchmark_test",
         embedding_model=embeddings,
         connection_string=connection_string,
         index_type=IndexType.HNSW,
     )
 
-    await rag.initialize(overwrite_existing=True)
+    await db.initialize(overwrite_existing=True)
 
     # 2. Load benchmark dataset
     print("\n📝 Step 2: Loading benchmark dataset...")
@@ -516,14 +514,14 @@ async def main():
     # 3. Add documents and build indexes
     print("\n🔨 Step 3: Building indexes...")
 
-    await rag.add_documents(dataset.documents)
-    await rag.create_metadata_index(["category", "priority"])
+    await db.add_documents(dataset.documents)
+    await db.create_metadata_index(["category", "priority"])
 
     # Build vector index (HNSW)
-    await rag.build_index()
+    await db.build_index()
 
     # Build BM25 index
-    await rag.build_bm25_index()
+    await db.build_bm25_index()
 
     print("   ✓ HNSW vector index built")
     print("   ✓ BM25 keyword index built")
@@ -545,7 +543,7 @@ async def main():
         methods.append(
             {
                 "name": f"1. Keyword (FTS) @{k}",
-                "search_fn": lambda q, k=k: rag.keyword_search(
+                "search_fn": lambda q, k=k: db.keyword_search(
                     q, k, search_type=KeywordSearchType.FTS
                 ),
             }
@@ -555,7 +553,7 @@ async def main():
         methods.append(
             {
                 "name": f"2. Keyword (BM25) @{k}",
-                "search_fn": lambda q, k=k: rag.keyword_search(
+                "search_fn": lambda q, k=k: db.keyword_search(
                     q, k, search_type=KeywordSearchType.BM25
                 ),
             }
@@ -565,7 +563,7 @@ async def main():
         methods.append(
             {
                 "name": f"3. Semantic @{k}",
-                "search_fn": lambda q, k=k: rag.semantic_search(q, k),
+                "search_fn": lambda q, k=k: db.semantic_search(q, k),
             }
         )
 
@@ -573,7 +571,7 @@ async def main():
         methods.append(
             {
                 "name": f"4. Hybrid (FTS + Semantic) @{k}",
-                "search_fn": lambda q, k=k: rag.hybrid_search(
+                "search_fn": lambda q, k=k: db.hybrid_search(
                     q, k, weights=(0.5, 0.5), keyword_type=KeywordSearchType.FTS
                 ),
             }
@@ -583,7 +581,7 @@ async def main():
         methods.append(
             {
                 "name": f"5. Hybrid (BM25 + Semantic) @{k}",
-                "search_fn": lambda q, k=k: rag.hybrid_search(
+                "search_fn": lambda q, k=k: db.hybrid_search(
                     q, k, weights=(0.5, 0.5), keyword_type=KeywordSearchType.BM25
                 ),
             }
@@ -593,7 +591,7 @@ async def main():
         methods.append(
             {
                 "name": f"6. Hybrid (BM25 + Semantic + RRF) @{k}",
-                "search_fn": lambda q, k=k: rag.hybrid_search(
+                "search_fn": lambda q, k=k: db.hybrid_search(
                     q, k, use_rrf=True, keyword_type=KeywordSearchType.BM25
                 ),
             }
@@ -603,7 +601,7 @@ async def main():
         methods.append(
             {
                 "name": f"7. Metadata + Semantic @{k}",
-                "search_fn": lambda q, k=k: rag.metadata_semantic_search(
+                "search_fn": lambda q, k=k: db.metadata_semantic_search(
                     q, {"priority": {"$in": ["high", "critical"]}}, k
                 ),
             }
@@ -613,7 +611,7 @@ async def main():
         methods.append(
             {
                 "name": f"8. Ensemble (Full) @{k}",
-                "search_fn": lambda q, k=k: rag.ensemble_search(
+                "search_fn": lambda q, k=k: db.ensemble_search(
                     q,
                     {"priority": {"$in": ["high", "critical", "medium"]}},
                     k,
@@ -627,7 +625,7 @@ async def main():
         methods.append(
             {
                 "name": f"9. Trigram (Fuzzy) @{k}",
-                "search_fn": lambda q, k=k: rag.trigram_search(q, k, threshold=0.1),
+                "search_fn": lambda q, k=k: db.trigram_search(q, k, threshold=0.1),
             }
         )
 
@@ -635,7 +633,7 @@ async def main():
         methods.append(
             {
                 "name": f"10. Metadata + Trigram @{k}",
-                "search_fn": lambda q, k=k: rag.metadata_trigram_search(
+                "search_fn": lambda q, k=k: db.metadata_trigram_search(
                     q,
                     {
                         "category": {
@@ -662,13 +660,11 @@ async def main():
 
             try:
                 retrieved, latency = await benchmark_method(
-                    rag, method["name"], dataset.queries, k, method["search_fn"]
+                    db, method["name"], dataset.queries, k, method["search_fn"]
                 )
 
                 # Evaluate
-                eval_result = evaluator.evaluate(
-                    dataset.queries, retrieved, dataset.ground_truth
-                )
+                eval_result = evaluator.evaluate(dataset.queries, retrieved, dataset.ground_truth)
 
                 results_data.append(
                     {
@@ -719,7 +715,7 @@ async def main():
   • General RAG (balanced):                 Check F1 + NDCG
   • Research/Comprehensive (coverage):      Check Recall + Hit Rate
   • Production (quality + speed):           Check Precision + Latency
-  
+
 🔍 Expected Trends:
   • BM25 > FTS:              Better keyword ranking
   • Semantic:                Best for conceptual matches

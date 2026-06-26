@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="pgVectorDB logo">
+  <defs>
+    <linearGradient id="pgvdbLogo" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00A884"/>
+      <stop offset="0.52" stop-color="#20866E"/>
+      <stop offset="1" stop-color="#F2B705"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="12" fill="#0B1F1A"/>
+  <path d="M20 42V18h15.2c6.1 0 10.3 3.8 10.3 9.4 0 5.8-4.2 9.6-10.5 9.6h-7.8v5H20Zm7.2-10.9h6.9c2.6 0 4.2-1.4 4.2-3.7 0-2.2-1.6-3.6-4.2-3.6h-6.9v7.3Z" fill="url(#pgvdbLogo)"/>
+  <circle cx="45" cy="43" r="4" fill="#F2B705"/>
+</svg>

@@ -7,31 +7,35 @@ adrop_vector_index, vacuum_analyze, set_query_params, set_diskann_build_params,
 create_metadata_index, and related search methods.
 """
 
+import json
 import logging
-from typing import Dict, List, Optional, Any, Literal
+import re
+from typing import Any, Literal
 
-from sqlalchemy import text, inspect
 from langchain_postgres.v2.indexes import HNSWIndex, IVFFlatIndex
+from sqlalchemy import inspect, text
 
 from ..base import (
-    IndexType,
-    DistanceMetric,
-    StorageLayout,
-    ValidationError,
-    DatabaseError,
-    QueryResult,
     ALLOWED_TEXT_CONFIGS,
     VALID_QUERY_PARAMS,
+    DatabaseError,
+    DistanceMetric,
+    IndexType,
+    QueryResult,
+    StorageLayout,
+    ValidationError,
 )
+from ..options import ConcurrentIndexBuildOptions, IndexBuildOptions
 from ..schema import build_qualified_name
+from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class IndexingMixin:
+class IndexingMixin(MixinBase):
     """Mixin providing index build, tune, and management operations."""
 
-    async def create_metadata_index(self, columns: List[str]) -> None:
+    async def create_metadata_index(self, columns: list[str]) -> None:
         """
         Create GIN indexes on metadata JSONB fields for faster filtering.
 
@@ -85,15 +89,16 @@ class IndexingMixin:
         m: int = 16,
         ef_construction: int = 64,
         # IVFFlat parameters
-        lists: Optional[int] = None,
+        lists: int | None = None,
         # DiskANN parameters
         num_neighbors: int = 50,
         search_list_size: int = 100,
         max_alpha: float = 1.2,
         storage_layout: StorageLayout = StorageLayout.MEMORY_OPTIMIZED,
         num_dimensions: int = 0,
-        num_bits_per_dimension: Optional[int] = None,
+        num_bits_per_dimension: int | None = None,
         include_labels: bool = False,
+        options: IndexBuildOptions | None = None,
     ) -> None:
         """
         Build vector index based on the selected index type.
@@ -126,10 +131,21 @@ class IndexingMixin:
         """
         self._ensure_initialized()
 
+        if options is not None:
+            metric = options.metric
+            m = options.m
+            ef_construction = options.ef_construction
+            lists = options.lists
+            num_neighbors = options.num_neighbors
+            search_list_size = options.search_list_size
+            max_alpha = options.max_alpha
+            storage_layout = options.storage_layout
+            num_dimensions = options.num_dimensions
+            num_bits_per_dimension = options.num_bits_per_dimension
+            include_labels = options.include_labels
+
         if self._index_built:
-            logger.warning(
-                f"{self.index_type.value} index already built, rebuilding..."
-            )
+            logger.warning(f"{self.index_type.value} index already built, rebuilding...")
 
         try:
             if self.index_type == IndexType.HNSW:
@@ -151,38 +167,35 @@ class IndexingMixin:
             self._index_built = True
             logger.info(f"{self.index_type.value} index built successfully")
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to build {self.index_type.value} index: {e}"
-            ) from e
+            raise DatabaseError(f"Failed to build {self.index_type.value} index: {e}") from e
 
-    async def _build_hnsw_index(
-        self, metric: DistanceMetric, m: int, ef_construction: int
-    ) -> None:
+    async def _build_hnsw_index(self, metric: DistanceMetric, m: int, ef_construction: int) -> None:
         """Build HNSW index using pgvector."""
         if m <= 0 or ef_construction <= 0:
             raise ValidationError("m and ef_construction must be positive")
 
+        if self._vector_store is None:
+            raise RuntimeError("Vector store is not initialized")
         index = HNSWIndex(m=m, ef_construction=ef_construction)
         await self._vector_store.aapply_vector_index(index)
         logger.info(f"HNSW index built (m={m}, ef_construction={ef_construction})")
 
-    async def _build_ivfflat_index(
-        self, metric: DistanceMetric, lists: Optional[int]
-    ) -> None:
+    async def _build_ivfflat_index(self, metric: DistanceMetric, lists: int | None) -> None:
         """Build IVFFlat index using pgvector."""
         if lists is None:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(
-                    text(
-                        f'SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"'
-                    )
+                    text(f'SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"')
                 )
                 row_count = result.scalar()
-                lists = max(10, row_count // 1000)
+                lists = max(10, (row_count or 0) // 1000)
 
+        assert lists is not None
         if lists <= 0:
             raise ValidationError("lists must be positive")
 
+        if self._vector_store is None:
+            raise RuntimeError("Vector store is not initialized")
         index = IVFFlatIndex(lists=lists)
         await self._vector_store.aapply_vector_index(index)
         logger.info(f"IVFFlat index built (lists={lists})")
@@ -195,7 +208,7 @@ class IndexingMixin:
         max_alpha: float,
         storage_layout: StorageLayout,
         num_dimensions: int,
-        num_bits_per_dimension: Optional[int],
+        num_bits_per_dimension: int | None,
         include_labels: bool,
     ) -> None:
         """Build DiskANN index using pgvectorscale."""
@@ -236,14 +249,10 @@ class IndexingMixin:
             # Apply build-time parameters if any (DiskANN specific)
             if self._diskann_build_params:
                 for param, value in self._diskann_build_params.items():
-                    await conn.execute(
-                        text(f"SET LOCAL {param} = :value"), {"value": value}
-                    )
+                    await conn.execute(text(f"SET LOCAL {param} = :value"), {"value": value})
                     logger.info(f"Applied build param: {param}={value}")
 
-            await conn.execute(
-                text(f'DROP INDEX IF EXISTS "{self.schema_name}"."{index_name}"')
-            )
+            await conn.execute(text(f'DROP INDEX IF EXISTS "{self.schema_name}"."{index_name}"'))
             await conn.execute(text(create_index_sql))
             await conn.commit()
 
@@ -255,14 +264,14 @@ class IndexingMixin:
 
     async def set_query_params(
         self,
-        probes: Optional[int] = None,
-        ef_search: Optional[int] = None,
-        query_search_list_size: Optional[int] = None,
-        query_rescore: Optional[int] = None,
-        iterative_scan: Optional[Literal["strict_order", "relaxed_order"]] = None,
-        max_scan_tuples: Optional[int] = None,
-        scan_mem_multiplier: Optional[int] = None,
-        max_probes: Optional[int] = None,
+        probes: int | None = None,
+        ef_search: int | None = None,
+        query_search_list_size: int | None = None,
+        query_rescore: int | None = None,
+        iterative_scan: Literal["strict_order", "relaxed_order"] | None = None,
+        max_scan_tuples: int | None = None,
+        scan_mem_multiplier: int | None = None,
+        max_probes: int | None = None,
     ) -> None:
         """
         Set query-time parameters for the active index type.
@@ -293,12 +302,8 @@ class IndexingMixin:
         if query_search_list_size is not None:
             if query_search_list_size <= 0:
                 raise ValidationError("query_search_list_size must be positive")
-            self._query_params["diskann.query_search_list_size"] = (
-                query_search_list_size
-            )
-            logger.info(
-                f"Set diskann.query_search_list_size = {query_search_list_size}"
-            )
+            self._query_params["diskann.query_search_list_size"] = query_search_list_size
+            logger.info(f"Set diskann.query_search_list_size = {query_search_list_size}")
 
         if query_rescore is not None:
             if query_rescore < 0:
@@ -315,9 +320,7 @@ class IndexingMixin:
                 self._query_params["ivfflat.iterative_scan"] = iterative_scan
                 logger.info(f"Set hnsw/ivfflat iterative_scan = {iterative_scan}")
             else:
-                raise ValidationError(
-                    "iterative_scan must be 'strict_order' or 'relaxed_order'"
-                )
+                raise ValidationError("iterative_scan must be 'strict_order' or 'relaxed_order'")
 
         if max_scan_tuples is not None:
             if max_scan_tuples <= 0:
@@ -350,18 +353,16 @@ class IndexingMixin:
             # asyncpg does not support parameters in SET commands
             if isinstance(value, str) and "'" in value:
                 # Should not happen with validated params, but defensive coding
-                raise ValidationError(
-                    f"Invalid characters in query parameter value: {value}"
-                )
+                raise ValidationError(f"Invalid characters in query parameter value: {value}")
 
             await conn.execute(text(f"SET LOCAL {param} = '{value}'"))
 
     async def set_diskann_build_params(
         self,
-        force_parallel_workers: Optional[int] = None,
-        min_vectors_for_parallel_build: Optional[int] = None,
-        parallel_flush_interval: Optional[int] = None,
-        parallel_initial_start_nodes_count: Optional[int] = None,
+        force_parallel_workers: int | None = None,
+        min_vectors_for_parallel_build: int | None = None,
+        parallel_flush_interval: int | None = None,
+        parallel_initial_start_nodes_count: int | None = None,
     ) -> None:
         """
         Set session-level parameters for DiskANN parallel index build.
@@ -370,9 +371,7 @@ class IndexingMixin:
         if force_parallel_workers is not None:
             if force_parallel_workers < 0:
                 raise ValidationError("Workers must be non-negative")
-            self._diskann_build_params["diskann.force_parallel_workers"] = (
-                force_parallel_workers
-            )
+            self._diskann_build_params["diskann.force_parallel_workers"] = force_parallel_workers
 
         if min_vectors_for_parallel_build is not None:
             if min_vectors_for_parallel_build < 0:
@@ -384,9 +383,7 @@ class IndexingMixin:
         if parallel_flush_interval is not None:
             if parallel_flush_interval < 0:
                 raise ValidationError("Flush interval must be non-negative")
-            self._diskann_build_params["diskann.parallel_flush_interval"] = (
-                parallel_flush_interval
-            )
+            self._diskann_build_params["diskann.parallel_flush_interval"] = parallel_flush_interval
 
         if parallel_initial_start_nodes_count is not None:
             if parallel_initial_start_nodes_count < 0:
@@ -402,7 +399,7 @@ class IndexingMixin:
         text_config: str = "english",
         k1: float = 1.2,
         b: float = 0.75,
-        max_parallel_maintenance_workers: Optional[int] = None,
+        max_parallel_maintenance_workers: int | None = None,
     ) -> None:
         """
         Build native BM25 index using pg_textsearch extension.
@@ -437,9 +434,7 @@ class IndexingMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 # Check if pg_textsearch extension is available
                 result = await conn.execute(
-                    text(
-                        "SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch';"
-                    )
+                    text("SELECT * FROM pg_available_extensions WHERE name = 'pg_textsearch';")
                 )
                 if result.fetchone() is None:
                     raise DatabaseError(
@@ -455,17 +450,23 @@ class IndexingMixin:
                 # Set parallel workers hint if provided
                 if max_parallel_maintenance_workers is not None:
                     if max_parallel_maintenance_workers < 0:
-                        raise ValidationError("max_parallel_maintenance_workers must be non-negative")
+                        raise ValidationError(
+                            "max_parallel_maintenance_workers must be non-negative"
+                        )
                     await conn.execute(
-                        text(f"SET LOCAL max_parallel_maintenance_workers = {max_parallel_maintenance_workers};")
+                        text(
+                            f"SET LOCAL max_parallel_maintenance_workers = {max_parallel_maintenance_workers};"
+                        )
                     )
-                    logger.info(f"Set parallel maintenance workers: {max_parallel_maintenance_workers}")
+                    logger.info(
+                        f"Set parallel maintenance workers: {max_parallel_maintenance_workers}"
+                    )
 
                 # Create BM25 index
                 create_index_sql = f"""
-                CREATE INDEX "{index_name}" 
-                ON "{self.schema_name}"."{self.table_name}" 
-                USING bm25(content) 
+                CREATE INDEX "{index_name}"
+                ON "{self.schema_name}"."{self.table_name}"
+                USING bm25(content)
                 WITH (text_config='{text_config}', k1={k1}, b={b})
                 """
                 await conn.execute(text(create_index_sql))
@@ -475,7 +476,7 @@ class IndexingMixin:
         except Exception as e:
             raise DatabaseError(f"Failed to build BM25 index: {e}") from e
 
-    async def areindex(self, index_name: Optional[str] = None) -> None:
+    async def areindex(self, index_name: str | None = None) -> None:
         """
         Rebuild vector index using existing data.
 
@@ -491,9 +492,9 @@ class IndexingMixin:
 
         Examples:
             >>> # Add 100k new documents
-            >>> await rag.add_documents(new_docs)
+            >>> await pgvdb.add_documents(new_docs)
             >>> # Rebuild index for optimal performance
-            >>> await rag.areindex()
+            >>> await pgvdb.areindex()
         """
         self._ensure_initialized()
 
@@ -510,8 +511,8 @@ class IndexingMixin:
                     async with self.sqlalchemy_engine.connect() as conn:
                         result = await conn.execute(
                             text("""
-                            SELECT indexname FROM pg_indexes 
-                            WHERE schemaname = :schema 
+                            SELECT indexname FROM pg_indexes
+                            WHERE schemaname = :schema
                             AND tablename = :table
                             AND indexdef LIKE '%embedding%'
                             AND indexdef LIKE '%USING%'
@@ -527,15 +528,13 @@ class IndexingMixin:
 
             async with self.sqlalchemy_engine.connect() as conn:
                 logger.info(f"Reindexing '{index_name}'...")
-                await conn.execute(
-                    text(f'REINDEX INDEX "{self.schema_name}"."{index_name}"')
-                )
+                await conn.execute(text(f'REINDEX INDEX "{self.schema_name}"."{index_name}"'))
                 await conn.commit()
                 logger.info(f"✓ Index '{index_name}' rebuilt successfully")
         except Exception as e:
             raise DatabaseError(f"Failed to reindex: {e}") from e
 
-    async def adrop_vector_index(self, index_name: Optional[str] = None) -> None:
+    async def adrop_vector_index(self, index_name: str | None = None) -> None:
         """
         Remove vector index while keeping all data.
 
@@ -553,9 +552,9 @@ class IndexingMixin:
 
         Examples:
             >>> # Switch from HNSW to DiskANN
-            >>> await rag.adrop_vector_index()
-            >>> rag.index_type = IndexType.DISKANN
-            >>> await rag.build_index()
+            >>> await pgvdb.adrop_vector_index()
+            >>> pgvdb.index_type = IndexType.DISKANN
+            >>> await pgvdb.build_index()
         """
         self._ensure_initialized()
 
@@ -568,8 +567,8 @@ class IndexingMixin:
                     async with self.sqlalchemy_engine.connect() as conn:
                         result = await conn.execute(
                             text("""
-                            SELECT indexname FROM pg_indexes 
-                            WHERE schemaname = :schema 
+                            SELECT indexname FROM pg_indexes
+                            WHERE schemaname = :schema
                             AND tablename = :table
                             AND indexdef LIKE '%embedding%'
                             AND (indexdef LIKE '%hnsw%' OR indexdef LIKE '%ivfflat%')
@@ -615,11 +614,11 @@ class IndexingMixin:
 
         Examples:
             >>> # After bulk operations
-            >>> await rag.add_documents_batch(large_docs)
-            >>> await rag.vacuum_analyze()
+            >>> await pgvdb.add_documents_batch(large_docs)
+            >>> await pgvdb.vacuum_analyze()
             >>>
             >>> # Deep maintenance (locks table)
-            >>> await rag.vacuum_analyze(full=True)
+            >>> await pgvdb.vacuum_analyze(full=True)
         """
         self._ensure_initialized()
 
@@ -634,22 +633,16 @@ class IndexingMixin:
                 # Escape any active implicit transaction so asyncpg accepts VACUUM
                 await conn.execute(text("COMMIT"))
 
-                qualified_table = (
-                    f'"{self.schema_name}"."{self.table_name}"'
-                )
+                qualified_table = f'"{self.schema_name}"."{self.table_name}"'
 
                 if full:
                     logger.info(
                         "Running VACUUM FULL ANALYZE (this may take a while and locks table)..."
                     )
-                    await conn.execute(
-                        text(f"VACUUM FULL ANALYZE {qualified_table}")
-                    )
+                    await conn.execute(text(f"VACUUM FULL ANALYZE {qualified_table}"))
                 else:
                     logger.info("Running VACUUM ANALYZE...")
-                    await conn.execute(
-                        text(f"VACUUM ANALYZE {qualified_table}")
-                    )
+                    await conn.execute(text(f"VACUUM ANALYZE {qualified_table}"))
 
                 logger.info("✓ Maintenance completed")
         except Exception as e:
@@ -674,9 +667,7 @@ class IndexingMixin:
 
                 def check_sync(sync_conn):
                     inspector = inspect(sync_conn)
-                    indexes = inspector.get_indexes(
-                        self.table_name, schema=self.schema_name
-                    )
+                    indexes = inspector.get_indexes(self.table_name, schema=self.schema_name)
                     return any(idx["name"] == index_name for idx in indexes)
 
                 return await conn.run_sync(check_sync)
@@ -686,9 +677,9 @@ class IndexingMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(
                     text("""
-                        SELECT 1 FROM pg_indexes 
-                        WHERE schemaname = :schema 
-                        AND tablename = :table 
+                        SELECT 1 FROM pg_indexes
+                        WHERE schemaname = :schema
+                        AND tablename = :table
                         AND indexname = :index_name
                     """),
                     {
@@ -702,12 +693,12 @@ class IndexingMixin:
     async def build_index_concurrent(
         self,
         # Index type override
-        index_type: Optional[IndexType] = None,
+        index_type: IndexType | None = None,
         # HNSW parameters
         m: int = 16,
         ef_construction: int = 64,
         # IVFFlat parameters
-        lists: Optional[int] = None,
+        lists: int | None = None,
         # DiskANN parameters
         num_neighbors: int = 50,
         search_list_size: int = 100,
@@ -716,6 +707,7 @@ class IndexingMixin:
         include_labels: bool = False,
         # Distance metric
         distance: DistanceMetric = DistanceMetric.COSINE,
+        options: ConcurrentIndexBuildOptions | None = None,
     ) -> None:
         """
         Build vector index CONCURRENTLY (non-blocking writes).
@@ -740,6 +732,18 @@ class IndexingMixin:
             - May fail if there are long-running transactions
         """
         self._ensure_initialized()
+
+        if options is not None:
+            index_type = options.index_type
+            m = options.m
+            ef_construction = options.ef_construction
+            lists = options.lists
+            num_neighbors = options.num_neighbors
+            search_list_size = options.search_list_size
+            max_alpha = options.max_alpha
+            storage_layout = options.storage_layout
+            include_labels = options.include_labels
+            distance = options.distance
 
         idx_type = index_type or self.index_type
         index_name = f"idx_{self.table_name}_{idx_type.value}"
@@ -782,9 +786,7 @@ class IndexingMixin:
                 elif idx_type == IndexType.IVFFLAT:
                     if lists is None:
                         # Auto-calculate lists based on row count
-                        result = await conn.execute(
-                            text(f"SELECT COUNT(*) FROM {qualified_table}")
-                        )
+                        result = await conn.execute(text(f"SELECT COUNT(*) FROM {qualified_table}"))
                         row_count = result.scalar() or 1000
                         lists = (
                             max(int(row_count / 1000), 1)
@@ -823,7 +825,7 @@ class IndexingMixin:
 
     # ==================== NEW FEATURES: INDEX BUILD PROGRESS (Task 13) ====================
 
-    async def get_index_build_progress(self) -> Optional[Dict[str, Any]]:
+    async def get_index_build_progress(self) -> dict[str, Any] | None:
         """
         Get index build progress for ongoing index creation.
 
@@ -831,7 +833,7 @@ class IndexingMixin:
             Dictionary with 'phase' and 'percent' if build in progress, None otherwise
 
         Examples:
-            >>> progress = await rag.get_index_build_progress()
+            >>> progress = await pgvdb.get_index_build_progress()
             >>> if progress:
             ...     print(f"Phase: {progress['phase']}, Progress: {progress['percent']:.1f}%")
         """
@@ -839,7 +841,7 @@ class IndexingMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(
                     text("""
-                    SELECT 
+                    SELECT
                         phase,
                         ROUND(100.0 * blocks_done / NULLIF(blocks_total, 0), 1) AS percent
                     FROM pg_stat_progress_create_index
@@ -861,7 +863,7 @@ class IndexingMixin:
         self,
         subvector_dims: int,
         start_dim: int = 1,
-        index_type: Optional[IndexType] = None,
+        index_type: IndexType | None = None,
         distance: DistanceMetric = DistanceMetric.COSINE,
         m: int = 16,
         ef_construction: int = 64,
@@ -887,7 +889,7 @@ class IndexingMixin:
 
         Examples:
             >>> # Index first 256 dimensions of 1536-dim embeddings
-            >>> index_name = await rag.build_index_with_subvectors(subvector_dims=256)
+            >>> index_name = await pgvdb.build_index_with_subvectors(subvector_dims=256)
             >>>
             >>> # Query must also use subvector
             >>> # SELECT * FROM docs ORDER BY subvector(embedding, 1, 256)::vector(256) <=> query LIMIT 10
@@ -931,9 +933,7 @@ class IndexingMixin:
                     )
                 elif idx_type == IndexType.IVFFLAT:
                     # Calculate lists based on row count
-                    result = await conn.execute(
-                        text(f"SELECT COUNT(*) FROM {qualified_table}")
-                    )
+                    result = await conn.execute(text(f"SELECT COUNT(*) FROM {qualified_table}"))
                     row_count = result.scalar() or 1000
                     lists = max(int(row_count / 1000), 1)
 
@@ -964,7 +964,7 @@ class IndexingMixin:
         k: int = 10,
         rerank_top: int = 20,
         start_dim: int = 1,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Search using subvector index with full-vector re-ranking for better recall.
 
@@ -1049,7 +1049,7 @@ class IndexingMixin:
             Name of the created index
 
         Examples:
-            >>> index_name = await rag.build_index_binary_quantized()
+            >>> index_name = await pgvdb.build_index_binary_quantized()
             >>> # Searches will use binary index, re-rank with full vectors
 
         Note:
@@ -1092,7 +1092,7 @@ class IndexingMixin:
 
     async def search_with_binary_rerank(
         self, query: str, k: int = 10, rerank_top: int = 50
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Search using binary quantized index with full-vector re-ranking.
 
@@ -1151,3 +1151,186 @@ class IndexingMixin:
 
         except Exception as e:
             raise DatabaseError(f"Binary quantized search failed: {e}") from e
+
+    # ==================== NEW: Scalar Index Methods (v0.0.6) ====================
+
+    async def create_scalar_index(
+        self,
+        column: str,
+        index_type: Literal["btree", "bitmap", "gin", "labellist"] = "btree",
+        unique: bool = False,
+        concurrently: bool = False,
+    ) -> str:
+        """
+        Create PostgreSQL scalar index on metadata or table column.
+
+        Scalar indexes speed up metadata filtering and range queries.
+        Different index types are optimal for different use cases:
+
+        - **btree**: Best for equality and range queries on ordered data (default)
+        - **bitmap**: For low-cardinality categorical data (falls back to GIN in PG)
+        - **gin**: For array/containment queries
+        - **labellist**: For label-based filtering with arrays
+
+        Args:
+            column: Column name or metadata key (e.g., "price", "category")
+            index_type: Type of index (btree, bitmap, gin, labellist)
+            unique: Whether index should enforce uniqueness (BTree only)
+            concurrently: Use CREATE INDEX CONCURRENTLY to avoid locking
+
+        Returns:
+            Name of the created index
+
+        Raises:
+            ValidationError: If parameters are invalid
+            DatabaseError: If index creation fails
+
+        Examples:
+            >>> # BTree index for range queries
+            >>> await db.create_scalar_index("price", index_type="btree")
+
+            >>> # Index for categorical data (maps to GIN in PostgreSQL)
+            >>> await db.create_scalar_index("category", index_type="bitmap")
+
+            >>> # Array containment index
+            >>> await db.create_scalar_index("tags", index_type="gin")
+        """
+        self._ensure_initialized()
+
+        # Validate column name for security
+        if not column or not isinstance(column, str):
+            raise ValidationError("column must be a non-empty string")
+        if not re.match(r"^[a-zA-Z0-9_]+$", column):
+            raise ValidationError(
+                f"Invalid column name: '{column}'. Use alphanumeric characters only."
+            )
+
+        valid_types = ["btree", "bitmap", "gin", "labellist"]
+        if index_type not in valid_types:
+            raise ValidationError(
+                f"Invalid index_type: {index_type}. Must be one of: {valid_types}"
+            )
+
+        # Generate index name
+        index_name = f"idx_{self.table_name}_{column}_{index_type}"
+        qualified_table = build_qualified_name(self.schema_name, self.table_name)
+
+        try:
+            async with self.sqlalchemy_engine.connect() as conn:
+                # Map index type to PostgreSQL index method
+                pg_index_type = self._map_scalar_index_type(index_type, column)
+
+                # Build the index expression based on index type
+                if index_type == "labellist":
+                    # For arrays, index directly
+                    index_expr = column
+                elif index_type == "gin":
+                    # For arrays in metadata
+                    index_expr = f"(langchain_metadata->>'{column}')"
+                else:
+                    # For regular metadata fields
+                    # Detect type from a sample value
+                    col_type = await self._detect_metadata_type(column, conn)
+                    if col_type in ("integer", "numeric", "float"):
+                        index_expr = f"((langchain_metadata->>'{column}')::numeric)"
+                    elif col_type == "boolean":
+                        index_expr = f"((langchain_metadata->>'{column}')::boolean)"
+                    else:
+                        index_expr = f"((langchain_metadata->>'{column}'))"
+
+                # Build CREATE INDEX statement - create using raw SQL to avoid escaping issues
+                concurrently_clause = "CONCURRENTLY " if concurrently else ""
+                unique_clause = "UNIQUE " if unique and pg_index_type == "btree" else ""
+
+                create_sql = (
+                    f'CREATE {unique_clause}INDEX {concurrently_clause}IF NOT EXISTS "{index_name}" '
+                    f"ON {qualified_table} "
+                    f"USING {pg_index_type} ({index_expr})"
+                )
+
+                await conn.execute(text(create_sql))
+                await conn.commit()
+
+            logger.info(f"✓ Created {index_type} index on column: {column}")
+            return index_name
+
+        except Exception as e:
+            raise DatabaseError(f"Failed to create scalar index: {e}") from e
+
+    def _map_scalar_index_type(self, index_type: str, column: str) -> str:
+        """Map requested index type to PostgreSQL index method.
+
+        Args:
+            index_type: Requested index type (btree, bitmap, gin, labellist)
+            column: Column name
+
+        Returns:
+            PostgreSQL index method string
+        """
+        mapping = {
+            "btree": "btree",
+            "gin": "gin",
+            "labellist": "gin",
+            # PostgreSQL doesn't have native bitmap indexes
+            # Use GIN for bitmap approximation on low-cardinality data
+            "bitmap": "btree",  # Fall back to BTree with partial index
+        }
+        return mapping.get(index_type, "btree")
+
+    async def _detect_metadata_type(self, column: str, conn: Any) -> str:
+        """Detect PostgreSQL type for a metadata column from sample data.
+
+        Args:
+            column: Metadata key to check
+            conn: Database connection
+
+        Returns:
+            Detected type: 'text', 'integer', 'numeric', 'boolean', 'array'
+        """
+        try:
+            # Sample up to 100 rows to detect type
+            result = await conn.execute(
+                text(f"""
+                    SELECT langchain_metadata->>'{column}' as sample
+                    FROM "{self.schema_name}"."{self.table_name}"
+                    WHERE langchain_metadata->>'{column}' IS NOT NULL
+                    LIMIT 100
+                """)
+            )
+            rows = result.fetchall()
+
+            if not rows:
+                return "text"  # Default to text if no data
+
+            # Analyze samples to determine most probable type
+            samples = [row[0] for row in rows if row[0] is not None]
+            if not samples:
+                return "text"
+
+            # Check if all samples are integers
+            try:
+                for s in samples:
+                    if s is not None and not isinstance(json.loads(s), int):
+                        break
+                else:
+                    return "integer"
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+            # Check if numeric/float
+            try:
+                for s in samples:
+                    if s is not None:
+                        float(s)
+            except ValueError:
+                pass
+
+            # Check if boolean
+            bool_values = {"true", "false", "1", "0", "yes", "no"}
+            if all(s.lower() in bool_values for s in samples if s):
+                return "boolean"
+
+            return "text"
+
+        except Exception:
+            return "text"  # Default to text on any error

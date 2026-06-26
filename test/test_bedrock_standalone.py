@@ -19,9 +19,7 @@ Usage:
 # PROVIDER = "amazon"  # REQUIRED: amazon, cohere, anthropic, ai21, meta, mistral
 
 # Option 2: ARN with explicit provider
-MODEL_ID = (
-    "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/xxxxxxxxxx"
-)
+MODEL_ID = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/xxxxxxxxxx"
 PROVIDER = "amazon"
 
 AWS_REGION = "us-east-1"
@@ -47,8 +45,8 @@ def test_bedrock_embeddings():
     # Check dependencies
     print("\n📦 Checking dependencies...")
     try:
-        from langchain_aws import BedrockEmbeddings
         import boto3
+        from langchain_aws import BedrockEmbeddings
 
         print("   ✅ langchain-aws installed")
         print("   ✅ boto3 installed")
@@ -97,9 +95,7 @@ def test_bedrock_embeddings():
         print("   ✅ Bedrock client created using IAM role")
 
         # Create embeddings instance
-        embeddings = BedrockEmbeddings(
-            model_id=MODEL_ID, provider=PROVIDER, client=client
-        )
+        embeddings = BedrockEmbeddings(model_id=MODEL_ID, provider=PROVIDER, client=client)
 
         print("   ✅ Embeddings instance created successfully!")
         print(f"   Type: {type(embeddings).__name__}")
@@ -213,9 +209,7 @@ def test_bedrock_embeddings():
         print(f"   aws bedrock-runtime list-foundation-models --region {AWS_REGION}")
 
         print("\n4. Check instance metadata service:")
-        print(
-            "   curl http://169.254.169.254/latest/meta-data/iam/security-credentials/"
-        )
+        print("   curl http://169.254.169.254/latest/meta-data/iam/security-credentials/")
 
         print("\n5. Common model IDs:")
         print("   - amazon.titan-embed-text-v1")

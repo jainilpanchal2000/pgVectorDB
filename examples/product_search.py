@@ -1,18 +1,18 @@
 """
-Product Search Example — pgVectorDB v0.0.3 Multimodal Search
-=============================================================
+Product Search Example — pgVectorDB Multimodal Search
+=====================================================
 
-Demonstrates multi-embedding search across structured product data:
+Demonstrates direct per-space multimodal search across structured product data:
 - TextSpace: product description (semantic)
 - NumberSpace: price (numeric, prefer lower)
 - NumberSpace: rating (numeric, prefer higher)
 - CategorySpace: category (one-hot)
 
-The key insight: no re-ranking needed when you embed all signals at index-time
-and combine them at query-time with dynamic weights.
+The key insight: explicit query values and weights let you combine product text,
+price, rating, and category preferences at query-time without re-indexing.
 
 Requirements:
-    pip install pgvectordb langchain-openai asyncpg asyncio
+    pip install pgvectordb langchain-openai asyncpg
     PostgreSQL with pgvector extension enabled
 
 Usage:
@@ -21,6 +21,7 @@ Usage:
 
 import asyncio
 import os
+
 from langchain_openai import OpenAIEmbeddings
 
 # Try local import first, then installed package
@@ -28,14 +29,13 @@ try:
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
     from pgvectordb.rerankers import CrossEncoderReranker
 except ImportError:
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
     from pgvectordb.rerankers import CrossEncoderReranker
 
 from langchain_core.documents import Document
-
 
 # ==================== Sample Data ====================
 
@@ -143,12 +143,12 @@ async def run_product_search():
     )
 
     # ==================== Initialize pgVectorDB ====================
-    rag = pgVectorDB(
+    pgvdb = pgVectorDB(
         collection_name="products",
         embedding_model=embeddings,
         connection_string=conn_str,
     )
-    await rag.initialize()
+    await pgvdb.initialize()
     print("✓ pgVectorDB initialized")
 
     # ==================== Define Vector Spaces ====================
@@ -182,16 +182,16 @@ async def run_product_search():
         ),
     ]
 
-    rag.register_spaces(spaces)
+    pgvdb.register_spaces(spaces)
     print(f"✓ Registered {len(spaces)} spaces")
 
     # ==================== Index Documents ====================
     print(f"\nIndexing {len(SAMPLE_PRODUCTS)} products with multi-embeddings...")
-    ids = await rag.add_documents_multimodal(SAMPLE_PRODUCTS, show_progress=True)
+    ids = await pgvdb.add_documents_multimodal(SAMPLE_PRODUCTS, show_progress=True)
     print(f"✓ Indexed {len(ids)} products")
 
     # Build HNSW indexes for each space
-    indexes = await rag.build_multimodal_index()
+    indexes = await pgvdb.build_multimodal_index()
     print(f"✓ Built indexes: {list(indexes.keys())}")
 
     # ==================== Search Examples ====================
@@ -199,7 +199,7 @@ async def run_product_search():
     print("SEARCH EXAMPLE 1: Noise-cancelling headphones, budget-conscious")
     print("=" * 60)
 
-    results = await rag.multimodal_search(
+    results = await pgvdb.multimodal_search(
         query_params={
             "description": "noise cancelling wireless headphones",
             "price": 100.0,  # Looking for ~$100
@@ -226,7 +226,7 @@ async def run_product_search():
     print("SEARCH EXAMPLE 2: Premium kitchen appliance, highly rated")
     print("=" * 60)
 
-    results = await rag.multimodal_search(
+    results = await pgvdb.multimodal_search(
         query_params={
             "description": "premium kitchen appliance cooking",
             "price": 500.0,  # Premium budget
@@ -253,7 +253,7 @@ async def run_product_search():
     print("=" * 60)
     print("Weight: description=1.0 (pure semantic, ignore price/category)")
 
-    results = await rag.multimodal_search(
+    results = await pgvdb.multimodal_search(
         query_params={
             "description": "noise cancelling wireless headphones",
         },
@@ -272,7 +272,7 @@ async def run_product_search():
 
     try:
         reranker = CrossEncoderReranker(model="cross-encoder/ms-marco-MiniLM-L-6-v2")
-        reranked = await rag.rerank_search(
+        reranked = await pgvdb.rerank_search(
             query="affordable noise cancelling headphones good value",
             reranker=reranker,
             k=10,  # Fetch 10 candidates

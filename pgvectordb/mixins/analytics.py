@@ -9,29 +9,31 @@ set_parallel_workers, dump_bm25_index, spill_bm25_index.
 """
 
 import json
+import logging
 import re
 import time
-import logging
-from typing import Dict, List, Optional, Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from sqlalchemy import text
 
 from ..base import (
+    DatabaseError,
     IndexType,
     IterativeScanMode,
-    ValidationError,
-    DatabaseError,
     QueryResult,
+    ValidationError,
 )
 from ..schema import build_qualified_name
+from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
 
 
-class AnalyticsMixin:
+class AnalyticsMixin(MixinBase):
     """Mixin providing analytics, monitoring, and diagnostics."""
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get comprehensive statistics about the system.
 
@@ -52,9 +54,7 @@ class AnalyticsMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 # Get document count
                 result = await conn.execute(
-                    text(
-                        f'SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"'
-                    )
+                    text(f'SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"')
                 )
                 stats["document_count"] = result.scalar()
 
@@ -62,7 +62,7 @@ class AnalyticsMixin:
                 result = await conn.execute(
                     text(
                         """
-                    SELECT indexname, indexdef FROM pg_indexes 
+                    SELECT indexname, indexdef FROM pg_indexes
                     WHERE schemaname = :schema AND tablename = :table
                     """
                     ),
@@ -86,7 +86,7 @@ class AnalyticsMixin:
 
         return stats
 
-    async def get_index_stats(self) -> Dict[str, Any]:
+    async def get_index_stats(self) -> dict[str, Any]:
         """
         Get detailed index statistics for monitoring and optimization.
 
@@ -100,7 +100,7 @@ class AnalyticsMixin:
             Dictionary with index statistics
 
         Examples:
-            >>> stats = await rag.get_index_stats()
+            >>> stats = await pgvdb.get_index_stats()
             >>> print(f"Index type: {stats['index_type']}")
             >>> print(f"Index size: {stats['index_size']}")
             >>> print(f"Table bloat: {stats['bloat_ratio']:.1%}")
@@ -118,11 +118,11 @@ class AnalyticsMixin:
                 # Get all indexes on the table
                 result = await conn.execute(
                     text("""
-                    SELECT 
+                    SELECT
                         i.indexname,
                         i.indexdef
                     FROM pg_indexes i
-                    WHERE i.schemaname = :schema 
+                    WHERE i.schemaname = :schema
                     AND i.tablename = :table
                 """),
                     {"schema": self.schema_name, "table": self.table_name},
@@ -172,7 +172,7 @@ class AnalyticsMixin:
                 result = await conn.execute(
                     text(
                         f"""
-                    SELECT 
+                    SELECT
                         pg_size_pretty(pg_total_relation_size('"{self.schema_name}"."{self.table_name}"')) as total_size,
                         pg_size_pretty(pg_table_size('"{self.schema_name}"."{self.table_name}"')) as table_size,
                         pg_size_pretty(pg_indexes_size('"{self.schema_name}"."{self.table_name}"')) as indexes_size
@@ -195,7 +195,7 @@ class AnalyticsMixin:
 
     async def explain_query(
         self, query: str, search_method: str = "semantic_search", **search_kwargs
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Show PostgreSQL query execution plan for performance debugging.
 
@@ -214,7 +214,7 @@ class AnalyticsMixin:
             Query execution plan as formatted string
 
         Examples:
-            >>> plan = await rag.explain_query(
+            >>> plan = await pgvdb.explain_query(
             ...     "machine learning",
             ...     search_method="hybrid_search",
             ...     k=10
@@ -230,16 +230,19 @@ class AnalyticsMixin:
 
         try:
             # Get the embedding if needed
+            embedding: Any | None = None
             if search_method in ["semantic_search", "hybrid_search"]:
                 embedding = self.embedding_model.embed_query(query)
 
             k = search_kwargs.get("k", 4)
 
             # Build EXPLAIN query based on method
+            explain_query: Any
+            params: dict[str, Any]
             if search_method == "semantic_search":
                 explain_query = text(f"""
                     EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
-                    SELECT "langchain_id", "content", "langchain_metadata", 
+                    SELECT "langchain_id", "content", "langchain_metadata",
                            "embedding" <=> :embedding AS distance
                     FROM "{self.schema_name}"."{self.table_name}"
                     ORDER BY distance LIMIT :k
@@ -249,13 +252,23 @@ class AnalyticsMixin:
             elif search_method == "keyword_search":
                 explain_query = text(f"""
                     EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
-                    SELECT "langchain_id", "content", "langchain_metadata", 
+                    SELECT "langchain_id", "content", "langchain_metadata",
                            ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
                     FROM "{self.schema_name}"."{self.table_name}"
                     WHERE content_tsvector @@ plainto_tsquery('english', :query)
                     ORDER BY rank DESC LIMIT :k
                 """)
                 params = {"query": query, "k": k}
+
+            else:  # hybrid_search
+                explain_query = text(f"""
+                    EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+                    SELECT "langchain_id", "content", "langchain_metadata",
+                           "embedding" <=> :embedding AS distance
+                    FROM "{self.schema_name}"."{self.table_name}"
+                    ORDER BY distance LIMIT :k
+                """)
+                params = {"embedding": str(embedding), "k": k}
 
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(explain_query, params)
@@ -267,8 +280,8 @@ class AnalyticsMixin:
             raise DatabaseError(f"Failed to explain query: {e}") from e
 
     async def benchmark_search_methods(
-        self, test_queries: List[str], k: int = 4
-    ) -> Dict[str, Dict[str, float]]:
+        self, test_queries: list[str], k: int = 4
+    ) -> dict[str, dict[str, float]]:
         """
         Compare performance of all search methods on test queries.
 
@@ -286,7 +299,7 @@ class AnalyticsMixin:
 
         Examples:
             >>> queries = ["AI", "machine learning", "neural networks"]
-            >>> results = await rag.benchmark_search_methods(queries, k=10)
+            >>> results = await pgvdb.benchmark_search_methods(queries, k=10)
             >>> for method, metrics in results.items():
             ...     print(f"{method}: {metrics['avg_time_ms']:.2f}ms, {metrics['qps']:.1f} QPS")
         """
@@ -315,9 +328,7 @@ class AnalyticsMixin:
                         elapsed = (time.time() - start) * 1000  # Convert to ms
                         times.append(elapsed)
                     except Exception as e:
-                        logger.warning(
-                            f"Error in {method_name} with query '{query}': {e}"
-                        )
+                        logger.warning(f"Error in {method_name} with query '{query}': {e}")
                         continue
 
                 if times:
@@ -341,7 +352,7 @@ class AnalyticsMixin:
         except Exception as e:
             raise DatabaseError(f"Failed to benchmark search methods: {e}") from e
 
-    async def validate_collection(self) -> Dict[str, Any]:
+    async def validate_collection(self) -> dict[str, Any]:
         """
         Check data integrity and health of the collection.
 
@@ -356,7 +367,7 @@ class AnalyticsMixin:
             Dictionary with validation results and issues found
 
         Examples:
-            >>> validation = await rag.validate_collection()
+            >>> validation = await pgvdb.validate_collection()
             >>> if validation['issues_found']:
             ...     print(f"Found {len(validation['issues'])} issues:")
             ...     for issue in validation['issues']:
@@ -389,7 +400,7 @@ class AnalyticsMixin:
                 )
                 null_embeddings = result.scalar()
                 stats["null_embeddings"] = null_embeddings
-                if null_embeddings > 0:
+                if (null_embeddings or 0) > 0:
                     issues.append(f"{null_embeddings} documents have null embeddings")
 
                 # Check for empty content
@@ -401,7 +412,7 @@ class AnalyticsMixin:
                 )
                 empty_content = result.scalar()
                 stats["empty_content"] = empty_content
-                if empty_content > 0:
+                if (empty_content or 0) > 0:
                     issues.append(f"{empty_content} documents have empty content")
 
                 # Check for null IDs
@@ -413,7 +424,7 @@ class AnalyticsMixin:
                 )
                 null_ids = result.scalar()
                 stats["null_ids"] = null_ids
-                if null_ids > 0:
+                if (null_ids or 0) > 0:
                     issues.append(f"{null_ids} documents have null IDs")
 
                 # Check for duplicate IDs
@@ -431,10 +442,10 @@ class AnalyticsMixin:
                     issues.append(f"{len(duplicate_ids)} duplicate IDs found")
 
                 # Check embedding dimensions (pgvector doesn't support array_length, use expected dimension)
-                if total_count > 0:
+                if (total_count or 0) > 0:
                     # For pgvector, we validate by checking if embeddings can be cast to the expected dimension
                     stats["embedding_dimensions"] = {
-                        self.vector_size: total_count - null_embeddings
+                        self.vector_size: (total_count or 0) - (null_embeddings or 0)
                     }
                     # Note: pgvector enforces dimension at insert time, so inconsistencies are not possible
 
@@ -455,8 +466,8 @@ class AnalyticsMixin:
             raise DatabaseError(f"Failed to validate collection: {e}") from e
 
     async def compute_recall(
-        self, test_queries: List[str], k: int = 10, sample_size: Optional[int] = None
-    ) -> Dict[str, float]:
+        self, test_queries: list[str], k: int = 10, sample_size: int | None = None
+    ) -> dict[str, float]:
         """
         Compute recall by comparing approximate vs exact search results.
 
@@ -471,7 +482,7 @@ class AnalyticsMixin:
             Dictionary with 'recall@k', 'queries_tested', and 'avg_overlap'
 
         Examples:
-            >>> recall = await rag.compute_recall(
+            >>> recall = await pgvdb.compute_recall(
             ...     test_queries=["AI applications", "machine learning"],
             ...     k=10
             ... )
@@ -484,15 +495,11 @@ class AnalyticsMixin:
 
         for query in queries:
             # Get approximate results
-            approx_results = await self.semantic_search(
-                query, k=k, use_exact_search=False
-            )
+            approx_results = await self.semantic_search(query, k=k, use_exact_search=False)
             approx_ids = {r["id"] for r in approx_results}
 
             # Get exact results
-            exact_results = await self.semantic_search(
-                query, k=k, use_exact_search=True
-            )
+            exact_results = await self.semantic_search(query, k=k, use_exact_search=True)
             exact_ids = {r["id"] for r in exact_results}
 
             # Calculate overlap
@@ -506,9 +513,9 @@ class AnalyticsMixin:
     def set_iterative_scan(
         self,
         mode: IterativeScanMode = IterativeScanMode.RELAXED_ORDER,
-        max_scan_tuples: Optional[int] = None,
-        scan_mem_multiplier: Optional[float] = None,
-        max_probes: Optional[int] = None,
+        max_scan_tuples: int | None = None,
+        scan_mem_multiplier: float | None = None,
+        max_probes: int | None = None,
     ) -> None:
         """
         Configure iterative index scan for better recall with filtered queries.
@@ -520,7 +527,7 @@ class AnalyticsMixin:
             max_probes: IVFFlat max probes for iterative scan
 
         Examples:
-            >>> rag.set_iterative_scan(
+            >>> pgvdb.set_iterative_scan(
             ...     mode=IterativeScanMode.STRICT_ORDER,
             ...     max_scan_tuples=50000
             ... )
@@ -539,7 +546,7 @@ class AnalyticsMixin:
 
         logger.info(f"Iterative scan configured: mode={mode.value}")
 
-    async def create_label_definitions(self, labels: List[Dict[str, Any]]) -> int:
+    async def create_label_definitions(self, labels: list[dict[str, Any]]) -> int:
         """
         Create label definitions for semantic label filtering with DiskANN.
 
@@ -550,7 +557,7 @@ class AnalyticsMixin:
             Number of labels created
 
         Examples:
-            >>> await rag.create_label_definitions([
+            >>> await pgvdb.create_label_definitions([
             ...     {"id": 1, "name": "science", "description": "Scientific content"},
             ...     {"id": 2, "name": "technology", "description": "Tech content"},
             ... ])
@@ -598,7 +605,7 @@ class AnalyticsMixin:
         except Exception as e:
             raise DatabaseError(f"Failed to create label definitions: {e}") from e
 
-    async def get_label_ids_by_names(self, names: List[str]) -> List[int]:
+    async def get_label_ids_by_names(self, names: list[str]) -> list[int]:
         """
         Get label IDs from label names.
 
@@ -642,8 +649,8 @@ class AnalyticsMixin:
             ValidationError: If value does not match the expected memory format.
 
         Examples:
-            >>> await rag.set_maintenance_work_mem('8GB')
-            >>> await rag.build_index()  # Faster with more memory
+            >>> await pgvdb.set_maintenance_work_mem('8GB')
+            >>> await pgvdb.build_index()  # Faster with more memory
         """
         # Allowlist check: only integers optionally followed by a memory unit.
         # This prevents SQL injection via the value string.
@@ -663,7 +670,7 @@ class AnalyticsMixin:
     # ==================== NEW FEATURES: PARALLEL WORKERS (Task 32) ====================
 
     async def set_parallel_workers(
-        self, gather: Optional[int] = None, maintenance: Optional[int] = None
+        self, gather: int | None = None, maintenance: int | None = None
     ) -> None:
         """
         Configure parallel workers for queries and index builds.
@@ -678,7 +685,7 @@ class AnalyticsMixin:
             ValidationError: If values are not valid non-negative integers.
 
         Examples:
-            >>> await rag.set_parallel_workers(gather=4, maintenance=7)
+            >>> await pgvdb.set_parallel_workers(gather=4, maintenance=7)
         """
         # Coerce to int and validate to prevent SQL injection via non-integer types
         if gather is not None:
@@ -693,9 +700,7 @@ class AnalyticsMixin:
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 if gather is not None:
-                    await conn.execute(
-                        text(f"SET max_parallel_workers_per_gather = {gather}")
-                    )
+                    await conn.execute(text(f"SET max_parallel_workers_per_gather = {gather}"))
                     logger.info(f"Set max_parallel_workers_per_gather = {gather}")
 
                 if maintenance is not None:
@@ -708,9 +713,7 @@ class AnalyticsMixin:
         except Exception as e:
             raise DatabaseError(f"Failed to set parallel workers: {e}") from e
 
-    async def compute_centroid(
-        self, filter: Optional[Dict[str, Any]] = None
-    ) -> Optional[List[float]]:
+    async def compute_centroid(self, filter: dict[str, Any] | None = None) -> list[float] | None:
         """
         Compute average (centroid) of embeddings, optionally filtered.
 
@@ -726,7 +729,7 @@ class AnalyticsMixin:
             Average embedding vector, or None if no documents
 
         Examples:
-            >>> centroid = await rag.compute_centroid(filter={"category": "ai"})
+            >>> centroid = await pgvdb.compute_centroid(filter={"category": "ai"})
         """
         self._ensure_initialized()
 
@@ -758,7 +761,7 @@ class AnalyticsMixin:
 
     # ==================== NEW FEATURES: BM25 MONITORING (Task 21) ====================
 
-    async def get_bm25_index_stats(self) -> Dict[str, Any]:
+    async def get_bm25_index_stats(self) -> dict[str, Any]:
         """
         Get BM25 index statistics for monitoring.
 
@@ -769,7 +772,7 @@ class AnalyticsMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(
                     text("""
-                    SELECT 
+                    SELECT
                         indexrelid::regclass as index_name,
                         idx_scan,
                         idx_tup_read,
@@ -797,7 +800,7 @@ class AnalyticsMixin:
 
     # ==================== NEW FEATURES: SLOW QUERY MONITORING (Task 29) ====================
 
-    async def get_slow_queries(self, limit: int = 20) -> List[Dict[str, Any]]:
+    async def get_slow_queries(self, limit: int = 20) -> list[dict[str, Any]]:
         """
         Get slow queries from pg_stat_statements (if available).
 
@@ -811,7 +814,7 @@ class AnalyticsMixin:
             async with self.sqlalchemy_engine.connect() as conn:
                 result = await conn.execute(
                     text(f"""
-                    SELECT 
+                    SELECT
                         query,
                         calls,
                         ROUND((total_plan_time + total_exec_time) / calls) AS avg_time_ms,
@@ -845,9 +848,9 @@ class AnalyticsMixin:
         query: str,
         k: int = 10,
         rerank_top_k: int = 5,
-        reranker: Optional[Callable[[str, List[str]], List[float]]] = None,
+        reranker: Callable[[str, list[str]], list[float]] | None = None,
         **search_kwargs,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Semantic search with optional cross-encoder reranking.
 
@@ -873,7 +876,7 @@ class AnalyticsMixin:
             ...     pairs = [[query, text] for text in texts]
             ...     return ce.predict(pairs)
             >>>
-            >>> results = await rag.semantic_search_with_reranker(
+            >>> results = await pgvdb.semantic_search_with_reranker(
             ...     "AI applications",
             ...     k=20,
             ...     rerank_top_k=5,
@@ -910,7 +913,7 @@ class AnalyticsMixin:
             for c, score in scored[:rerank_top_k]
         ]
 
-    async def dump_bm25_index(self, output_file: Optional[str] = None) -> str:
+    async def dump_bm25_index(self, output_file: str | None = None) -> str:
         """
         Dump BM25 index structure for debugging.
 
@@ -924,7 +927,7 @@ class AnalyticsMixin:
             Index summary or path to dump file
 
         Examples:
-            >>> summary = await rag.dump_bm25_index()
+            >>> summary = await pgvdb.dump_bm25_index()
             >>> print(summary)
         """
         self._ensure_initialized()
@@ -964,7 +967,7 @@ class AnalyticsMixin:
             Number of entries spilled
 
         Examples:
-            >>> entries = await rag.spill_bm25_index()
+            >>> entries = await pgvdb.spill_bm25_index()
             >>> print(f"Spilled {entries} entries to disk")
 
         Note:

@@ -1,175 +1,123 @@
 # Multimodal Search
 
-pgVectorDB's multimodal system lets you attach **multiple independent embeddings to a single document** — one for text, one for price, one for category, one for recency, and so on. During search, scores from all spaces are weighted and fused into a single ranked list.
+Multimodal search lets one document have multiple embedding spaces: text for meaning, numbers for structured preferences, categories for exact business dimensions, and recency for freshness. pgVectorDB searches those spaces together and fuses the scores in PostgreSQL.
 
-This eliminates the need for post-retrieval re-ranking on structured data and enables semantic search over mixed data types (text + numbers + categories) natively in PostgreSQL.
+This is useful when pure semantic search is not enough. A real-estate query such as “fresh waterfront homes under 900k near transit” has text intent, price constraints, location preference, and freshness. A support-search query may need text meaning, product category, ticket severity, and recent updates.
 
----
+## Space Types
 
-## Concept: What is a Space?
+| Space | Input | Typical fields | Ranking signal |
+| --- | --- | --- | --- |
+| `TextSpace` | Text | `content`, `title`, `description` | Semantic similarity from the embedding model. |
+| `NumberSpace` | int/float | `price`, `rating`, `mileage`, `sqft` | Lower, higher, or nearest numeric preference. |
+| `CategorySpace` | string | `city`, `product_type`, `department` | Category match/similarity. |
+| `RecencySpace` | datetime, ISO string, Unix timestamp | `published_at`, `updated_at`, `created_at` | Exponential time decay where fresher values score higher. |
 
-A **Space** defines one embedding channel on a document. Each space has:
-
-- A **name** (used as a column name: `embedding_{name}`)
-- A **field** that maps to a key in `document.metadata` or `document.page_content`
-- A **weight** that controls its relative influence during search
-- An **encoder** that converts the field value into a dense vector
-
-```python
-from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace, RecencySpace
-```
-
-### All Available Spaces
-
-| Space | Input Type | Best For |
-|-------|-----------|---------|
-| `TextSpace` | `str` (text content) | Semantic text similarity |
-| `NumberSpace` | `float` / `int` | Numeric fields like price, rating, views |
-| `CategorySpace` | `str` (category label) | Categorical fields like city, product type |
-| `RecencySpace` | `datetime` / Unix timestamp | Time-based relevance (newer = better) |
-
----
-
-## Step 1: Define Your Spaces
-
-### `TextSpace`
-
-Encodes text using your configured embedding model. If `dimensions=0`, it auto-detects from the model at `register_spaces()` time.
+## Define Spaces
 
 ```python
-from pgvectordb.spaces import TextSpace
-
-text_space = TextSpace(
-    name="description",   # Column: embedding_description
-    field="content",      # Maps to document.page_content
-    dimensions=384,       # Or 0 to auto-detect
-    weight=1.0
+from pgvectordb.spaces import (
+    CategorySpace,
+    NumberMode,
+    NumberSpace,
+    RecencySpace,
+    TextSpace,
+    TimeUnit,
 )
-```
-
-### `NumberSpace`
-
-Encodes numeric values into a vector using a configurable mode:
-
-```python
-from pgvectordb.spaces import NumberSpace, NumberMode
-
-price_space = NumberSpace(
-    name="price",
-    field="price",           # Key in document.metadata
-    min_value=0,
-    max_value=1_000_000,
-    mode=NumberMode.NORMALIZED,   # See table below
-    weight=0.3
-)
-```
-
-| `NumberMode` | Behavior |
-|-------------|----------|
-| `NORMALIZED` | Linearly scales value to [0, 1] range |
-| `MINIMUM` | Encodes "smaller is better" preference |
-| `MAXIMUM` | Encodes "larger is better" preference |
-
-### `CategorySpace`
-
-Encodes categorical labels as one-hot-style dense vectors:
-
-```python
-from pgvectordb.spaces import CategorySpace
-
-city_space = CategorySpace(
-    name="city",
-    field="city",                    # Key in document.metadata
-    categories=["NYC", "LA", "Chicago", "Houston"],
-    weight=0.2
-)
-```
-
-### `RecencySpace`
-
-Encodes timestamps so more recent documents score higher:
-
-```python
-from pgvectordb.spaces import RecencySpace, TimeUnit
-
-recency_space = RecencySpace(
-    name="recency",
-    field="published_at",    # Key in document.metadata (datetime or Unix timestamp)
-    time_unit=TimeUnit.DAYS,
-    weight=0.1
-)
-```
-
-| `TimeUnit` | Granularity |
-|-----------|-------------|
-| `SECONDS` | Fine-grained |
-| `MINUTES` | Medium |
-| `HOURS` | Medium-coarse |
-| `DAYS` | Coarse (most common) |
-
----
-
-## Step 2: Register Spaces
-
-Call `register_spaces()` on your initialized `pgVectorDB` instance:
-
-```python
-from pgvectordb import pgVectorDB
-from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace
-
-db = pgVectorDB(
-    collection_name="real_estate",
-    embedding_model=embeddings,
-    connection_string="postgresql+asyncpg://user:pass@localhost/db"
-)
-await db.initialize()
 
 spaces = [
-    TextSpace(name="description", field="content", weight=0.5),
-    NumberSpace(name="price",   field="price",   min_value=0, max_value=5_000_000, weight=0.3),
-    CategorySpace(name="city",  field="city",    categories=["NYC", "LA", "Chicago"], weight=0.2),
+    TextSpace(name="description", field="content"),
+    NumberSpace(
+        name="price",
+        field="price",
+        min_value=0,
+        max_value=2_000_000,
+        mode=NumberMode.MINIMUM,
+    ),
+    CategorySpace(
+        name="city",
+        field="city",
+        categories=["Austin", "Denver", "Seattle", "Chicago"],
+    ),
+    RecencySpace(
+        name="freshness",
+        field="published_at",
+        time_unit=TimeUnit.DAY,
+        period_value=14,
+    ),
 ]
+
 db.register_spaces(spaces)
 ```
 
-!!! note
-    `register_spaces()` is synchronous. It validates the space list and auto-detects `TextSpace` dimensions from the embedding model.
+`register_spaces()` is synchronous. It validates names, detects dimensions for text spaces when needed, and prepares the collection for multimodal ingestion.
 
----
+## NumberSpace Modes
 
-## Step 3: Add Documents
+| Mode | Use when | Example |
+| --- | --- | --- |
+| `NumberMode.MINIMUM` | Lower values should rank better. | Price, latency, distance, mileage. |
+| `NumberMode.MAXIMUM` | Higher values should rank better. | Rating, popularity, margin, quality score. |
+| `NumberMode.SIMILAR` | Values close to the query should rank better. | Bedrooms, temperature, target budget, square footage. |
 
-Use `add_documents_multimodal()` instead of `add_documents()`. It automatically extracts the right field for each space and populates all embedding columns.
+## RecencySpace
+
+`RecencySpace` turns freshness into a first-class ranking signal. It uses exponential decay:
+
+$$
+score = e^{-age / \tau}
+$$
+
+where $\tau$ is `period_value * time_unit`. If `period_value=14` and `time_unit=TimeUnit.DAY`, a document from today scores near 1.0, a document around 14 days old scores near 0.37, and a document around 42 days old scores near 0.05.
+
+```python
+freshness = RecencySpace(
+    name="freshness",
+    field="published_at",
+    time_unit=TimeUnit.DAY,
+    period_value=14,
+)
+```
+
+Use it for news, listings, tickets, documentation, changelogs, events, promotions, and any domain where “recent” should matter but should not be the only ranking factor.
+
+!!! note "Re-encoding freshness"
+    Recency embeddings are computed relative to the wall-clock time when encoded. For long-lived collections, refresh recency embeddings periodically or choose a decay period that matches your update cadence.
+
+## Add Multimodal Documents
+
+Use `add_documents_multimodal()` so pgVectorDB extracts each field and writes one embedding column per space.
 
 ```python
 from langchain_core.documents import Document
 
 docs = [
     Document(
-        page_content="Spacious 2BR with skyline views, modern kitchen",
-        metadata={"price": 850_000, "city": "NYC", "bedrooms": 2}
+        page_content="Updated bungalow near the lake with renovated kitchen",
+        metadata={
+            "price": 685_000,
+            "city": "Austin",
+            "published_at": "2026-06-20T09:00:00Z",
+            "bedrooms": 3,
+        },
     ),
     Document(
-        page_content="Cozy studio in the heart of downtown",
-        metadata={"price": 320_000, "city": "Chicago", "bedrooms": 0}
-    ),
-    Document(
-        page_content="Luxury penthouse, private terrace, doorman building",
-        metadata={"price": 3_200_000, "city": "NYC", "bedrooms": 4}
+        page_content="Downtown condo near transit and restaurants",
+        metadata={
+            "price": 520_000,
+            "city": "Denver",
+            "published_at": "2026-05-15T12:00:00Z",
+            "bedrooms": 2,
+        },
     ),
 ]
 
-doc_ids = await db.add_documents_multimodal(docs, batch_size=100, show_progress=True)
-print(f"Added {len(doc_ids)} documents")
+ids = await db.add_documents_multimodal(docs, batch_size=100)
 ```
 
-Under the hood, this creates an `embedding_{name}` column for each space (if it doesn't exist) and populates all columns in a single `INSERT ... ON CONFLICT DO UPDATE`.
+## Build Multimodal Indexes
 
----
-
-## Step 4: Build Multimodal Indexes
-
-Create a vector index on each space's embedding column:
+Each space gets its own vector column and index.
 
 ```python
 from pgvectordb import DistanceMetric
@@ -177,132 +125,178 @@ from pgvectordb import DistanceMetric
 index_map = await db.build_multimodal_index(
     metric=DistanceMetric.COSINE,
     m=16,
-    ef_construction=64
+    ef_construction=64,
 )
 
-for space_name, index_name in index_map.items():
-    print(f"  {space_name}: {index_name}")
-# description: idx_real_estate_description
-# price:       idx_real_estate_price
-# city:        idx_real_estate_city
+print(index_map)
 ```
 
----
+## Search Across Spaces with the Fluent API
 
-## Step 5: Search Across All Spaces
+Use `.across_spaces(...)` when you want multimodal ranking to live beside the rest of your query code: filters, limits, output formats, analysis, and reranking.
 
-### `multimodal_search`
+```python
+results = await (
+    db.query("fresh waterfront home near transit")
+    .across_spaces(
+        spaces,
+        weights={
+            "description": 0.70,
+            "freshness": 0.30,
+        },
+    )
+    .where({"city": "Austin", "bedrooms": {"$gte": 2}})
+    .limit(10)
+    .to_list()
+)
+```
 
-The core method. Query each space independently and fuse results by weighted distance:
+Use `.in_space(space)` when you want to target one registered space explicitly.
+
+```python
+results = await (
+    db.query("lakefront bungalow")
+    .in_space(spaces[0])
+    .where({"city": "Austin"})
+    .limit(10)
+    .to_list()
+)
+```
+
+The fluent path is best when the text query is the primary input and metadata filters carry the structured constraints.
+
+## Direct Per-Space Query Values
+
+Use `multimodal_search()` when you need to pass explicit query values for non-text spaces such as price, category, or freshness. Weights control how much each signal contributes to the fused ranking.
 
 ```python
 results = await db.multimodal_search(
     query_params={
-        "description": "modern downtown apartment with views",  # TextSpace
-        "price": 500_000,                                        # NumberSpace
-        "city": "NYC",                                           # CategorySpace
+        "description": "fresh waterfront home near transit",
+        "price": 750_000,
+        "city": "Austin",
+        "freshness": "2026-06-25T00:00:00Z",
     },
     weights={
-        "description": 0.5,
-        "price":       0.3,
-        "city":        0.2,
+        "description": 0.55,
+        "price": 0.20,
+        "city": 0.15,
+        "freshness": 0.10,
     },
+    filter={"bedrooms": {"$gte": 2}},
     k=10,
-    filter={"bedrooms": {"$gte": 1}},   # Optional pre-filter
 )
-
-for r in results:
-    print(f"Score: {r['score']:.4f} | {r['content'][:60]}")
-    print(f"  Price: ${r['metadata'].get('price'):,} | City: {r['metadata'].get('city')}")
 ```
 
-!!! tip "Weight Strategy"
-    Weights are automatically normalized to sum to 1.0. Start with equal weights, then adjust based on evaluation results. Use `RAGEvaluator` to measure the impact of weight changes.
+Weighting is a product decision, not a magic constant. Start with text-heavy weights, then use `RAGEvaluator` or `compute_recall()` with real queries to validate changes.
 
-### `multimodal_hybrid_search`
+| Workload | Suggested starting weights |
+| --- | --- |
+| Product search | Description 0.60, category 0.20, price 0.15, recency 0.05. |
+| Real estate | Description 0.50, price 0.20, city 0.15, recency 0.15. |
+| Support tickets | Text 0.55, product/category 0.20, severity 0.15, recency 0.10. |
+| News/search feeds | Text 0.45, category 0.15, recency 0.40. |
 
-Fuses multimodal vector search with BM25/FTS keyword search for even richer relevance:
+## Direct Multimodal Hybrid Search
+
+`multimodal_hybrid_search()` fuses multimodal vector ranking with keyword search.
 
 ```python
 results = await db.multimodal_hybrid_search(
     query_params={
-        "description": "cozy apartment near park",
-        "price": 350_000,
+        "description": "renovated home near light rail",
+        "price": 800_000,
+        "freshness": "2026-06-25T00:00:00Z",
     },
-    weights={"description": 0.7, "price": 0.3},
-    keyword_weight=0.25,   # 25% keyword, 75% multimodal vector
+    weights={"description": 0.65, "price": 0.20, "freshness": 0.15},
+    keyword_weight=0.25,
+    filter={"city": "Austin"},
     k=10,
 )
 ```
 
----
+Use this when text terms carry important exact meaning: model numbers, neighborhoods, SKUs, policy names, procedure names, and acronyms.
 
-## Full End-to-End Example
-
-```python
-import asyncio
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_core.documents import Document
-from pgvectordb import pgVectorDB, DistanceMetric
-from pgvectordb.spaces import TextSpace, NumberSpace, CategorySpace
-
-async def main():
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-    db = pgVectorDB(
-        collection_name="listings",
-        embedding_model=embeddings,
-        connection_string="postgresql+asyncpg://user:pass@localhost/db"
-    )
-    await db.initialize()
-
-    # 1. Register spaces
-    db.register_spaces([
-        TextSpace(name="description", field="content",  weight=0.5),
-        NumberSpace(name="price",     field="price",
-                    min_value=0, max_value=5_000_000,   weight=0.3),
-        CategorySpace(name="city",    field="city",
-                      categories=["NYC", "LA", "Chicago"], weight=0.2),
-    ])
-
-    # 2. Add documents
-    docs = [
-        Document(page_content="Modern 2BR, open floor plan",
-                 metadata={"price": 750_000, "city": "NYC"}),
-        Document(page_content="Cozy studio, great light",
-                 metadata={"price": 280_000, "city": "Chicago"}),
-        Document(page_content="Luxury penthouse with terrace",
-                 metadata={"price": 4_500_000, "city": "NYC"}),
-    ]
-    await db.add_documents_multimodal(docs)
-
-    # 3. Build indexes
-    await db.build_multimodal_index(metric=DistanceMetric.COSINE)
-
-    # 4. Search
-    results = await db.multimodal_search(
-        query_params={"description": "bright open apartment", "price": 600_000, "city": "NYC"},
-        weights={"description": 0.5, "price": 0.3, "city": 0.2},
-        k=5
-    )
-
-    for r in results:
-        print(f"{r['score']:.4f} | {r['content']}")
-
-asyncio.run(main())
-```
-
----
-
-## Monitoring Multimodal Indexes
+## Monitoring Spaces
 
 ```python
 stats = await db.get_multimodal_index_stats()
 
 for space_name, info in stats.items():
-    print(f"\n{space_name}:")
-    print(f"  Column:     {info['column']}")
-    print(f"  Dimensions: {info['dimensions']}")
-    print(f"  Index:      {info['index_name']} ({'exists' if info['index_exists'] else 'missing'})")
-    print(f"  Size:       {info['index_size']}")
+    print(space_name)
+    print(info["column"])
+    print(info["dimensions"])
+    print(info["index_name"])
+    print(info["index_exists"])
 ```
+
+Run this after registering spaces, adding data, and building indexes to confirm that each space has a populated column and index.
+
+## Complete Example
+
+```python
+import asyncio
+
+from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
+
+from pgvectordb import DistanceMetric, pgVectorDB
+from pgvectordb.spaces import CategorySpace, NumberMode, NumberSpace, RecencySpace, TextSpace, TimeUnit
+
+
+async def main():
+    db = pgVectorDB(
+        collection_name="listings",
+        embedding_model=HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2"),
+        connection_string="postgresql+asyncpg://user:root@localhost:9002/postgres",
+    )
+    await db.initialize()
+
+    spaces = [
+        TextSpace(name="description", field="content"),
+        NumberSpace(name="price", field="price", min_value=0, max_value=2_000_000, mode=NumberMode.MINIMUM),
+        CategorySpace(name="city", field="city", categories=["Austin", "Denver", "Seattle"]),
+        RecencySpace(name="freshness", field="published_at", time_unit=TimeUnit.DAY, period_value=14),
+    ]
+    db.register_spaces(spaces)
+
+    await db.add_documents_multimodal([
+        Document(
+            page_content="Renovated bungalow near the lake",
+            metadata={"price": 685_000, "city": "Austin", "published_at": "2026-06-20T09:00:00Z"},
+        ),
+        Document(
+            page_content="Downtown condo near transit",
+            metadata={"price": 520_000, "city": "Denver", "published_at": "2026-05-15T12:00:00Z"},
+        ),
+    ])
+
+    await db.build_multimodal_index(metric=DistanceMetric.COSINE)
+
+    results = await db.multimodal_search(
+        query_params={
+            "description": "fresh home near water",
+            "price": 750_000,
+            "city": "Austin",
+            "freshness": "2026-06-25T00:00:00Z",
+        },
+        weights={"description": 0.55, "price": 0.20, "city": 0.15, "freshness": 0.10},
+        k=5,
+    )
+
+    for row in results:
+        print(row["score"], row["content"])
+
+    await db.close()
+
+
+asyncio.run(main())
+```
+
+## Related Guides
+
+- [Embeddings & Spaces](embeddings_and_spaces.md)
+- [Search & Retrieval](search_and_retrieval.md)
+- [Metadata Filtering](filtering.md)
+- [Metrics & Evaluation](metrics_and_evaluation.md)
+- [Indexing & Performance](../advanced/indexing.md)

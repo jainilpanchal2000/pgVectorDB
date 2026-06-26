@@ -12,16 +12,16 @@ Run:
     python -m pytest test/test_security.py -v
 """
 
-import pytest
 import re
 
-from pgvectordb import (
-    pgVectorDB,
-    IndexType,
-    ValidationError,
-    InitializationError,
-)
+import pytest
 
+from pgvectordb import (
+    IndexType,
+    InitializationError,
+    ValidationError,
+    pgVectorDB,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -32,9 +32,7 @@ pytestmark = pytest.mark.unit
 CONNECTION_STRING = "postgresql+asyncpg://user:root@localhost:9002/postgres"
 
 
-def _make_rag(
-    collection_name: str = "sec_test", schema_name: str = "test", embeddings=None
-):
+def _make_rag(collection_name: str = "sec_test", schema_name: str = "test", embeddings=None):
     """Helper: build a pgVectorDB instance without calling initialize()."""
     return pgVectorDB(
         collection_name=collection_name,
@@ -73,14 +71,14 @@ class TestIdentifierValidation:
 
     def test_valid_name_accepted(self, embeddings):
         """Valid names with letters, numbers, underscores should not raise."""
-        rag = _make_rag(collection_name="valid_collection_123", embeddings=embeddings)
-        assert rag is not None
+        pgvdb = _make_rag(collection_name="valid_collection_123", embeddings=embeddings)
+        assert pgvdb is not None
 
     def test_valid_name_with_hyphen(self, embeddings):
         """Hyphens are usually allowed via quoting — at minimum should not crash."""
         try:
-            rag = _make_rag(collection_name="valid-collection", embeddings=embeddings)
-            assert rag is not None
+            pgvdb = _make_rag(collection_name="valid-collection", embeddings=embeddings)
+            assert pgvdb is not None
         except (ValidationError, Exception):
             pass  # Stricter validation is also acceptable
 
@@ -93,7 +91,7 @@ class TestIdentifierValidation:
 class TestInputValidation:
     """
     These tests verify ValidationError is raised BEFORE hitting the DB.
-    They require a real rag instance but test pre-flight validation, so
+    They require a real pgvdb instance but test pre-flight validation, so
     they can be used even without a running DB for the constructor path.
     """
 
@@ -148,7 +146,7 @@ class TestInitializationGuard:
     @pytest.mark.integration
     async def test_search_before_initialize_raises(self, embeddings, connection_string):
         """Calling semantic_search before initialize() must raise InitializationError."""
-        rag = pgVectorDB(
+        pgvdb = pgVectorDB(
             collection_name="sec_uninit_guard",
             embedding_model=embeddings,
             connection_string=connection_string,
@@ -156,16 +154,14 @@ class TestInitializationGuard:
             index_type=IndexType.HNSW,
         )
         with pytest.raises(InitializationError):
-            await rag.semantic_search("test", k=5)
+            await pgvdb.semantic_search("test", k=5)
 
     @pytest.mark.integration
-    async def test_add_documents_before_initialize_raises(
-        self, embeddings, connection_string
-    ):
+    async def test_add_documents_before_initialize_raises(self, embeddings, connection_string):
         """Calling add_documents before initialize() must raise InitializationError."""
         from langchain_core.documents import Document
 
-        rag = pgVectorDB(
+        pgvdb = pgVectorDB(
             collection_name="sec_uninit_docs",
             embedding_model=embeddings,
             connection_string=connection_string,
@@ -173,7 +169,7 @@ class TestInitializationGuard:
             index_type=IndexType.HNSW,
         )
         with pytest.raises(InitializationError):
-            await rag.add_documents([Document(page_content="test", metadata={})])
+            await pgvdb.add_documents([Document(page_content="test", metadata={})])
 
 
 # ---------------------------------------------------------------------------
@@ -187,21 +183,26 @@ class TestMaintenanceWorkMemValidation:
     def _check_regex(self, value: str) -> bool:
         return bool(re.match(r"^\d+\s*(kB|MB|GB|TB)?$", value.strip(), re.IGNORECASE))
 
-    @pytest.mark.parametrize("value", ["2GB", "8GB", "512MB", "65536", "1TB", "1024kB", "4gb", "  4GB  "])
+    @pytest.mark.parametrize(
+        "value", ["2GB", "8GB", "512MB", "65536", "1TB", "1024kB", "4gb", "  4GB  "]
+    )
     def test_valid_formats(self, value):
         assert self._check_regex(value), f"'{value}' should be valid"
 
-    @pytest.mark.parametrize("value", [
-        "8GB'; DROP TABLE users; --",
-        "8GB;",
-        "lots",
-        "-1GB",
-        "",
-        "8GB--",
-        "1PB",
-        "abc",
-        "  ; DROP TABLE  ",
-    ])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "8GB'; DROP TABLE users; --",
+            "8GB;",
+            "lots",
+            "-1GB",
+            "",
+            "8GB--",
+            "1PB",
+            "abc",
+            "  ; DROP TABLE  ",
+        ],
+    )
     def test_invalid_formats(self, value):
         assert not self._check_regex(value), f"'{value}' should be rejected"
 
@@ -219,12 +220,12 @@ class TestParallelWorkersValidation:
         assert int(4.7) == 4
 
     def test_negative_coerced_int_fails_bounds(self):
-        val = int(-1)
+        val = -1
         assert val < 0
 
     def test_zero_and_large_valid(self):
-        assert int(0) >= 0
-        assert int(128) >= 0
+        assert 0 >= 0
+        assert 128 >= 0
 
     def test_string_int_coerces(self):
         assert int("7") == 7
@@ -252,13 +253,14 @@ class TestBM25ParameterValidation:
 
     def test_text_config_allowlist(self):
         from pgvectordb import ALLOWED_TEXT_CONFIGS
+
         assert "english" in ALLOWED_TEXT_CONFIGS
         assert "german" in ALLOWED_TEXT_CONFIGS
         assert "french" in ALLOWED_TEXT_CONFIGS
         assert "not_a_real_config" not in ALLOWED_TEXT_CONFIGS
 
     def test_parallel_workers_negative_fails_bounds(self):
-        val = int(-1)
+        val = -1
         assert val < 0
 
 
@@ -272,26 +274,31 @@ class TestVectorSpaceNameValidation:
 
     def test_valid_name(self):
         from pgvectordb.spaces import NumberSpace
+
         space = NumberSpace(name="price", field="price", min_value=0, max_value=100)
         assert space.name == "price"
 
     def test_valid_name_with_underscore(self):
         from pgvectordb.spaces import NumberSpace
+
         space = NumberSpace(name="unit_price", field="price", min_value=0, max_value=100)
         assert space.name == "unit_price"
 
     def test_empty_name_raises(self):
         from pgvectordb.spaces import NumberSpace
+
         with pytest.raises(ValueError, match="non-empty"):
             NumberSpace(name="", field="price", min_value=0, max_value=100)
 
     def test_space_in_name_raises(self):
         from pgvectordb.spaces import NumberSpace
+
         with pytest.raises(ValueError, match="alphanumeric"):
             NumberSpace(name="bad name", field="price", min_value=0, max_value=100)
 
     def test_special_char_in_name_raises(self):
         from pgvectordb.spaces import NumberSpace
+
         with pytest.raises(ValueError, match="alphanumeric"):
             NumberSpace(name="bad;name", field="price", min_value=0, max_value=100)
 
@@ -306,21 +313,25 @@ class TestNumberSpaceValidation:
 
     def test_min_equals_max_raises(self):
         from pgvectordb.spaces import NumberSpace
+
         with pytest.raises(ValueError, match="less than"):
             NumberSpace(name="p", field="p", min_value=5.0, max_value=5.0)
 
     def test_min_greater_than_max_raises(self):
         from pgvectordb.spaces import NumberSpace
+
         with pytest.raises(ValueError, match="less than"):
             NumberSpace(name="p", field="p", min_value=10, max_value=5)
 
     def test_zero_dimensions_raises(self):
         from pgvectordb.spaces import NumberSpace
+
         with pytest.raises(ValueError, match="dimensions"):
             NumberSpace(name="p", field="p", min_value=0, max_value=100, dimensions=0)
 
     def test_normalize_clamping(self):
         from pgvectordb.spaces import NumberSpace
+
         space = NumberSpace(name="p", field="p", min_value=0, max_value=100)
         assert space.encode(150) == [1.0]
         assert space.encode(-50) == [0.0]
@@ -328,6 +339,7 @@ class TestNumberSpaceValidation:
 
     def test_none_encodes_as_midpoint(self):
         from pgvectordb.spaces import NumberSpace
+
         space = NumberSpace(name="p", field="p", min_value=0, max_value=100)
         assert space.encode(None) == [0.5]
 
@@ -342,21 +354,25 @@ class TestCategorySpaceValidation:
 
     def test_empty_categories_raises(self):
         from pgvectordb.spaces import CategorySpace
+
         with pytest.raises(ValueError, match="non-empty"):
             CategorySpace(name="cat", field="cat", categories=[])
 
     def test_duplicate_categories_raises(self):
         from pgvectordb.spaces import CategorySpace
+
         with pytest.raises(ValueError, match="duplicates"):
             CategorySpace(name="cat", field="cat", categories=["a", "b", "a"])
 
     def test_unknown_category_returns_zero_vector(self):
         from pgvectordb.spaces import CategorySpace
+
         space = CategorySpace(name="cat", field="cat", categories=["a", "b", "c"])
         assert space.encode("unknown") == [0.0, 0.0, 0.0]
 
     def test_known_category_encodes_one_hot(self):
         from pgvectordb.spaces import CategorySpace
+
         space = CategorySpace(name="cat", field="cat", categories=["a", "b", "c"])
         result = space.encode("b")
         assert result[1] == 1.0
@@ -365,13 +381,17 @@ class TestCategorySpaceValidation:
 
     def test_none_value_returns_zero_vector(self):
         from pgvectordb.spaces import CategorySpace
+
         space = CategorySpace(name="cat", field="cat", categories=["a", "b"])
         assert space.encode(None) == [0.0, 0.0]
 
     def test_strict_unknown_raises(self):
         from pgvectordb.spaces import CategorySpace
+
         space = CategorySpace(
-            name="cat", field="cat", categories=["a", "b"],
+            name="cat",
+            field="cat",
+            categories=["a", "b"],
             uncategorized_as_zero=False,
         )
         with pytest.raises(ValueError, match="unknown category"):
@@ -379,5 +399,6 @@ class TestCategorySpaceValidation:
 
     def test_dimensions_equals_num_categories(self):
         from pgvectordb.spaces import CategorySpace
+
         space = CategorySpace(name="cat", field="cat", categories=["x", "y", "z"])
         assert space.dimensions == 3

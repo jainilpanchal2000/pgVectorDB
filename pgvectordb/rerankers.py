@@ -34,7 +34,7 @@ Examples:
     ... )
     >>>
     >>> # Rerank via core method
-    >>> results = await rag.rerank_search(
+    >>> results = await pgvdb.rerank_search(
     ...     query="best noise cancelling headphones under $200",
     ...     reranker=reranker,
     ...     k=100,           # Retrieve 100 candidates
@@ -46,7 +46,7 @@ Version: 0.0.3
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +78,9 @@ class BaseReranker(ABC):
     def rerank(
         self,
         query: str,
-        documents: List[Dict[str, Any]],
-        top_k: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        documents: list[dict[str, Any]],
+        top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Rerank a list of documents by relevance to the query.
 
@@ -97,7 +97,7 @@ class BaseReranker(ABC):
         """
         ...
 
-    def _safe_top_k(self, documents: List, top_k: Optional[int]) -> int:
+    def _safe_top_k(self, documents: list, top_k: int | None) -> int:
         """Return a valid top_k bounded by the number of documents."""
         return min(top_k, len(documents)) if top_k else len(documents)
 
@@ -138,7 +138,7 @@ class CrossEncoderReranker(BaseReranker):
     def __init__(
         self,
         model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
-        device: Optional[str] = None,
+        device: str | None = None,
         batch_size: int = 32,
         max_length: int = 512,
     ):
@@ -165,9 +165,9 @@ class CrossEncoderReranker(BaseReranker):
     def rerank(
         self,
         query: str,
-        documents: List[Dict[str, Any]],
-        top_k: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        documents: list[dict[str, Any]],
+        top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Score each document using the cross-encoder and reorder.
 
@@ -236,16 +236,15 @@ class CohereReranker(BaseReranker):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "rerank-english-v3.0",
         max_chunks_per_doc: int = 10,
     ):
         try:
-            import cohere
+            import cohere  # type: ignore[import-untyped]
         except ImportError:
             raise ImportError(
-                "cohere is required for CohereReranker. "
-                "Install with: pip install cohere"
+                "cohere is required for CohereReranker. Install with: pip install cohere"
             )
 
         import os
@@ -264,9 +263,9 @@ class CohereReranker(BaseReranker):
     def rerank(
         self,
         query: str,
-        documents: List[Dict[str, Any]],
-        top_k: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        documents: list[dict[str, Any]],
+        top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Rerank using Cohere Rerank API.
 
@@ -338,16 +337,15 @@ class AWSBedrockReranker(BaseReranker):
         self,
         region_name: str = "us-east-1",
         model_id: str = "amazon.rerank-v1:0",
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        aws_session_token: Optional[str] = None,
+        aws_access_key_id: str | None = None,
+        aws_secret_access_key: str | None = None,
+        aws_session_token: str | None = None,
     ):
         try:
             import boto3
         except ImportError:
             raise ImportError(
-                "boto3 is required for AWSBedrockReranker. "
-                "Install with: pip install boto3"
+                "boto3 is required for AWSBedrockReranker. Install with: pip install boto3"
             )
 
         self.model_id = model_id
@@ -370,9 +368,9 @@ class AWSBedrockReranker(BaseReranker):
     def rerank(
         self,
         query: str,
-        documents: List[Dict[str, Any]],
-        top_k: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        documents: list[dict[str, Any]],
+        top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Rerank using AWS Bedrock Rerank API.
 
@@ -428,9 +426,7 @@ class AWSBedrockReranker(BaseReranker):
         return results
 
     def __repr__(self) -> str:
-        return (
-            f"AWSBedrockReranker(model='{self.model_id}', region='{self.region_name}')"
-        )
+        return f"AWSBedrockReranker(model='{self.model_id}', region='{self.region_name}')"
 
 
 # ==================== HuggingFaceReranker ====================
@@ -466,7 +462,7 @@ class HuggingFaceReranker(BaseReranker):
     def __init__(
         self,
         model: str = "BAAI/bge-reranker-v2-m3",
-        device: Optional[str] = None,
+        device: str | None = None,
         batch_size: int = 16,
         max_length: int = 512,
     ):
@@ -503,7 +499,7 @@ class HuggingFaceReranker(BaseReranker):
         self._model.eval()
         logger.info(f"✓ HuggingFace reranker loaded: {model}")
 
-    def _score_batch(self, pairs: List[Tuple[str, str]]) -> List[float]:
+    def _score_batch(self, pairs: list[tuple[str, str]]) -> list[float]:
         """Score a batch of (query, document) pairs."""
         import torch
 
@@ -531,9 +527,9 @@ class HuggingFaceReranker(BaseReranker):
     def rerank(
         self,
         query: str,
-        documents: List[Dict[str, Any]],
-        top_k: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        documents: list[dict[str, Any]],
+        top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Rerank documents using the local HuggingFace model.
 
