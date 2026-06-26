@@ -4,6 +4,7 @@ Test UnifiedQueryBuilder (v0.0.6)
 Tests for the new unified fluent query builder that supports all search methods
 through a single entry point: db.query("...")
 """
+
 import pytest
 
 
@@ -122,11 +123,7 @@ class TestUnifiedQuerySearchModes:
     @pytest.mark.asyncio
     async def test_keyword_search_config(self, rag_hnsw):
         """Keyword search should accept BM25 params."""
-        builder = (
-            rag_hnsw.query("test")
-            .keyword()
-            .bm25_params(k1=1.5, b=0.75)
-        )
+        builder = rag_hnsw.query("test").keyword().bm25_params(k1=1.5, b=0.75)
         assert builder._config.keyword_type.value == "bm25"
         assert builder._config.bm25_k1 == 1.5
         assert builder._config.bm25_b == 0.75
@@ -134,22 +131,14 @@ class TestUnifiedQuerySearchModes:
     @pytest.mark.asyncio
     async def test_hybrid_rrf_config(self, rag_hnsw):
         """Hybrid search should accept RRF params."""
-        builder = (
-            rag_hnsw.query("test")
-            .hybrid()
-            .rrf(k=100)
-        )
+        builder = rag_hnsw.query("test").hybrid().rrf(k=100)
         assert builder._config.hybrid_mode == "rrf"
         assert builder._config.rrf_k == 100
 
     @pytest.mark.asyncio
     async def test_hybrid_weights_config(self, rag_hnsw):
         """Hybrid search should accept weights."""
-        builder = (
-            rag_hnsw.query("test")
-            .hybrid()
-            .weights(semantic=0.7, keyword=0.3)
-        )
+        builder = rag_hnsw.query("test").hybrid().weights(semantic=0.7, keyword=0.3)
         assert builder._config.hybrid_mode == "weighted"
         assert builder._config.semantic_weight == 0.7
         assert builder._config.keyword_weight == 0.3
@@ -157,11 +146,7 @@ class TestUnifiedQuerySearchModes:
     @pytest.mark.asyncio
     async def test_trigram_threshold_config(self, rag_hnsw):
         """Trigram search should accept threshold."""
-        builder = (
-            rag_hnsw.query("test")
-            .trigram()
-            .threshold(0.4)
-        )
+        builder = rag_hnsw.query("test").trigram().threshold(0.4)
         assert builder._search_method.value == "trigram"
         assert builder._config.trigram_threshold == 0.4
 
@@ -190,10 +175,7 @@ class TestUnifiedQueryExecution:
     async def test_filtered_query(self, db_with_docs):
         """Query with where() should filter results."""
         results = await (
-            db_with_docs.query("test")
-            .where({"category": "programming"})
-            .limit(5)
-            .to_list()
+            db_with_docs.query("test").where({"category": "programming"}).limit(5).to_list()
         )
         # All results should match filter
         for r in results:
@@ -204,6 +186,7 @@ class TestUnifiedQueryExecution:
         """to_pandas() should return a DataFrame."""
         df = await db_with_docs.query("test").limit(3).to_pandas()
         import pandas as pd
+
         assert isinstance(df, pd.DataFrame)
 
     @pytest.mark.asyncio
@@ -246,10 +229,7 @@ class TestUnifiedQueryConfig:
     @pytest.mark.asyncio
     async def test_search_config_accepts_params(self, rag_hnsw):
         """search_config() should accept arbitrary params."""
-        builder = (
-            rag_hnsw.query("test")
-            .search_config(ef=100, refine_factor=2)
-        )
+        builder = rag_hnsw.query("test").search_config(ef=100, refine_factor=2)
         assert builder._config.ef == 100
         assert builder._config.refine_factor == 2
 

@@ -1,18 +1,18 @@
 """
-Product Search Example — pgVectorDB v0.0.3 Multimodal Search
-=============================================================
+Product Search Example — pgVectorDB Multimodal Search
+=====================================================
 
-Demonstrates multi-embedding search across structured product data:
+Demonstrates direct per-space multimodal search across structured product data:
 - TextSpace: product description (semantic)
 - NumberSpace: price (numeric, prefer lower)
 - NumberSpace: rating (numeric, prefer higher)
 - CategorySpace: category (one-hot)
 
-The key insight: no re-ranking needed when you embed all signals at index-time
-and combine them at query-time with dynamic weights.
+The key insight: explicit query values and weights let you combine product text,
+price, rating, and category preferences at query-time without re-indexing.
 
 Requirements:
-    pip install pgvectordb langchain-openai asyncpg asyncio
+    pip install pgvectordb langchain-openai asyncpg
     PostgreSQL with pgvector extension enabled
 
 Usage:
@@ -21,6 +21,7 @@ Usage:
 
 import asyncio
 import os
+
 from langchain_openai import OpenAIEmbeddings
 
 # Try local import first, then installed package
@@ -28,14 +29,13 @@ try:
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
     from pgvectordb.rerankers import CrossEncoderReranker
 except ImportError:
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
     from pgvectordb.rerankers import CrossEncoderReranker
 
 from langchain_core.documents import Document
-
 
 # ==================== Sample Data ====================
 

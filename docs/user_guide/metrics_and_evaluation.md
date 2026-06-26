@@ -1,102 +1,192 @@
-# Metrics and Evaluation: Statistical Deep Dive
+# Metrics & Evaluation
 
-Building a RAG system is easy; proving it works is hard. pgVectorDB includes a dedicated `metrics.py` module containing the `RAGEvaluator` class. This provides scientifically rigorous statistical evaluation of your specific retrieval pipelines, allowing you to quantify exactly how much an index tune (like increasing HNSW `ef_search`) or a new reranker improves your accuracy.
+pgVectorDB includes built-in retrieval metrics so you can prove whether a search change helped before shipping it. Use `RAGEvaluator` to score retrieved document IDs against ground truth, and use `KValueAnalysis` to decide how many documents to send downstream to an LLM.
 
----
+## What the Evaluator Measures
 
-## Supported Metrics
+| Metric | Meaning | Use it to answer |
+| --- | --- | --- |
+| Precision@K | Relevant documents in top K divided by K. | How much irrelevant context am I sending? |
+| Recall@K | Relevant documents found divided by total relevant documents. | Am I missing important context? |
+| F1@K | Harmonic mean of precision and recall. | What balances quality and coverage? |
+| MAP@K | Mean average precision across ranked results. | Are relevant documents consistently high in the list? |
+| MRR | Reciprocal rank of the first relevant result. | How quickly does the first useful result appear? |
+| NDCG@K | Position-discounted ranking quality. | Are all useful results ranked well? |
+| Hit Rate@K | Fraction of queries with at least one relevant result. | Does the retriever find anything useful at all? |
 
-The `RAGEvaluator` calculates three distinct, industry-standard metrics for Information Retrieval (IR) systems.
+## Build a Ground Truth Dataset
 
-### 1. Hit Rate
-**What it is**: A binary boolean value (0.0 or 1.0). Did the relevant document appear *anywhere* within the top-K returned results?
-**Why use it**: This is the most basic metric. If your hit rate is low, your embeddings are likely poor, or your K value is too small. It doesn't care if the right answer was result #1 or result #10, as long as it was retrieved.
-
-### 2. MRR (Mean Reciprocal Rank)
-**What it is**: Measures *where* the first relevant document appeared in the results.
-**Formula**: `MRR = 1 / rank_of_first_relevant_item`
-**Why use it**: If the correct document is returned at rank 1, the score is 1.0. If it is returned at rank 2, the score is 0.5. Rank 3 is 0.33, etc. MRR heavily penalizes systems that bury the right answer deep in the results, making it the perfect metric for evaluating LLM context window stuffing (where the top documents get the most attention).
-
-### 3. NDCG (Normalized Discounted Cumulative Gain)
-**What it is**: The most rigorous metric. It evaluates the ranking quality of *all* retrieved relevant documents, heavily discounting the value of documents the further down the list they appear using a logarithmic scale.
-**Formula**: `DCG = sum(rel_i / log2(i + 1))`, then normalized against the Ideal DCG (IDCG).
-**Why use it**: Essential when a query has *multiple* relevant documents, and you want to ensure the system clustered all the best answers right at the top.
-
----
-
-## Evaluating a Search Pipeline
-
-To run an evaluation, you must provide a "Ground Truth" dataset. This is a list of tuples: `(query_string, expected_document_id)`.
+Ground truth is a list of queries and the document IDs that should be considered relevant.
 
 ```python
-from pgvectordb import pgVectorDB, RAGEvaluator
+from pgvectordb import EvaluationDataset
 
-# Define your test suite
-ground_truth = [
-    ("How do I reset my password?", "doc_user_auth_12"),
-    ("What is the refund policy?", "doc_billing_45"),
-    ("Database tuning guide", "doc_tech_99")
+dataset = EvaluationDataset()
+dataset.add_query(
+    query="How do I tune HNSW recall?",
+    relevant_doc_ids=["doc_hnsw_tuning", "doc_recall_benchmark"],
+    metadata={"topic": "optimization"},
+)
+dataset.add_query(
+    query="How do scalar indexes help filters?",
+    relevant_doc_ids=["doc_scalar_indexes", "doc_filtering"],
+    metadata={"topic": "filtering"},
+)
+
+dataset.save("eval_dataset.json")
+```
+
+Load it later with:
+
+```python
+dataset = EvaluationDataset.load("eval_dataset.json")
+```
+
+## Evaluate Fluent Search Results
+
+`RAGEvaluator` does not call the database for you. It evaluates the IDs your retrieval pipeline returned. This keeps it flexible: you can compare semantic, hybrid, reranked, multimodal, or external retrievers with the same metrics.
+
+```python
+from pgvectordb import RAGEvaluator
+
+
+async def retrieve_ids(query: str, k: int) -> list[str]:
+    rows = await (
+        db.query(query)
+        .hybrid()
+        .weights(semantic=0.7, keyword=0.3)
+        .limit(k)
+        .to_list()
+    )
+    return [row["id"] for row in rows]
+
+
+k = 5
+retrieved_results = [
+    await retrieve_ids(query, k=k)
+    for query in dataset.queries
 ]
 
-# Instantiate the evaluator
-evaluator = RAGEvaluator(db)
-
-# Run the evaluation!
-# By default, this uses semantic_search with k=5.
-metrics = await evaluator.evaluate(
-    ground_truth=ground_truth,
-    k=5
+evaluator = RAGEvaluator(k=k)
+result = evaluator.evaluate(
+    queries=dataset.queries,
+    retrieved_results=retrieved_results,
+    ground_truth=dataset.ground_truth,
 )
 
-print(f"Hit Rate: {metrics['hit_rate']}") # e.g., 0.95
-print(f"MRR: {metrics['mrr']}")           # e.g., 0.82
-print(f"NDCG: {metrics['ndcg']}")         # e.g., 0.85
-
+print(result.to_dict())
 ```
 
----
+## Compare Search Strategies
 
-## Customizing the Evaluation Function
-
-The power of `RAGEvaluator` is that it allows you to inject *any* custom asynchronous retrieval function. This is critical for A/B testing different search methods.
-
-For example, to test if `hybrid_search` outperforms `semantic_search`:
+Run the same dataset through multiple retrieval pipelines and compare the output.
 
 ```python
-# Define a custom function using hybrid search
-async def hybrid_retriever(query: str, k: int):
-    # Notice we can pass custom weights!
-    return await db.hybrid_search(query, k=k, weights=(0.7, 0.3))
+async def semantic_ids(query: str, k: int) -> list[str]:
+    rows = await db.query(query).semantic().limit(k).to_list()
+    return [row["id"] for row in rows]
 
-metrics_hybrid = await evaluator.evaluate(
-    ground_truth=ground_truth,
-    k=5,
-    retrieval_fn=hybrid_retriever
-)
 
-print(f"Hybrid MRR: {metrics_hybrid['mrr']}")
+async def hybrid_ids(query: str, k: int) -> list[str]:
+    rows = await db.query(query).hybrid().rrf(k=60).limit(k).to_list()
+    return [row["id"] for row in rows]
 
+
+async def evaluate_pipeline(name: str, retrieve, k: int):
+    retrieved = [await retrieve(query, k) for query in dataset.queries]
+    metrics = RAGEvaluator(k=k).evaluate(dataset.queries, retrieved, dataset.ground_truth)
+    print(name, metrics.to_dict())
+
+
+await evaluate_pipeline("semantic", semantic_ids, k=5)
+await evaluate_pipeline("hybrid_rrf", hybrid_ids, k=5)
 ```
 
----
+Use this pattern to compare:
 
-## The `evaluate_k_range` Method
+- semantic vs keyword vs hybrid search
+- weighted hybrid vs RRF
+- different `ef` or `nprobes` values
+- filters with and without scalar indexes
+- multimodal weights
+- reranking backends
 
-LLMs have limited context windows and charge per token. You want the smallest `K` (number of documents returned) that still maintains an acceptable Hit Rate. 
+## K-Value Analysis
 
-The `evaluate_k_range` method runs the evaluation multiple times across a spectrum of K values, helping you plot the exact point of diminishing returns.
+Use `KValueAnalysis` when you need the smallest `k` that still gives enough retrieval quality. This directly affects LLM latency and token cost.
 
 ```python
-# Evaluates the pipeline for K=1, K=3, K=5, and K=10
-results = await evaluator.evaluate_k_range(
-    ground_truth=ground_truth,
-    k_values=[1, 3, 5, 10]
+from pgvectordb import KValueAnalysis
+
+
+retrieved_by_k = {}
+for k in [1, 3, 5, 10, 20]:
+    retrieved_by_k[k] = [
+        await hybrid_ids(query, k=k)
+        for query in dataset.queries
+    ]
+
+analyzer = KValueAnalysis()
+results_by_k = analyzer.analyze(
+    queries=dataset.queries,
+    retrieved_results_by_k=retrieved_by_k,
+    ground_truth=dataset.ground_truth,
 )
 
-for result in results:
-    print(f"K={result['k']} | Hit Rate: {result['metrics']['hit_rate']} | MRR: {result['metrics']['mrr']}")
-
+recommendation = analyzer.get_recommendation()
+print(recommendation)
 ```
 
-**Analyzing the output:**
-If K=3 yields a Hit Rate of 0.92, and K=10 yields a Hit Rate of 0.94, you now have the empirical data to prove that sending 7 extra documents to the LLM (and paying for those tokens) is absolutely not worth a 2% increase in recall.
+Interpretation examples:
+
+| Pattern | What it means | Next action |
+| --- | --- | --- |
+| Recall improves but precision drops as K grows. | You are finding more relevant docs but adding noise. | Add reranking or reduce K. |
+| MRR is low while hit rate is high. | Relevant docs are present but buried. | Use hybrid search or a reranker. |
+| NDCG is low for multimodal search. | Weights are likely misaligned. | Tune space weights with a validation set. |
+| Recall is low for ANN but exact search is strong. | Index/query params are too aggressive. | Increase `.ef(...)`, `.nprobes(...)`, or use `compute_recall()`. |
+
+## Single Query Debugging
+
+Use `evaluate_single_query()` to inspect one failing query while tuning.
+
+```python
+metrics = RAGEvaluator(k=5).evaluate_single_query(
+    retrieved_docs=["doc_a", "doc_b", "doc_c"],
+    relevant_docs=["doc_b", "doc_d"],
+)
+
+print(metrics)
+```
+
+## Evaluation Workflow
+
+```mermaid
+flowchart TD
+    A[Collect real user queries] --> B[Label relevant document IDs]
+    B --> C[Run candidate retrieval pipelines]
+    C --> D[Evaluate with RAGEvaluator]
+    D --> E{Metric target met?}
+    E -- no --> F[Tune search mode, weights, indexes, K, or reranker]
+    F --> C
+    E -- yes --> G[Ship settings and keep dataset as regression coverage]
+```
+
+## Practical Targets
+
+Targets depend on your domain, but these ranges are useful starting points.
+
+| Workload | Metric to prioritize | Why |
+| --- | --- | --- |
+| Customer support RAG | Hit Rate and MRR | Find at least one good answer and rank it early. |
+| Legal or policy search | Recall and NDCG | Missing relevant material is expensive. |
+| Product search | NDCG and precision | Ranking order affects conversion and trust. |
+| Internal knowledge base | Hit Rate and F1 | Balance coverage with context quality. |
+| Multimodal search | NDCG by query segment | Tune weights per product/domain need. |
+
+## Related Tools
+
+- Use [Analytics & Diagnostics](analytics_and_diagnostics.md) to measure latency, recall against exact search, index health, and slow queries.
+- Use [Indexing & Performance](../advanced/indexing.md) to tune HNSW, IVFFlat, DiskANN, scalar indexes, and query parameters.
+- Use [Reranking](reranking.md) when Hit Rate is acceptable but MRR or NDCG is weak.
+- See [examples/05_rag_evaluation.ipynb](https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/05_rag_evaluation.ipynb) for a notebook workflow.

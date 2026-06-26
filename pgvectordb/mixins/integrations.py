@@ -7,7 +7,7 @@ Provides: as_retriever with custom VectorStoreRetriever for LangChain compatibil
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
@@ -23,7 +23,7 @@ class IntegrationsMixin(MixinBase):
     def as_retriever(
         self,
         search_method: str = "semantic_search",
-        search_kwargs: Optional[Dict[str, Any]] = None,
+        search_kwargs: dict[str, Any] | None = None,
     ) -> Any:
         """
         Convert to LangChain Retriever for ecosystem compatibility.
@@ -60,7 +60,6 @@ class IntegrationsMixin(MixinBase):
             ...     retriever=retriever
             ... )
         """
-        from typing import List as TypingList
 
         from langchain_core.retrievers import BaseRetriever
 
@@ -71,7 +70,7 @@ class IntegrationsMixin(MixinBase):
 
             vectorstore: Any
             search_method: str
-            search_kwargs: Dict[str, Any]
+            search_kwargs: dict[str, Any]
 
             class Config:
                 arbitrary_types_allowed = True
@@ -80,8 +79,8 @@ class IntegrationsMixin(MixinBase):
                 self,
                 query: str,
                 *,
-                run_manager: Optional[CallbackManagerForRetrieverRun] = None,
-            ) -> TypingList[Document]:
+                run_manager: CallbackManagerForRetrieverRun | None = None,
+            ) -> list[Document]:
                 """Sync version - not implemented (use async version)."""
                 raise NotImplementedError(
                     "Sync retrieval not supported. Use async methods with ainvoke() or aget_relevant_documents()"
@@ -92,7 +91,7 @@ class IntegrationsMixin(MixinBase):
                 query: str,
                 *,
                 run_manager: Any = None,  # AsyncCallbackManagerForRetrieverRun
-            ) -> TypingList[Document]:
+            ) -> list[Document]:
                 """Async retrieval using configured search method."""
                 # Get the search method from vectorstore
                 method = getattr(self.vectorstore, self.search_method, None)

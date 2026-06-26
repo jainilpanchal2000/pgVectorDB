@@ -1,6 +1,6 @@
 """
-Real Estate NLQ (Natural Language Query) Agent — pgVectorDB v0.0.3
-===================================================================
+Real Estate NLQ (Natural Language Query) Agent — pgVectorDB
+===========================================================
 
 Inspired by Superlinked's Real Estate NLQ article, this example demonstrates
 how to replace rigid SQL filters with flexible, weighted multimodal search.
@@ -9,7 +9,7 @@ Traditional approach (rigid):
     WHERE price < 500000 AND bedrooms >= 2 AND city = 'NYC'
     → Misses great near-matches, requires exact criteria
 
-Multimodal approach (flexible):
+Direct per-space multimodal approach (flexible):
     query_params={
         "description": "spacious modern apartment with city views",
         "price": 400000,       # Soft preference, not hard filter
@@ -22,7 +22,7 @@ Multimodal approach (flexible):
 The magic: weights can be adjusted at query-time without re-indexing.
 
 Requirements:
-    pip install pgvectordb langchain-openai asyncpg asyncio
+    pip install pgvectordb langchain-openai asyncpg
     PostgreSQL with pgvector extension enabled
 
 Usage:
@@ -36,14 +36,13 @@ try:
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
     # from pgvectordb.rerankers import CohereReranker, create_reranker
 except ImportError:
-    from pgvectordb import pgVectorDB, TextSpace, NumberSpace, CategorySpace
+    from pgvectordb import CategorySpace, NumberSpace, TextSpace, pgVectorDB
 
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
-
 
 # ==================== Sample Real Estate Data ====================
 
@@ -156,9 +155,7 @@ def print_listing(idx: int, r) -> None:
     sqft = meta.get("sqft", "?")
     city = meta.get("city", "?")
     hood = meta.get("neighborhood", "?")
-    print(
-        f"\n  {idx}. [score={r.score:.3f}] ${price:,} | {beds}BR/{baths}ba | {sqft} sqft"
-    )
+    print(f"\n  {idx}. [score={r.score:.3f}] ${price:,} | {beds}BR/{baths}ba | {sqft} sqft")
     print(f"     📍 {hood}, {city}")
     print(f"     {r.content[:100]}...")
 
@@ -220,9 +217,7 @@ async def run_real_estate_nlq():
     ]
 
     pgvdb.register_spaces(spaces)
-    print(
-        f"✓ Registered {len(spaces)} spaces: description, price, bedrooms, bathrooms, city"
-    )
+    print(f"✓ Registered {len(spaces)} spaces: description, price, bedrooms, bathrooms, city")
 
     # ==================== Ingest Listings ====================
     print(f"\nIndexing {len(REAL_ESTATE_LISTINGS)} listings...")

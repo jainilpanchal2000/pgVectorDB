@@ -9,12 +9,12 @@ and have every mixin inherit from ``MixinBase``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
-    from ..base import IndexType, QueryResult
+    from ..base import IndexType
     from ..extensions import ExtensionManager
 
 
@@ -31,17 +31,17 @@ class MixinBase:
     vector_size: int
 
     # ── Engine / store ─────────────────────────────────────────────────────
-    sqlalchemy_engine: "AsyncEngine"
-    _vector_store: Optional[Any]
-    _extensions: Optional["ExtensionManager"]
+    sqlalchemy_engine: AsyncEngine
+    _vector_store: Any | None
+    _extensions: ExtensionManager | None
 
     # ── Config / state ─────────────────────────────────────────────────────
-    index_type: "IndexType"
+    index_type: IndexType
     embedding_model: Any
     _index_built: bool
-    _query_params: Dict[str, Any]
-    _diskann_build_params: Dict[str, Any]
-    _nprobes: Optional[int]
+    _query_params: dict[str, Any]
+    _diskann_build_params: dict[str, Any]
+    _nprobes: int | None
 
     # ── Lifecycle ──────────────────────────────────────────────────────────
     def _ensure_initialized(self) -> None:

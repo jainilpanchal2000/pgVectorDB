@@ -11,11 +11,11 @@ Usage:
     python scripts/test_connection.py --conn "postgresql+asyncpg://user:pass@host:port/db"
 """
 
-import sys
-import os
-import asyncio
 import argparse
-from typing import Dict, Any
+import asyncio
+import os
+import sys
+from typing import Any
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -61,15 +61,15 @@ def print_warning(text: str):
 
 def print_info(text: str):
     """Print info message."""
-    print(f"{BLUE}ℹ {text}{RESET}")
+    print(f"{BLUE}i {text}{RESET}")
 
 
-async def test_database_connection(connection_string: str) -> Dict[str, Any]:
+async def test_database_connection(connection_string: str) -> dict[str, Any]:
     """Test database connection using pgVectorDB (same as notebook)."""
     results = {"connected": False, "version": None, "extensions": {}, "error": None}
 
     try:
-        from pgvectordb import pgVectorDB, IndexType
+        from pgvectordb import IndexType, pgVectorDB
         from pgvectordb.config import Config
 
         # Get embedding model from config
@@ -78,7 +78,7 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
 
         # Use pgVectorDB to test connection (same as notebook)
         print_info("Testing database connection with pgVectorDB...")
-        test_rag = pgVectorDB(
+        test_db = pgVectorDB(
             collection_name="connection_test_temp",
             embedding_model=embeddings,
             connection_string=connection_string,
@@ -86,7 +86,7 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
         )
 
         # Initialize (this will test the connection)
-        await test_rag.initialize(overwrite_existing=True)
+        await test_db.initialize(overwrite_existing=True)
         results["connected"] = True
         print_success("Database connection successful")
 
@@ -101,9 +101,11 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
         results["version"] = version.split(",")[0]
         print_info(f"PostgreSQL version: {results['version']}")
 
-        # Check extensions
-        # (vectorscale and pg_textsearch are optional compiled extensions)
-        optional_exts = {"vectorscale", "pg_textsearch"}
+        # Check core and feature-specific extensions
+        feature_exts = {
+            "vectorscale": "required for DiskANN",
+            "pg_textsearch": "required for BM25",
+        }
         extensions_to_check = ["vector", "pg_trgm", "vectorscale", "pg_textsearch"]
         for ext in extensions_to_check:
             try:
@@ -112,19 +114,17 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
                 )
                 if ext_version:
                     results["extensions"][ext] = ext_version
-                    print_success(
-                        f"Extension '{ext}' installed (version {ext_version})"
-                    )
+                    print_success(f"Extension '{ext}' installed (version {ext_version})")
                 else:
                     results["extensions"][ext] = None
-                    if ext in optional_exts:
-                        print_warning(f"Extension '{ext}' not installed (optional)")
+                    if ext in feature_exts:
+                        print_warning(f"Extension '{ext}' not installed ({feature_exts[ext]})")
                     else:
                         print_error(f"Extension '{ext}' not installed")
             except Exception as e:
                 results["extensions"][ext] = None
-                if ext in optional_exts:
-                    print_warning(f"Extension '{ext}' not available (optional)")
+                if ext in feature_exts:
+                    print_warning(f"Extension '{ext}' not available ({feature_exts[ext]})")
                 else:
                     print_error(f"Extension '{ext}' check failed: {e}")
 
@@ -133,14 +133,12 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
         # Clean up test table (use raw SQL since drop_collection may not exist)
         try:
             cleanup_conn = await asyncpg.connect(conn_str)
-            await cleanup_conn.execute(
-                "DROP TABLE IF EXISTS connection_test_temp CASCADE"
-            )
+            await cleanup_conn.execute("DROP TABLE IF EXISTS connection_test_temp CASCADE")
             await cleanup_conn.close()
         except Exception:
             pass  # Ignore cleanup errors
 
-        await test_rag.close()
+        await test_db.close()
 
     except ImportError as e:
         results["error"] = f"Missing package: {e}"
@@ -152,7 +150,7 @@ async def test_database_connection(connection_string: str) -> Dict[str, Any]:
     return results
 
 
-def test_python_packages() -> Dict[str, Any]:
+def test_python_packages() -> dict[str, Any]:
     """Test if required Python packages are installed."""
     results = {"all_installed": True, "packages": {}}
 
@@ -188,7 +186,7 @@ def test_python_packages() -> Dict[str, Any]:
     return results
 
 
-def test_environment_config() -> Dict[str, Any]:
+def test_environment_config() -> dict[str, Any]:
     """Test environment configuration."""
     results = {"config_found": False, "variables": {}}
 
@@ -203,7 +201,7 @@ def test_environment_config() -> Dict[str, Any]:
 
         # Read .env file
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:
@@ -219,9 +217,7 @@ def test_environment_config() -> Dict[str, Any]:
                         ]:
                             # Mask sensitive info
                             if "PASSWORD" in key or "CONNECTION_STRING" in key:
-                                results["variables"][key] = (
-                                    "***" if value.strip() else "NOT SET"
-                                )
+                                results["variables"][key] = "***" if value.strip() else "NOT SET"
                             else:
                                 results["variables"][key] = (
                                     value.strip() if value.strip() else "NOT SET"
@@ -236,14 +232,12 @@ def test_environment_config() -> Dict[str, Any]:
     else:
         results["config_found"] = False
         print_error("Configuration file NOT found: config/.env")
-        print_info(
-            "Copy config/.env.example to config/.env and update with your settings"
-        )
+        print_info("Copy config/.env.example to config/.env and update with your settings")
 
     return results
 
 
-def test_embedding_model() -> Dict[str, Any]:
+def test_embedding_model() -> dict[str, Any]:
     """Test embedding model."""
     results = {"model_available": False, "model_name": None, "dimensions": None}
 
@@ -281,7 +275,7 @@ def test_embedding_model() -> Dict[str, Any]:
     return results
 
 
-async def test_pgvectordb_import() -> Dict[str, Any]:
+async def test_pgvectordb_import() -> dict[str, Any]:
     """Test pgVectorDB import."""
     results = {"import_success": False, "available_classes": []}
 
@@ -309,7 +303,7 @@ async def test_pgvectordb_import() -> Dict[str, Any]:
     return results
 
 
-def print_summary(all_results: Dict[str, Any]):
+def print_summary(all_results: dict[str, Any]):
     """Print summary of all tests."""
     print_header("Test Summary")
 
@@ -323,9 +317,7 @@ def print_summary(all_results: Dict[str, Any]):
         print_success("Python packages: ALL INSTALLED")
     else:
         missing = [
-            pkg
-            for pkg, installed in all_results["packages"]["packages"].items()
-            if not installed
+            pkg for pkg, installed in all_results["packages"]["packages"].items() if not installed
         ]
         print_error(f"Python packages: {len(missing)} MISSING")
         print_info(f"Missing: {', '.join(missing)}")

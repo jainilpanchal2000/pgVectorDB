@@ -32,7 +32,7 @@ Note:
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from packaging import version
 from sqlalchemy import text
@@ -109,16 +109,16 @@ class ExtensionManager:
         self.has_pg_textsearch: bool = False
 
         # Installed versions
-        self.pgvector_version: Optional[str] = None
-        self.vectorscale_version: Optional[str] = None
-        self.pg_textsearch_version: Optional[str] = None
+        self.pgvector_version: str | None = None
+        self.vectorscale_version: str | None = None
+        self.pg_textsearch_version: str | None = None
 
         # Flags for specific features
         self.has_iterative_scan: bool = False
 
         self._checked: bool = False
 
-    async def check_extensions(self, auto_install: bool = True) -> Dict[str, bool]:
+    async def check_extensions(self, auto_install: bool = True) -> dict[str, bool]:
         """
         Check PostgreSQL extension availability.
 
@@ -171,9 +171,7 @@ class ExtensionManager:
 
                     # Check for iterative scan support
                     pgvector_ver = self.pgvector_version or ""
-                    if version.parse(pgvector_ver) >= version.parse(
-                        self.MIN_PGVECTOR_ITERATIVE
-                    ):
+                    if version.parse(pgvector_ver) >= version.parse(self.MIN_PGVECTOR_ITERATIVE):
                         self.has_iterative_scan = True
                         logger.info(
                             f"  ✓ Iterative scan support available (v{self.MIN_PGVECTOR_ITERATIVE}+)"
@@ -211,7 +209,9 @@ class ExtensionManager:
                     self.pg_textsearch_version = installed["pg_textsearch"]
                     pg_textsearch_ver = self.pg_textsearch_version or ""
 
-                    if version.parse(pg_textsearch_ver) >= version.parse(self.MIN_PG_TEXTSEARCH_VERSION):
+                    if version.parse(pg_textsearch_ver) >= version.parse(
+                        self.MIN_PG_TEXTSEARCH_VERSION
+                    ):
                         self.has_pg_textsearch = True
                         logger.info(
                             f"✓ pg_textsearch {self.pg_textsearch_version} detected (BM25 available)"
@@ -223,7 +223,9 @@ class ExtensionManager:
                                 f"Consider upgrading for production use (pg_dump/restore, VACUUM support)."
                             )
                     else:
-                        missing_extensions.append(f"pg_textsearch (>={self.MIN_PG_TEXTSEARCH_VERSION})")
+                        missing_extensions.append(
+                            f"pg_textsearch (>={self.MIN_PG_TEXTSEARCH_VERSION})"
+                        )
                 else:
                     # Try to install
                     if auto_install:
@@ -251,7 +253,7 @@ class ExtensionManager:
                 # pgvector and pg_trgm are truly required
                 # vectorscale and pg_textsearch are recommended for production but
                 # graceful degradation allows testing without them
-                critical_missing = [e for e in missing_extensions if e in ['pgvector', 'pg_trgm']]
+                critical_missing = [e for e in missing_extensions if e in ["pgvector", "pg_trgm"]]
                 recommended_missing = [e for e in missing_extensions if e not in critical_missing]
 
                 if critical_missing:
@@ -279,15 +281,11 @@ class ExtensionManager:
         except Exception as e:
             raise DatabaseError(f"Failed to check extensions: {e}") from e
 
-    async def _install_extension(
-        self, conn, ext_name: str, cascade: bool = False
-    ) -> bool:
+    async def _install_extension(self, conn, ext_name: str, cascade: bool = False) -> bool:
         """Attempt to install an extension."""
         try:
             cascade_str = "CASCADE" if cascade else ""
-            await conn.execute(
-                text(f"CREATE EXTENSION IF NOT EXISTS {ext_name} {cascade_str}")
-            )
+            await conn.execute(text(f"CREATE EXTENSION IF NOT EXISTS {ext_name} {cascade_str}"))
             await conn.commit()
             return True
         except Exception as e:
@@ -308,34 +306,36 @@ class ExtensionManager:
         for ext in missing:
             lines.append(f"  ✗ {ext}")
 
-        lines.extend([
-            "",
-            "To fix this, use Docker (recommended):",
-            "",
-            "  docker run -d \\",
-            "    --name pgvectordb \\",
-            "    -e POSTGRES_PASSWORD=postgres \\",
-            "    -p 5432:5432 \\",
-            "    jainilpanchal2000/pgvectordb:latest",
-            "",
-            "Or install extensions manually:",
-            "",
-            "  1. pgvector: https://github.com/pgvector/pgvector",
-            "  2. vectorscale: https://github.com/timescale/pgvectorscale",
-            "  3. pg_textsearch: https://github.com/timescale/pg_textsearch",
-            "",
-            "Then run in PostgreSQL:",
-            "",
-            "  CREATE EXTENSION IF NOT EXISTS vector;",
-            "  CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;",
-            "  CREATE EXTENSION IF NOT EXISTS pg_textsearch;",
-            "  CREATE EXTENSION IF NOT EXISTS pg_trgm;",
-            "",
-            "=" * 70,
-        ])
+        lines.extend(
+            [
+                "",
+                "To fix this, use Docker (recommended):",
+                "",
+                "  docker run -d \\",
+                "    --name pgvectordb \\",
+                "    -e POSTGRES_PASSWORD=postgres \\",
+                "    -p 5432:5432 \\",
+                "    jainilpanchal2000/pgvectordb:latest",
+                "",
+                "Or install extensions manually:",
+                "",
+                "  1. pgvector: https://github.com/pgvector/pgvector",
+                "  2. vectorscale: https://github.com/timescale/pgvectorscale",
+                "  3. pg_textsearch: https://github.com/timescale/pg_textsearch",
+                "",
+                "Then run in PostgreSQL:",
+                "",
+                "  CREATE EXTENSION IF NOT EXISTS vector;",
+                "  CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;",
+                "  CREATE EXTENSION IF NOT EXISTS pg_textsearch;",
+                "  CREATE EXTENSION IF NOT EXISTS pg_trgm;",
+                "",
+                "=" * 70,
+            ]
+        )
         return "\n".join(lines)
 
-    async def ensure_all_extensions(self) -> Dict[str, bool]:
+    async def ensure_all_extensions(self) -> dict[str, bool]:
         """
         Ensure all mandatory extensions are installed.
 
@@ -376,7 +376,7 @@ class ExtensionManager:
                 f"Current version: {self.pgvector_version or 'unknown'}"
             )
 
-    def get_feature_availability(self) -> Dict[str, Dict[str, Any]]:
+    def get_feature_availability(self) -> dict[str, dict[str, Any]]:
         """
         Get detailed feature availability information.
 

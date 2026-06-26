@@ -34,34 +34,9 @@ await db.initialize()
 
 ## Adding Documents
 
-### `add_texts`
+### `add_documents`
 
-The most common insertion method. Automatically computes embeddings using your configured model and inserts the text.
-
-```python
-inserted_ids = await db.add_texts(
-    texts=["Document 1", "Document 2"],
-    metadatas=[{"source": "wiki"}, {"source": "blog"}],
-    ids=["id_1", "id_2"]  # Optional — auto-generated UUIDs if omitted
-)
-```
-
-### `add_embeddings`
-
-Bypass the embedding model entirely. Useful when embeddings are pre-computed externally (e.g., OpenAI batch API, custom pipelines).
-
-```python
-await db.add_embeddings(
-    texts=["Document 1"],
-    embeddings=[[0.1, 0.2, ..., 0.3]],  # Must match vector_size exactly
-    metadatas=[{"source": "precomputed"}],
-    ids=["id_1"]
-)
-```
-
-### `add_documents` (LangChain Documents)
-
-Add LangChain `Document` objects directly — compatible with all LangChain loaders and splitters.
+The most common insertion method. It accepts LangChain `Document` objects, automatically computes embeddings using your configured model, and inserts text plus metadata.
 
 ```python
 from langchain_core.documents import Document
@@ -295,7 +270,8 @@ doc_ids = await db.add_documents(docs, labels=labels)
 ```python
 from pgvectordb import IndexType
 
-await db.create_index(index_type=IndexType.DISKANN, include_labels=True)
+db.index_type = IndexType.DISKANN
+await db.build_index(include_labels=True)
 ```
 
 ### Step 4: Resolve Label Names to IDs at Query Time

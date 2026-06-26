@@ -1,211 +1,194 @@
-# Core Concepts: Architectural Deep Dive
+# Core Concepts
 
-pgVectorDB is an enterprise-grade RAG orchestrator built on top of `langchain_postgres`. This guide covers the internal architecture, mixin system, and the key PostgreSQL mechanisms that power it.
+pgVectorDB is a PostgreSQL-backed retrieval library. It keeps documents, metadata, embeddings, filters, indexes, evaluation, and diagnostics close to the data instead of splitting retrieval across a separate vector service.
 
----
-
-## 1. The LangChain Foundation
-
-pgVectorDB is built on the `langchain_postgres.v2` ecosystem:
-
-1. **`PGEngine`** — Manages async SQLAlchemy connection pools via `asyncpg`
-2. **`PGVectorStore`** — Executes document chunking, vectorized insertions, and retrieval
-
-!!! note
-    Documents stored in pgVectorDB are 100% interoperable with LangChain retrievers, RAG chains, and agents. Use `db.as_retriever()` to plug directly into any LCEL chain.
-
----
-
-## 2. The Mixin Architecture
-
-`pgVectorDB` is composed by inheriting from 6 specialized mixin classes. Each mixin owns a distinct concern:
+## Mental Model
 
 ```mermaid
-classDiagram
-    class pgVectorDB {
-        +collection_name: str
-        +embedding_model
-        +index_type: IndexType
-        +initialize()
-        +close()
-    }
-    class SearchMixin {
-        +semantic_search()
-        +keyword_search()
-        +hybrid_search()
-        +ensemble_search()
-        +trigram_search()
-        +metadata_filter()
-        +metadata_keyword_search()
-        +metadata_semantic_search()
-        +metadata_trigram_search()
-        +universal_keyword_search()
-    }
-    class DocumentsMixin {
-        +add_texts()
-        +add_embeddings()
-        +add_documents()
-        +add_documents_batch()
-        +add_documents_batch_isolated()
-        +bulk_load_documents()
-        +upsert_documents()
-        +aupdate_documents()
-        +update_metadata()
-        +aget_by_ids()
-        +adelete()
-        +drop_collection()
-    }
-    class IndexingMixin {
-        +create_index()
-        +build_index()
-        +adrop_vector_index()
-        +build_bm25_index()
-        +set_query_params()
-        +vacuum_analyze()
-    }
-    class AnalyticsMixin {
-        +get_stats()
-        +get_index_stats()
-        +validate_collection()
-        +benchmark_search_methods()
-        +explain_query()
-        +compute_recall()
-        +compute_centroid()
-        +set_iterative_scan()
-        +set_maintenance_work_mem()
-        +set_parallel_workers()
-    }
-    class MultimodalMixin {
-        +register_spaces()
-        +add_documents_multimodal()
-        +build_multimodal_index()
-        +multimodal_search()
-        +multimodal_hybrid_search()
-        +rerank_search()
-    }
-    class IntegrationsMixin {
-        +as_retriever()
-        +asimilarity_search_by_vector()
-        +asimilarity_search_with_score()
-    }
-
-    pgVectorDB --|> SearchMixin
-    pgVectorDB --|> DocumentsMixin
-    pgVectorDB --|> IndexingMixin
-    pgVectorDB --|> AnalyticsMixin
-    pgVectorDB --|> MultimodalMixin
-    pgVectorDB --|> IntegrationsMixin
+flowchart LR
+    A[Document] --> B[PostgreSQL table]
+    B --> C[Embedding column]
+    B --> D[JSONB metadata]
+    B --> E[Full-text and trigram indexes]
+    C --> F[Semantic search]
+    D --> G[Metadata filters]
+    E --> H[Keyword and fuzzy search]
+    F --> I[Fluent query results]
+    G --> I
+    H --> I
+    I --> J[Evaluate, rerank, analyze, tune]
 ```
 
-This composable design keeps each concern isolated and testable. You can grep a single mixin file to understand an entire subsystem.
+The core loop is simple:
 
----
+1. Create a `pgVectorDB` collection.
+2. Add LangChain `Document` objects.
+3. Build the vector and scalar indexes that match your workload.
+4. Query with `db.query(...)`.
+5. Measure quality and latency before tuning.
 
-## 3. Distance Metrics
+## Collections, Documents, and Metadata
 
-pgVectorDB supports 6 distance metrics through pgvector operators:
+A collection maps to a PostgreSQL table. Each row stores the document text, a generated `langchain_id`, JSONB metadata, and at least one embedding.
 
-| Metric | `DistanceMetric` | SQL Operator | Best For |
-|--------|-----------------|--------------|---------|
-| Cosine | `COSINE` | `<=>` | Normalized embeddings (most common) |
-| Euclidean | `L2` | `<->` | When magnitude matters |
-| Inner Product | `INNER_PRODUCT` | `<#>` | Dot product similarity |
-| Manhattan | `L1` | `<+>` | Sparse features, grid data |
-| Hamming | `HAMMING` | `<~>` | Binary embeddings |
-| Jaccard | `JACCARD` | `<%>` | Set similarity |
+```python
+from langchain_core.documents import Document
+
+documents = [
+    Document(
+        page_content="Hybrid search combines semantic and keyword signals.",
+        metadata={"topic": "search", "year": 2026, "tier": "core"},
+    )
+]
+
+ids = await db.add_documents(documents)
+```
+
+Metadata is first-class. You use it for tenant isolation, permissions, categories, dates, product attributes, quality tiers, and any structured signal that should affect retrieval.
+
+## The Fluent Query API
+
+`db.query(...)` is the recommended entry point for new code. It returns a lazy query builder, so no database work happens until you call `to_list()`, `to_pandas()`, `to_arrow()`, or `analyze_plan()`.
+
+```python
+results = await (
+    db.query("production RAG diagnostics")
+    .hybrid()
+    .where({"topic": {"$in": ["search", "optimization"]}})
+    .weights(semantic=0.7, keyword=0.3)
+    .limit(10)
+    .to_list()
+)
+```
+
+Use these mode selectors for the main retrieval families:
+
+| Mode | Best for | Example |
+| --- | --- | --- |
+| `.semantic()` | Meaning-based vector similarity. | `db.query("refund policy").semantic()` |
+| `.keyword()` | Exact terms, compliance language, names, IDs, and BM25. | `db.query("SOC 2 retention").keyword().bm25()` |
+| `.hybrid()` | Queries that need meaning plus exact wording. | `db.query("database backup policy").hybrid().rrf()` |
+| `.trigram()` | Typo-tolerant matching. | `db.query("vectro serch").trigram().threshold(0.2)` |
+
+Legacy methods such as `semantic_search()`, `keyword_search()`, `hybrid_search()`, and `trigram_search()` still exist for compatibility and advanced use. The fluent API is the path used throughout these docs.
+
+## Filters and Scalar Indexes
+
+Filters use MongoDB-style dictionaries and compile to PostgreSQL JSONB predicates.
+
+```python
+results = await (
+    db.query("wireless headphones")
+    .semantic()
+    .where({
+        "category": "electronics",
+        "price": {"$between": [50, 200]},
+        "rating": {"$gte": 4.0},
+    })
+    .limit(10)
+    .to_list()
+)
+```
+
+For large collections, add scalar indexes to the fields you filter often:
+
+```python
+await db.create_scalar_index("price", index_type="btree")
+await db.create_scalar_index("category", index_type="bitmap")
+```
+
+Use B-tree indexes for ranges and high-cardinality equality. Use bitmap/GIN-style indexes for low-cardinality categories and membership-style filters.
+
+## Indexes and Search Performance
+
+pgVectorDB supports the PostgreSQL vector index families you need as data grows.
+
+| Index | Best fit | Notes |
+| --- | --- | --- |
+| HNSW | Default for most collections and strong recall. | Tune query recall with `.ef(n)`. |
+| IVFFlat | Large collections with predictable memory use. | Requires existing data; tune with `.nprobes(n)`. |
+| DiskANN | Very large datasets where memory matters. | Requires `vectorscale`; supports label filtering. |
+
+Build the configured vector index with `build_index()`:
 
 ```python
 from pgvectordb import DistanceMetric
 
-await db.create_index(metric=DistanceMetric.COSINE)
+await db.build_index(metric=DistanceMetric.COSINE, m=16, ef_construction=64)
 ```
 
-!!! tip
-    If you're using `text-embedding-3-*` (OpenAI) or `all-MiniLM-L6-v2` (HuggingFace), these models produce normalized vectors — **Cosine** distance is the right choice.
+Optimization is a measurement loop: build an index, run representative queries, inspect plans, compute recall, then adjust query parameters or index settings.
 
----
+## Multimodal Spaces and Recency
 
-## 4. Vector Precision
+Standard vector search embeds one text field. pgVectorDB can also register multiple vector spaces per document and fuse their scores.
 
-Lower precision reduces storage size but may affect accuracy:
+| Space | Signal | Use case |
+| --- | --- | --- |
+| `TextSpace` | Text embeddings. | Description, title, body text. |
+| `NumberSpace` | Numeric preference. | Price, rating, mileage, square footage. |
+| `CategorySpace` | Categorical similarity. | City, product type, department. |
+| `RecencySpace` | Exponential time decay. | Fresh listings, recent tickets, new docs, latest news. |
 
-| `VectorPrecision` | Storage | Max Dimensions | Use Case |
-|-------------------|---------|----------------|---------|
-| `FLOAT32` | 4 bytes/dim | 2,000 | Default — maximum accuracy |
-| `FLOAT16` | 2 bytes/dim | 4,000 | Storage-constrained deployments |
-| `BINARY` | 1 bit/dim | 64,000 | Binary embeddings, Hamming distance |
-
-```python
-from pgvectordb import VectorPrecision
-# FLOAT16 / BINARY support via halfvec — coming in future release
-```
-
----
-
-## 5. Iterative Scan Modes (pgvector 0.8+)
-
-When using metadata filters with vector search, the ANN index may return fewer than `k` results because many candidates are filtered out. Iterative scan solves this by continuing graph traversal until `k` matching documents are found.
-
-| `IterativeScanMode` | Behavior |
-|---------------------|----------|
-| `OFF` | Standard index scan (default) |
-| `STRICT_ORDER` | Guarantees exact distance ordering — slower but precise |
-| `RELAXED_ORDER` | Better recall, slight ordering variance — recommended for filtered search |
+`RecencySpace` is useful when freshness should influence ranking without a separate reranking pass:
 
 ```python
-from pgvectordb import IterativeScanMode
+from pgvectordb.spaces import RecencySpace, TimeUnit
 
-# Note: set_iterative_scan is synchronous — no await needed
-db.set_iterative_scan(
-    mode=IterativeScanMode.RELAXED_ORDER,
-    max_scan_tuples=50000
+freshness = RecencySpace(
+    name="freshness",
+    field="published_at",
+    time_unit=TimeUnit.DAY,
+    period_value=7,
 )
 ```
 
----
+## Evaluation Before Tuning
 
-## 6. Extension Manager & Graceful Degradation
+RAG quality should be measured, not guessed. `RAGEvaluator` computes retrieval metrics across a test set so you can compare search modes, weights, indexes, rerankers, and `k` values.
 
-The `ExtensionManager` detects which PostgreSQL extensions are installed at `initialize()` time and adjusts behavior automatically:
+| Metric | Use it when you care about... |
+| --- | --- |
+| Hit Rate | Whether at least one relevant result appears. |
+| Precision / Recall / F1 | Relevance density and coverage. |
+| MRR | How high the first useful result appears. |
+| NDCG | Overall ranked quality when multiple documents are relevant. |
+| MAP | Rank-aware average precision across queries. |
 
-!!! warning "Required Extensions"
-    - `vector` (pgvector) — Required for **all** index types and vector operations
-    - `pg_trgm` — Required for trigram fuzzy matching
+## SQL Analysis and Diagnostics
 
-!!! note "Optional Extensions"
-    - `vectorscale` — Required for DiskANN index and label filtering
-    - `pg_textsearch` — Enables BM25 ranking; without it, pgVectorDB gracefully degrades to FTS (`ts_rank`)
-
-When `pg_textsearch` is missing, `keyword_search(search_type=KeywordSearchType.BM25)` automatically falls back to `ts_rank` FTS scoring — no code change needed.
-
----
-
-## 7. The `QueryResult` Type
-
-All search methods return `List[QueryResult]`, a `TypedDict` with these fields:
+Use analysis tools when latency, recall, or index usage is unclear.
 
 ```python
-from pgvectordb import QueryResult
+plan = db.query("filtered vector search").semantic().where({"topic": "search"}).explain_plan()
 
-results: list[QueryResult] = await db.semantic_search("query", k=5)
-
-for r in results:
-    print(r["id"])        # str  — internal langchain_id UUID
-    print(r["content"])   # str  — raw text of the document
-    print(r["metadata"])  # dict — JSONB metadata dict
-    print(r["score"])     # float — relevance score (direction varies by method)
+metrics = await (
+    db.query("filtered vector search")
+    .semantic()
+    .where({"topic": "search"})
+    .analyze_plan()
+)
 ```
 
-!!! warning
-    `QueryResult` is a `TypedDict` — **not** a class. Use `r["content"]` dict-style access, not `r.content` attribute access.
+For production checks, use collection validation, benchmark methods, recall computation, index stats, table stats, and vacuum/analyze workflows from the diagnostics guide.
 
----
+## PostgreSQL Extensions
 
-## 8. Security Design
+| Extension | Required | Enables |
+| --- | --- | --- |
+| `vector` | Yes | Vector columns, distances, HNSW, IVFFlat. |
+| `pg_trgm` | Yes | Trigram fuzzy search. |
+| `vectorscale` | Required for DiskANN | DiskANN and label-filtered vector search. |
+| `pg_textsearch` | Required for BM25 | BM25 ranking. Use PostgreSQL FTS when it is unavailable. |
 
-pgVectorDB is designed for production use:
+## Where to Go Next
 
-- **Schema name validation** — `schema_name` is validated against `^[a-zA-Z0-9_]+$` before being interpolated into any SQL. This prevents SQL injection via schema names.
-- **Parameterized queries** — All user data (embeddings, content, metadata, filter values) is passed as SQLAlchemy bound parameters, never interpolated into SQL strings.
-- **Query param allowlist** — `set_query_params()` validates all keys against `VALID_QUERY_PARAMS` allowlist before executing `SET` statements.
-- **Memory value validation** — `set_maintenance_work_mem()` validates input against `^\d+\s*(kB|MB|GB|TB)?$` regex to prevent injection.
+| Topic | Guide |
+| --- | --- |
+| First working collection | [Quickstart](quickstart.md) |
+| Fluent search modes | [Search & Retrieval](../user_guide/search_and_retrieval.md) |
+| Metadata filters and scalar indexes | [Metadata Filtering](../user_guide/filtering.md) |
+| Recency and multimodal ranking | [Multimodal Search](../user_guide/multimodal_search.md) |
+| Built-in retrieval metrics | [Metrics & Evaluation](../user_guide/metrics_and_evaluation.md) |
+| Query analysis and health checks | [Analytics & Diagnostics](../user_guide/analytics_and_diagnostics.md) |
+| Index and storage tuning | [Indexing & Performance](../advanced/indexing.md) |

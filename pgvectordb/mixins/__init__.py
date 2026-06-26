@@ -13,10 +13,10 @@ from .multimodal import MultimodalMixin
 from .storage import StorageMixin
 
 __all__ = [
+    "AnalyticsMixin",
     "DocumentsMixin",
     "IndexingMixin",
-    "AnalyticsMixin",
-    "StorageMixin",
-    "MultimodalMixin",
     "IntegrationsMixin",
+    "MultimodalMixin",
+    "StorageMixin",
 ]

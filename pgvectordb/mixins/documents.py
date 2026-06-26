@@ -10,7 +10,7 @@ import hashlib
 import json
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from langchain_core.documents import Document
 from sqlalchemy import inspect, text
@@ -23,7 +23,6 @@ from ..base import (
     ValidationError,
 )
 from ..schema import build_qualified_name, get_vector_table
-
 from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
@@ -33,8 +32,8 @@ class DocumentsMixin(MixinBase):
     """Mixin providing document CRUD operations."""
 
     async def add_documents(
-        self, documents: List[Document], labels: Optional[List[List[int]]] = None
-    ) -> List[str]:
+        self, documents: list[Document], labels: list[list[int]] | None = None
+    ) -> list[str]:
         """
         Add documents with optional labels for DiskANN filtering.
 
@@ -86,17 +85,14 @@ class DocumentsMixin(MixinBase):
         except Exception as e:
             raise DatabaseError(f"Failed to add documents: {e}") from e
 
-    async def _add_labels_column(
-        self, doc_ids: List[str], labels: List[List[int]]
-    ) -> None:
+    async def _add_labels_column(self, doc_ids: list[str], labels: list[list[int]]) -> None:
         """Add labels column for DiskANN filtering."""
         qualified_table = build_qualified_name(self.schema_name, self.table_name)
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 await conn.execute(
                     text(
-                        f"ALTER TABLE {qualified_table} "
-                        f"ADD COLUMN IF NOT EXISTS labels SMALLINT[]"
+                        f"ALTER TABLE {qualified_table} ADD COLUMN IF NOT EXISTS labels SMALLINT[]"
                     )
                 )
 
@@ -115,8 +111,8 @@ class DocumentsMixin(MixinBase):
             raise DatabaseError(f"Failed to add labels column: {e}") from e
 
     async def aupdate_documents(
-        self, documents: List[Document], update_embeddings: bool = True
-    ) -> List[str]:
+        self, documents: list[Document], update_embeddings: bool = True
+    ) -> list[str]:
         """
         Update existing documents without having to delete and re-add.
 
@@ -212,14 +208,12 @@ class DocumentsMixin(MixinBase):
 
                 await conn.commit()
 
-            logger.info(
-                f"Updated {len(updated_ids)} documents (embeddings={update_embeddings})"
-            )
+            logger.info(f"Updated {len(updated_ids)} documents (embeddings={update_embeddings})")
             return updated_ids
         except Exception as e:
             raise DatabaseError(f"Failed to update documents: {e}") from e
 
-    async def adelete(self, ids: List[str]) -> int:
+    async def adelete(self, ids: list[str]) -> int:
         """
         Delete documents by their IDs.
 
@@ -263,11 +257,11 @@ class DocumentsMixin(MixinBase):
 
     async def add_documents_batch(
         self,
-        documents: List[Document],
+        documents: list[Document],
         batch_size: int = 100,
-        labels: Optional[List[List[int]]] = None,
+        labels: list[list[int]] | None = None,
         show_progress: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Add large numbers of documents efficiently with batching and progress tracking.
 
@@ -330,20 +324,14 @@ class DocumentsMixin(MixinBase):
                     )
 
             if show_progress:
-                logger.info(
-                    f"✓ Batch ingestion complete: {len(all_ids)} documents added"
-                )
+                logger.info(f"✓ Batch ingestion complete: {len(all_ids)} documents added")
 
             return all_ids
         except Exception as e:
-            logger.warning(
-                f"Batch ingestion interrupted at {len(all_ids)}/{total_docs} documents"
-            )
+            logger.warning(f"Batch ingestion interrupted at {len(all_ids)}/{total_docs} documents")
             raise DatabaseError(f"Failed during batch ingestion: {e}") from e
 
-    async def update_metadata(
-        self, ids: List[str], metadata_updates: Dict[str, Any]
-    ) -> int:
+    async def update_metadata(self, ids: list[str], metadata_updates: dict[str, Any]) -> int:
         """
         Bulk metadata updates without re-embedding.
 
@@ -412,7 +400,7 @@ class DocumentsMixin(MixinBase):
         except Exception as e:
             raise DatabaseError(f"Failed to update metadata: {e}") from e
 
-    async def aget_by_ids(self, ids: List[str]) -> List[QueryResult]:
+    async def aget_by_ids(self, ids: list[str]) -> list[QueryResult]:
         """
         Retrieve specific documents by their IDs.
 
@@ -472,12 +460,12 @@ class DocumentsMixin(MixinBase):
 
     async def add_documents_batch_isolated(
         self,
-        documents: List[Document],
+        documents: list[Document],
         batch_size: int = 100,
-        labels: Optional[List[List[int]]] = None,
+        labels: list[list[int]] | None = None,
         show_progress: bool = True,
         continue_on_error: bool = False,
-    ) -> Tuple[List[str], List[int]]:
+    ) -> tuple[list[str], list[int]]:
         """
         Add documents with per-batch error isolation (AGNO pattern).
 
@@ -565,8 +553,8 @@ class DocumentsMixin(MixinBase):
         return any(indicator in error_str for indicator in rate_limit_indicators)
 
     async def _embed_documents_with_fallback(
-        self, documents: List[Document]
-    ) -> List[Tuple[Document, Optional[List[float]]]]:
+        self, documents: list[Document]
+    ) -> list[tuple[Document, list[float] | None]]:
         """
         Embed documents with intelligent fallback (AGNO pattern).
 
@@ -639,9 +627,7 @@ class DocumentsMixin(MixinBase):
 
                 def check_sync(sync_conn):
                     inspector = inspect(sync_conn)
-                    indexes = inspector.get_indexes(
-                        self.table_name, schema=self.schema_name
-                    )
+                    indexes = inspector.get_indexes(self.table_name, schema=self.schema_name)
                     return any(idx["name"] == index_name for idx in indexes)
 
                 return await conn.run_sync(check_sync)
@@ -666,9 +652,7 @@ class DocumentsMixin(MixinBase):
 
     # ==================== NEW FEATURES: CONTENT HASH DEDUPLICATION (Task 27) ====================
 
-    def _compute_content_hash(
-        self, content: str, filters: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def _compute_content_hash(self, content: str, filters: dict[str, Any] | None = None) -> str:
         """
         Compute MD5 hash of content + filters for deduplication.
 
@@ -686,10 +670,10 @@ class DocumentsMixin(MixinBase):
 
     async def upsert_documents(
         self,
-        documents: List[Document],
+        documents: list[Document],
         batch_size: int = 100,
         dedup_by_content: bool = True,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Upsert documents with content hash deduplication (AGNO pattern).
 
@@ -798,8 +782,8 @@ class DocumentsMixin(MixinBase):
 
     async def bulk_load_documents(
         self,
-        documents: List[Document],
-        labels: Optional[List[List[int]]] = None,
+        documents: list[Document],
+        labels: list[list[int]] | None = None,
         drop_indexes_first: bool = True,
         show_progress: bool = True,
     ) -> int:
@@ -849,9 +833,7 @@ class DocumentsMixin(MixinBase):
 
             # Step 2: Pre-compute all embeddings
             if show_progress:
-                logger.info(
-                    f"Step 2/4: Computing embeddings for {total_docs} documents..."
-                )
+                logger.info(f"Step 2/4: Computing embeddings for {total_docs} documents...")
 
             texts = [doc.page_content for doc in documents]
             embeddings = self.embedding_model.embed_documents(texts)
@@ -905,9 +887,7 @@ class DocumentsMixin(MixinBase):
                     await conn.commit()
 
                     if show_progress:
-                        progress = (
-                            min(i + batch_size, len(records)) / len(records) * 100
-                        )
+                        progress = min(i + batch_size, len(records)) / len(records) * 100
                         logger.info(
                             f"  Inserted {min(i + batch_size, len(records))}/{len(records)} ({progress:.1f}%)"
                         )
@@ -931,10 +911,10 @@ class DocumentsMixin(MixinBase):
 
     async def add_documents_orm(
         self,
-        documents: List[Document],
-        labels: Optional[List[List[int]]] = None,
+        documents: list[Document],
+        labels: list[list[int]] | None = None,
         batch_size: int = 100,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Add documents using SQLAlchemy ORM constructs (more secure).
 
@@ -1015,9 +995,7 @@ class DocumentsMixin(MixinBase):
                             {
                                 "langchain_id": record["langchain_id"],
                                 "content": record["content"],
-                                "langchain_metadata": json.dumps(
-                                    record["langchain_metadata"]
-                                ),
+                                "langchain_metadata": json.dumps(record["langchain_metadata"]),
                                 "embedding": record["embedding"],
                             },
                         )

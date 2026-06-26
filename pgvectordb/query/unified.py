@@ -22,6 +22,7 @@ Search-specific configs are available via:
 - .ef() - HNSW parameters
 - etc.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,16 +30,11 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    List,
     Literal,
-    Optional,
-    Tuple,
-    cast,
 )
 
 from ..base import KeywordSearchType, QueryResult, SearchMethod
+from ._postprocessing import post_process_results, results_to_arrow, results_to_pandas
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -61,14 +57,14 @@ class SearchConfig:
     # Common config
     limit: int = 10
     offset: int = 0
-    filter: Optional[Dict[str, Any]] = None
-    columns: Optional[List[str]] = None
+    filter: dict[str, Any] | None = None
+    columns: list[str] | None = None
 
     # Vector search config
-    ef: Optional[int] = None
-    nprobes: Optional[int] = None
-    refine_factor: Optional[int] = None
-    distance_range: Optional[Tuple[float, float]] = None
+    ef: int | None = None
+    nprobes: int | None = None
+    refine_factor: int | None = None
+    distance_range: tuple[float, float] | None = None
     bypass_vector_index: bool = False
 
     # Keyword search config
@@ -77,7 +73,7 @@ class SearchConfig:
     bm25_b: float = 0.75
     text_config: str = "english"
     phrase_query: bool = False
-    universal_fields: Optional[List[str]] = None
+    universal_fields: list[str] | None = None
 
     # Hybrid search config
     hybrid_mode: Literal["weighted", "rrf"] = "weighted"
@@ -90,15 +86,15 @@ class SearchConfig:
     case_sensitive: bool = False
 
     # Reranking config
-    reranker: Optional[Callable] = None
-    rerank_query: Optional[str] = None
+    reranker: Any | None = None
+    rerank_query: str | None = None
 
     # Multimodal Spaces config
-    spaces: Optional[List[Any]] = None
-    space_weights: Optional[Dict[str, float]] = None
-    active_space: Optional[str] = None
+    spaces: list[Any] | None = None
+    space_weights: dict[str, float] | None = None
+    active_space: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary, excluding None values."""
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
@@ -148,19 +144,15 @@ class UnifiedQueryBuilder:
         )
     """
 
-    db: "pgVectorDB" = field(repr=False)
+    db: pgVectorDB = field(repr=False)
 
     # Query input
-    query_text: Optional[str] = None
-    query_vector: Optional[List[float]] = None
+    query_text: str | None = None
+    query_vector: list[float] | None = None
 
     # Search configuration
     _search_method: SearchMethod = SearchMethod.SEMANTIC
     _config: SearchConfig = field(default_factory=SearchConfig)
-
-    # Internal state
-    _executed: bool = False
-    _results: Optional[List[QueryResult]] = None
 
     def __post_init__(self):
         """Initialize config if not provided."""
@@ -232,13 +224,11 @@ class UnifiedQueryBuilder:
             )
         """
         self._config.spaces = [space]
-        self._config.active_space = getattr(space, 'name', None)
+        self._config.active_space = getattr(space, "name", None)
         return self
 
     def across_spaces(
-        self,
-        spaces: List[Any],
-        weights: Optional[Dict[str, float]] = None
+        self, spaces: list[Any], weights: dict[str, float] | None = None
     ) -> UnifiedQueryBuilder:
         """Search across multiple vector spaces with weighted fusion.
 
@@ -282,9 +272,7 @@ class UnifiedQueryBuilder:
         if weights is not None:
             total = sum(weights.values())
             if not (0.99 <= total <= 1.01):
-                logger.warning(
-                    f"Space weights sum to {total:.2f}, should be approximately 1.0"
-                )
+                logger.warning(f"Space weights sum to {total:.2f}, should be approximately 1.0")
 
         return self
 
@@ -302,7 +290,7 @@ class UnifiedQueryBuilder:
         self._config.offset = n
         return self
 
-    def where(self, filter: Dict[str, Any]) -> UnifiedQueryBuilder:
+    def where(self, filter: dict[str, Any]) -> UnifiedQueryBuilder:
         """Apply metadata filter using MongoDB-style syntax.
 
         Args:
@@ -316,7 +304,7 @@ class UnifiedQueryBuilder:
         self._config.filter = filter
         return self
 
-    def select(self, columns: List[str]) -> UnifiedQueryBuilder:
+    def select(self, columns: list[str]) -> UnifiedQueryBuilder:
         """Select specific columns to return."""
         self._config.columns = columns
         return self
@@ -402,7 +390,7 @@ class UnifiedQueryBuilder:
         self._config.keyword_type = KeywordSearchType.BM25
         return self
 
-    def universal(self, metadata_fields: List[str]) -> UnifiedQueryBuilder:
+    def universal(self, metadata_fields: list[str]) -> UnifiedQueryBuilder:
         """Enable universal keyword search with metadata boosting.
 
         Args:
@@ -464,11 +452,11 @@ class UnifiedQueryBuilder:
     # Reranking
     # ============================================================
 
-    def rerank(self, reranker: Callable, query: Optional[str] = None) -> UnifiedQueryBuilder:
+    def rerank(self, reranker: Any, query: str | None = None) -> UnifiedQueryBuilder:
         """Apply a reranker to results.
 
         Args:
-            reranker: Callable that takes (query, [texts]) and returns scores
+            reranker: Callable scorer or object with rerank(query, documents, top_k)
             query: Optional query string for reranking
         """
         self._config.reranker = reranker
@@ -479,7 +467,7 @@ class UnifiedQueryBuilder:
     # Execution & Output
     # ============================================================
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute the query and return results as a list."""
         self._ensure_executable()
 
@@ -507,27 +495,21 @@ class UnifiedQueryBuilder:
 
         return results
 
-    async def to_pandas(self) -> "pd.DataFrame":
+    async def to_pandas(self) -> pd.DataFrame:
         """Execute and return as pandas DataFrame."""
-        import pandas as pd
-
         results = await self.to_list()
-        return pd.DataFrame(results)
+        return results_to_pandas(results)
 
-    async def to_arrow(self) -> "pa.Table":
+    async def to_arrow(self) -> pa.Table:
         """Execute and return as PyArrow Table."""
-        import pyarrow as pa
-
         results = await self.to_list()
-        if not results:
-            return pa.table({})
-        return pa.Table.from_pylist(results)
+        return results_to_arrow(results)
 
     # ============================================================
     # Query Analysis
     # ============================================================
 
-    def explain_plan(self, verbose: bool = False) -> Dict[str, Any]:
+    def explain_plan(self, verbose: bool = False) -> dict[str, Any]:
         """Generate query execution plan without running."""
         self.db._ensure_initialized()
 
@@ -545,7 +527,7 @@ class UnifiedQueryBuilder:
         else:
             return {"plan": f"{self._search_method.value} search"}
 
-    async def analyze_plan(self) -> Dict[str, Any]:
+    async def analyze_plan(self) -> dict[str, Any]:
         """Execute with EXPLAIN ANALYZE and return metrics."""
         import time
 
@@ -578,9 +560,9 @@ class UnifiedQueryBuilder:
             raise ValueError("Either query_text or query_vector is required")
         self.db._ensure_initialized()
 
-    def _build_execution_args(self) -> Dict[str, Any]:
+    def _build_execution_args(self) -> dict[str, Any]:
         """Build execution arguments for the search method."""
-        args: Dict[str, Any] = {
+        args: dict[str, Any] = {
             "k": self._config.limit + self._config.offset,
         }
 
@@ -589,7 +571,7 @@ class UnifiedQueryBuilder:
 
         return args
 
-    async def _execute_semantic(self, **args) -> List[QueryResult]:
+    async def _execute_semantic(self, **args) -> list[QueryResult]:
         """Execute semantic search."""
         query = self.query_text or ""
 
@@ -610,7 +592,7 @@ class UnifiedQueryBuilder:
 
         return results
 
-    async def _execute_keyword(self, **args) -> List[QueryResult]:
+    async def _execute_keyword(self, **args) -> list[QueryResult]:
         """Execute keyword search."""
         query = self.query_text or ""
 
@@ -646,7 +628,7 @@ class UnifiedQueryBuilder:
 
         return results
 
-    async def _execute_hybrid(self, **args) -> List[QueryResult]:
+    async def _execute_hybrid(self, **args) -> list[QueryResult]:
         """Execute hybrid search."""
         query = self.query_text or ""
 
@@ -660,11 +642,12 @@ class UnifiedQueryBuilder:
             bm25_k1=self._config.bm25_k1,
             bm25_b=self._config.bm25_b,
             text_config=self._config.text_config,
+            filter=args.get("filter"),
         )
 
         return results
 
-    async def _execute_trigram(self, **args) -> List[QueryResult]:
+    async def _execute_trigram(self, **args) -> list[QueryResult]:
         """Execute trigram search."""
         query = self.query_text or ""
 
@@ -684,7 +667,7 @@ class UnifiedQueryBuilder:
 
         return results
 
-    async def _execute_multimodal(self) -> List[QueryResult]:
+    async def _execute_multimodal(self) -> list[QueryResult]:
         """Execute multimodal search across configured spaces.
 
         Uses the pgVectorDB multimodal search capabilities when spaces are configured.
@@ -694,7 +677,7 @@ class UnifiedQueryBuilder:
             raise ValueError("No spaces configured for multimodal search")
 
         # Check if db has multimodal search capability
-        if not hasattr(self.db, 'multimodal_search'):
+        if not hasattr(self.db, "multimodal_search"):
             logger.warning(
                 "Multimodal search not available on this database instance. "
                 "Falling back to standard semantic search."
@@ -702,71 +685,44 @@ class UnifiedQueryBuilder:
             # Fall back to semantic search
             return await self._execute_semantic(k=self._config.limit)
 
-        try:
-            # Build query parameters from spaces
-            query_params = {}
+        query_params = {}
 
-            # If single space (in_space), use query text for that space
-            if len(self._config.spaces) == 1 and self.query_text:
-                space = self._config.spaces[0]
-                space_name = getattr(space, 'name', getattr(space, 'field', 'default'))
-                query_params[space_name] = self.query_text
-            elif self.query_text:
-                # For multiple spaces, try to use query for text spaces
-                for space in self._config.spaces:
-                    from ..spaces import TextSpace
-                    if isinstance(space, TextSpace) or hasattr(space, 'embed_query'):
-                        space_name = getattr(space, 'name', getattr(space, 'field', 'default'))
-                        query_params[space_name] = self.query_text
-                        break
+        # If single space (in_space), use query text for that space
+        if len(self._config.spaces) == 1 and self.query_text:
+            space = self._config.spaces[0]
+            space_name = getattr(space, "name", getattr(space, "field", "default"))
+            query_params[space_name] = self.query_text
+        elif self.query_text:
+            # For multiple spaces, try to use query for text spaces
+            for space in self._config.spaces:
+                from ..spaces import TextSpace
 
-            if not query_params:
-                raise ValueError("Could not determine query parameters for multimodal search")
+                if isinstance(space, TextSpace) or hasattr(space, "embed_query"):
+                    space_name = getattr(space, "name", getattr(space, "field", "default"))
+                    query_params[space_name] = self.query_text
+                    break
 
-            # Execute multimodal search
-            results = await self.db.multimodal_search(
-                query_params=query_params,
-                weights=self._config.space_weights,
-                k=self._config.limit + self._config.offset,
-            )
+        if not query_params:
+            raise ValueError("Could not determine query parameters for multimodal search")
 
-            return results
+        return await self.db.multimodal_search(
+            query_params=query_params,
+            weights=self._config.space_weights,
+            k=self._config.limit + self._config.offset,
+        )
 
-        except Exception as e:
-            logger.warning(f"Multimodal search failed: {e}. Falling back to semantic search.")
-            return await self._execute_semantic(k=self._config.limit)
-
-    def _apply_post_processing(self, results: List[QueryResult]) -> List[QueryResult]:
+    def _apply_post_processing(self, results: list[QueryResult]) -> list[QueryResult]:
         """Apply offset, limit, column selection, and reranking."""
-        # Apply offset
-        if self._config.offset > 0:
-            results = results[self._config.offset :]
+        return post_process_results(
+            results,
+            offset=self._config.offset,
+            limit=self._config.limit,
+            columns=self._config.columns,
+            reranker=self._config.reranker,
+            rerank_query=self._config.rerank_query or self.query_text or "",
+        )
 
-        # Apply limit
-        results = results[: self._config.limit]
-
-        # Apply reranking
-        if self._config.reranker and results:
-            query = self._config.rerank_query or self.query_text or ""
-            texts = [r.get("content", "") for r in results]
-            try:
-                scores = self._config.reranker(query, texts)
-                scored = list(zip(results, scores))
-                scored.sort(key=lambda x: x[1], reverse=True)
-                results = [r for r, _ in scored]
-            except Exception as e:
-                logger.warning(f"Reranking failed: {e}")
-
-        # Apply column selection
-        if self._config.columns:
-            results = cast(List[QueryResult], [
-                {k: v for k, v in r.items() if k in self._config.columns or k == "id"}
-                for r in results
-            ])
-
-        return results
-
-    def _build_semantic_explain(self, verbose: bool) -> Dict[str, Any]:
+    def _build_semantic_explain(self, verbose: bool) -> dict[str, Any]:
         """Build explain plan for semantic search."""
         return {
             "search_method": "semantic",
@@ -776,7 +732,7 @@ class UnifiedQueryBuilder:
             "index_type": self.db.index_type.value if hasattr(self.db, "index_type") else "unknown",
         }
 
-    def _build_keyword_explain(self, verbose: bool) -> Dict[str, Any]:
+    def _build_keyword_explain(self, verbose: bool) -> dict[str, Any]:
         """Build explain plan for keyword search."""
         return {
             "search_method": "keyword",
@@ -786,11 +742,11 @@ class UnifiedQueryBuilder:
             "limit": self._config.limit,
         }
 
-    def _build_multimodal_explain(self, verbose: bool) -> Dict[str, Any]:
+    def _build_multimodal_explain(self, verbose: bool) -> dict[str, Any]:
         """Build explain plan for multimodal search."""
         space_info = []
-        for space in (self._config.spaces or []):
-            space_name = getattr(space, 'name', getattr(space, 'field', 'unknown'))
+        for space in self._config.spaces or []:
+            space_name = getattr(space, "name", getattr(space, "field", "unknown"))
             space_type = type(space).__name__
             space_info.append({"name": space_name, "type": space_type})
 

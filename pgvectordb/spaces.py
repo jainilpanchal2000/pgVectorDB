@@ -44,7 +44,7 @@ import time as _time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class TimeUnit(str, Enum):
     Time unit for RecencySpace decay period.
 
     Determines the granularity of the exponential decay. The decay
-    time-constant ``τ`` is computed as ``period_value × unit.to_seconds()``.
+    time-constant ``τ`` is computed as ``period_value x unit.to_seconds()``.
 
     Attributes:
         SECOND: 1 second.
@@ -180,7 +180,7 @@ class VectorSpace(ABC):
         ...
 
     @abstractmethod
-    def encode(self, value: Any) -> List[float]:
+    def encode(self, value: Any) -> list[float]:
         """
         Encode a document field value into a vector.
 
@@ -193,7 +193,7 @@ class VectorSpace(ABC):
         ...
 
     @abstractmethod
-    def encode_query(self, value: Any) -> List[float]:
+    def encode_query(self, value: Any) -> list[float]:
         """
         Encode a query parameter value into a vector.
 
@@ -282,8 +282,8 @@ class TextSpace(VectorSpace):
         self,
         name: str,
         field: str = "content",
-        model: Optional[Any] = None,
-        dimensions: Optional[int] = None,
+        model: Any | None = None,
+        dimensions: int | None = None,
     ):
         """
         Initialize a text embedding space.
@@ -329,7 +329,7 @@ class TextSpace(VectorSpace):
         logger.info(f"TextSpace '{self.name}': detected {self._dimensions} dimensions")
         return self._dimensions
 
-    def encode(self, value: Any, embedding_model: Optional[Any] = None) -> List[float]:
+    def encode(self, value: Any, embedding_model: Any | None = None) -> list[float]:
         """
         Encode text into an embedding vector.
 
@@ -359,9 +359,7 @@ class TextSpace(VectorSpace):
         text = str(value)
         return model.embed_query(text)
 
-    def encode_query(
-        self, value: Any, embedding_model: Optional[Any] = None
-    ) -> List[float]:
+    def encode_query(self, value: Any, embedding_model: Any | None = None) -> list[float]:
         """
         Encode a search query into an embedding vector.
 
@@ -420,7 +418,7 @@ class NumberSpace(VectorSpace):
         field: str,
         min_value: float = 0.0,
         max_value: float = 1.0,
-        mode: Union[NumberMode, str] = NumberMode.SIMILAR,
+        mode: NumberMode | str = NumberMode.SIMILAR,
         dimensions: int = 1,
     ):
         """
@@ -440,9 +438,7 @@ class NumberSpace(VectorSpace):
         """
         super().__init__(name=name, field=field)
         if min_value >= max_value:
-            raise ValueError(
-                f"min_value ({min_value}) must be less than max_value ({max_value})"
-            )
+            raise ValueError(f"min_value ({min_value}) must be less than max_value ({max_value})")
         if dimensions < 1:
             raise ValueError(f"dimensions must be >= 1, got {dimensions}")
 
@@ -461,7 +457,7 @@ class NumberSpace(VectorSpace):
         clamped = max(self.min_value, min(self.max_value, float(value)))
         return (clamped - self.min_value) / (self.max_value - self.min_value)
 
-    def encode(self, value: Any) -> List[float]:
+    def encode(self, value: Any) -> list[float]:
         """
         Encode a numeric document value into a vector.
 
@@ -493,7 +489,7 @@ class NumberSpace(VectorSpace):
         # Expand to N dimensions (repeating the value for better index separation)
         return [encoded] * self._dimensions
 
-    def encode_query(self, value: Any) -> List[float]:
+    def encode_query(self, value: Any) -> list[float]:
         """
         Encode a query parameter value for search.
 
@@ -556,7 +552,7 @@ class CategorySpace(VectorSpace):
         self,
         name: str,
         field: str,
-        categories: List[str],
+        categories: list[str],
         negative_filter: float = 0.0,
         uncategorized_as_zero: bool = True,
     ):
@@ -584,16 +580,14 @@ class CategorySpace(VectorSpace):
         self.categories = list(categories)
         self.negative_filter = negative_filter
         self.uncategorized_as_zero = uncategorized_as_zero
-        self._category_index: Dict[str, int] = {
-            cat: i for i, cat in enumerate(self.categories)
-        }
+        self._category_index: dict[str, int] = {cat: i for i, cat in enumerate(self.categories)}
 
     @property
     def dimensions(self) -> int:
         """Dimensionality equals the number of categories."""
         return len(self.categories)
 
-    def encode(self, value: Any) -> List[float]:
+    def encode(self, value: Any) -> list[float]:
         """
         Encode a category value as a one-hot vector.
 
@@ -628,7 +622,7 @@ class CategorySpace(VectorSpace):
 
         return vec
 
-    def encode_query(self, value: Any) -> List[float]:
+    def encode_query(self, value: Any) -> list[float]:
         """
         Encode a query category. Same as document encoding.
 
@@ -649,7 +643,7 @@ class RecencySpace(VectorSpace):
     Encode timestamps into vectors using exponential time-decay.
 
     Recent documents score close to 1.0; older documents decay towards 0.0.
-    The decay follows ``score = exp(-age / τ)`` where ``τ = period_value ×
+    The decay follows ``score = exp(-age / τ)`` where ``τ = period_value x
     time_unit.to_seconds()``.
 
     This enables **time-aware multimodal search** — boost fresh content
@@ -685,7 +679,7 @@ class RecencySpace(VectorSpace):
         self,
         name: str,
         field: str,
-        time_unit: Union[TimeUnit, str] = TimeUnit.DAY,
+        time_unit: TimeUnit | str = TimeUnit.DAY,
         period_value: float = 1.0,
         dimensions: int = 1,
     ):
@@ -710,9 +704,7 @@ class RecencySpace(VectorSpace):
         if dimensions < 1:
             raise ValueError(f"dimensions must be >= 1, got {dimensions}")
 
-        self.time_unit = (
-            TimeUnit(time_unit) if isinstance(time_unit, str) else time_unit
-        )
+        self.time_unit = TimeUnit(time_unit) if isinstance(time_unit, str) else time_unit
         self.period_value = float(period_value)
         self.tau = self.period_value * self.time_unit.to_seconds()
         self._dimensions = dimensions
@@ -771,7 +763,7 @@ class RecencySpace(VectorSpace):
     # Encoding
     # ------------------------------------------------------------------
 
-    def encode(self, value: Any) -> List[float]:
+    def encode(self, value: Any) -> list[float]:
         """
         Encode a document timestamp into a time-decay vector.
 
@@ -802,7 +794,7 @@ class RecencySpace(VectorSpace):
         score = max(0.0, min(1.0, score))
         return [score] * self._dimensions
 
-    def encode_query(self, value: Any = None) -> List[float]:
+    def encode_query(self, value: Any = None) -> list[float]:
         """
         Encode a query value for recency search.
 
@@ -825,7 +817,7 @@ class RecencySpace(VectorSpace):
 # ==================== Utility Functions ====================
 
 
-def validate_spaces(spaces: List[VectorSpace]) -> None:
+def validate_spaces(spaces: list[VectorSpace]) -> None:
     """
     Validate a list of vector spaces for consistency.
 
@@ -850,12 +842,10 @@ def validate_spaces(spaces: List[VectorSpace]) -> None:
 
     for space in spaces:
         if space.dimensions > 0 and space.dimensions < 1:
-            raise ValueError(
-                f"Space '{space.name}' has invalid dimensions: {space.dimensions}"
-            )
+            raise ValueError(f"Space '{space.name}' has invalid dimensions: {space.dimensions}")
 
 
-def get_total_dimensions(spaces: List[VectorSpace]) -> int:
+def get_total_dimensions(spaces: list[VectorSpace]) -> int:
     """
     Get the total dimensions across all spaces.
 
@@ -872,9 +862,9 @@ def get_total_dimensions(spaces: List[VectorSpace]) -> int:
 
 def encode_document_spaces(
     document: Any,
-    spaces: List[VectorSpace],
-    embedding_model: Optional[Any] = None,
-) -> Dict[str, List[float]]:
+    spaces: list[VectorSpace],
+    embedding_model: Any | None = None,
+) -> dict[str, list[float]]:
     """
     Encode a single document across all registered spaces.
 
@@ -901,10 +891,10 @@ def encode_document_spaces(
 
 
 def encode_query_spaces(
-    query_params: Dict[str, Any],
-    spaces: List[VectorSpace],
-    embedding_model: Optional[Any] = None,
-) -> Dict[str, List[float]]:
+    query_params: dict[str, Any],
+    spaces: list[VectorSpace],
+    embedding_model: Any | None = None,
+) -> dict[str, list[float]]:
     """
     Encode query parameters across all relevant spaces.
 

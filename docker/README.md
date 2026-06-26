@@ -1,9 +1,9 @@
-# PostgreSQL with pgvector, pgvectorscale, and pg_textsearch
+# PostgreSQL with pgvector, vectorscale, and pg_textsearch
 
 This Docker image includes PostgreSQL 17 with the following extensions:
 - **pgvector**: Vector similarity search
-- **pgvectorscale**: Scalable vector search from Timescale
-- **pg_textsearch**: Full-text search capabilities from Timescale
+- **vectorscale**: DiskANN and label-aware vector search from the pgvectorscale project
+- **pg_textsearch**: BM25 keyword ranking from Timescale
 
 ## Build and Run
 
@@ -34,11 +34,11 @@ Or connect from your application:
 
 After connecting to the database:
 ```sql
-SELECT extname, extversion FROM pg_extension WHERE extname IN ('vector', 'vectorscale', 'textsearch');
+SELECT extname, extversion FROM pg_extension WHERE extname IN ('vector', 'pg_trgm', 'vectorscale', 'pg_textsearch');
 ```
 
 ## Extensions Documentation
 
 - [pgvector](https://github.com/pgvector/pgvector)
-- [pgvectorscale](https://github.com/timescale/pgvectorscale)
+- [pgvectorscale project / vectorscale extension](https://github.com/timescale/pgvectorscale)
 - [pg_textsearch](https://github.com/timescale/pg_textsearch)

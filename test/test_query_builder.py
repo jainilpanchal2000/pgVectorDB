@@ -3,6 +3,7 @@ Test VectorQueryBuilder (TDD - Red Phase)
 
 Tests for the LanceDB-style fluent query builder.
 """
+
 import pytest
 
 
@@ -63,10 +64,7 @@ class TestVectorQueryBuilderChaining:
     async def test_chaining_works(self, rag_hnsw):
         """Multiple methods should chain together."""
         builder = (
-            rag_hnsw.query("test search")
-            .where({"category": "ai"})
-            .limit(5)
-            .select(["content"])
+            rag_hnsw.query("test search").where({"category": "ai"}).limit(5).select(["content"])
         )
         assert builder._config.limit == 5
         assert builder._config.filter == {"category": "ai"}
@@ -120,10 +118,7 @@ class TestVectorQueryBuilderFiltering:
     async def test_where_with_dict_filter(self, db_with_docs):
         """where(dict) should apply metadata filter."""
         results = await (
-            db_with_docs.query("test search")
-            .where({"category": "ai"})
-            .limit(10)
-            .to_list()
+            db_with_docs.query("test search").where({"category": "ai"}).limit(10).to_list()
         )
         # All results should have category="ai"
         for r in results:
@@ -133,10 +128,7 @@ class TestVectorQueryBuilderFiltering:
     async def test_where_with_string_filter(self, db_with_docs):
         """where(dict) should apply metadata filter."""
         results = await (
-            db_with_docs.query("test search")
-            .where({"year": {"$gt": 2020}})
-            .limit(5)
-            .to_list()
+            db_with_docs.query("test search").where({"year": {"$gt": 2020}}).limit(5).to_list()
         )
         assert isinstance(results, list)
 

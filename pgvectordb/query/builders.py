@@ -11,6 +11,7 @@ This module implements comprehensive query builders for all search methods:
 All builders use lazy execution - methods return self for chaining.
 Query only executes when to_list(), to_pandas(), etc. is called.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,16 +19,13 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Self,
-    Tuple,
     cast,
 )
 
+from typing_extensions import Self
+
 from ..base import KeywordSearchType, QueryResult
+from ._postprocessing import post_process_results, results_to_arrow, results_to_pandas
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -43,16 +41,12 @@ logger = logging.getLogger(__name__)
 class BaseQueryBuilder:
     """Base class for all query builders with common functionality."""
 
-    db: "pgVectorDB" = field(repr=False)
+    db: pgVectorDB = field(repr=False)
 
     _limit: int = 10
     _offset: int = 0
-    _columns: Optional[List[str]] = None
-    _where: Optional[Dict[str, Any]] = None
-
-    # Execution tracking
-    _executed: bool = False
-    _results: Optional[List[QueryResult]] = None
+    _columns: list[str] | None = None
+    _where: dict[str, Any] | None = None
 
     def limit(self, n: int) -> Self:
         """Set the maximum number of results to return."""
@@ -64,7 +58,7 @@ class BaseQueryBuilder:
         self._offset = n
         return self
 
-    def where(self, filter: Dict[str, Any]) -> Self:
+    def where(self, filter: dict[str, Any]) -> Self:
         """Apply metadata filter using MongoDB-style syntax.
 
         Examples:
@@ -75,33 +69,43 @@ class BaseQueryBuilder:
         self._where = filter
         return self
 
-    def select(self, columns: List[str]) -> Self:
+    def select(self, columns: list[str]) -> Self:
         """Select specific columns to return."""
         self._columns = columns
         return self
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute query and return results as list.
 
         Must be implemented by subclasses.
         """
         raise NotImplementedError("Subclasses must implement to_list()")
 
-    async def to_pandas(self) -> "pd.DataFrame":
+    async def to_pandas(self) -> pd.DataFrame:
         """Execute query and return results as pandas DataFrame."""
-        import pandas as pd
-
         results = await self.to_list()
-        return pd.DataFrame(results)
+        return results_to_pandas(results)
 
-    async def to_arrow(self) -> "pa.Table":
+    async def to_arrow(self) -> pa.Table:
         """Execute query and return results as PyArrow Table."""
-        import pyarrow as pa
-
         results = await self.to_list()
-        if not results:
-            return pa.table({})
-        return pa.Table.from_pylist(results)
+        return results_to_arrow(results)
+
+    def _post_process_results(
+        self,
+        results: list[QueryResult],
+        reranker: Any | None = None,
+        rerank_query: str = "",
+    ) -> list[QueryResult]:
+        """Apply common offset, limit, reranking, and column selection."""
+        return post_process_results(
+            results,
+            offset=self._offset,
+            limit=self._limit,
+            columns=self._columns,
+            reranker=reranker,
+            rerank_query=rerank_query,
+        )
 
 
 @dataclass
@@ -133,15 +137,15 @@ class SemanticQueryBuilder(BaseQueryBuilder):
     query_text: str = ""
 
     # Vector parameters
-    _ef: Optional[int] = None
-    _nprobes: Optional[int] = None
-    _refine_factor: Optional[int] = None
-    _lower_bound: Optional[float] = None
-    _upper_bound: Optional[float] = None
+    _ef: int | None = None
+    _nprobes: int | None = None
+    _refine_factor: int | None = None
+    _lower_bound: float | None = None
+    _upper_bound: float | None = None
     _bypass_vector_index: bool = False
 
     # Reranking
-    _reranker: Optional[Callable] = None
+    _reranker: Any | None = None
 
     def ef(self, n: int) -> SemanticQueryBuilder:
         """Set HNSW ef_search parameter for better recall.
@@ -170,7 +174,7 @@ class SemanticQueryBuilder(BaseQueryBuilder):
         return self
 
     def distance_range(
-        self, lower: Optional[float] = None, upper: Optional[float] = None
+        self, lower: float | None = None, upper: float | None = None
     ) -> SemanticQueryBuilder:
         """Filter by distance range."""
         self._lower_bound = lower
@@ -185,16 +189,16 @@ class SemanticQueryBuilder(BaseQueryBuilder):
         self._bypass_vector_index = True
         return self
 
-    def rerank(self, reranker: Callable) -> SemanticQueryBuilder:
+    def rerank(self, reranker: Any) -> SemanticQueryBuilder:
         """Apply a reranker to results.
 
         Args:
-            reranker: Callable that takes (query, [texts]) and returns scores
+            reranker: Callable scorer or object with rerank(query, documents, top_k)
         """
         self._reranker = reranker
         return self
 
-    def explain_plan(self, verbose: bool = False) -> Dict[str, Any]:
+    def explain_plan(self, verbose: bool = False) -> dict[str, Any]:
         """Generate query execution plan without running.
 
         Returns:
@@ -210,7 +214,7 @@ class SemanticQueryBuilder(BaseQueryBuilder):
             "plan_type": "Index Scan" if not self._bypass_vector_index else "Seq Scan",
         }
 
-    async def analyze_plan(self) -> Dict[str, Any]:
+    async def analyze_plan(self) -> dict[str, Any]:
         """Execute with timing and return metrics."""
         import time
 
@@ -224,7 +228,7 @@ class SemanticQueryBuilder(BaseQueryBuilder):
             "search_method": "semantic",
         }
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute semantic search."""
         if not self.query_text:
             raise ValueError("Query text is required")
@@ -257,30 +261,11 @@ class SemanticQueryBuilder(BaseQueryBuilder):
                 use_exact_search=self._bypass_vector_index,
             )
 
-        # Apply offset and limit
-        if self._offset > 0:
-            results = results[self._offset:]
-        results = results[: self._limit]
-
-        # Apply reranking if configured
-        if self._reranker and results:
-            texts = [r.get("content", "") for r in results]
-            try:
-                scores = self._reranker(self.query_text, texts)
-                scored = list(zip(results, scores))
-                scored.sort(key=lambda x: x[1], reverse=True)
-                results = [r for r, _ in scored]
-            except Exception as e:
-                logger.warning(f"Reranking failed: {e}")
-
-        # Apply column selection
-        if self._columns:
-            results = [
-                {k: v for k, v in r.items() if k in self._columns or k == "id"}
-                for r in results
-            ]
-
-        return cast(List[QueryResult], results)
+        return self._post_process_results(
+            cast(list[QueryResult], results),
+            reranker=self._reranker,
+            rerank_query=self.query_text,
+        )
 
 
 @dataclass
@@ -309,7 +294,7 @@ class KeywordQueryBuilder(BaseQueryBuilder):
     _bm25_k1: float = 1.2
     _bm25_b: float = 0.75
     _text_config: str = "english"
-    _universal_fields: Optional[List[str]] = None
+    _universal_fields: list[str] | None = None
     _phrase_query: bool = False
 
     def bm25(self, k1: float = 1.2, b: float = 0.75) -> KeywordQueryBuilder:
@@ -334,7 +319,7 @@ class KeywordQueryBuilder(BaseQueryBuilder):
         self._text_config = text_config
         return self
 
-    def universal(self, metadata_fields: List[str]) -> KeywordQueryBuilder:
+    def universal(self, metadata_fields: list[str]) -> KeywordQueryBuilder:
         """Enable universal search - boosts score if query found in metadata fields.
 
         Args:
@@ -348,7 +333,7 @@ class KeywordQueryBuilder(BaseQueryBuilder):
         self._phrase_query = enabled
         return self
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute keyword search."""
         if not self.query_text:
             raise ValueError("Query text is required")
@@ -387,19 +372,7 @@ class KeywordQueryBuilder(BaseQueryBuilder):
                 text_config=self._text_config,
             )
 
-        # Apply offset and limit
-        if self._offset > 0:
-            results = results[self._offset:]
-        results = results[: self._limit]
-
-        # Apply column selection
-        if self._columns:
-            results = [
-                {k: v for k, v in r.items() if k in self._columns or k == "id"}
-                for r in results
-            ]
-
-        return cast(List[QueryResult], results)
+        return self._post_process_results(cast(list[QueryResult], results))
 
 
 @dataclass
@@ -432,7 +405,7 @@ class TrigramQueryBuilder(BaseQueryBuilder):
         self._case_sensitive = enabled
         return self
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute trigram search."""
         if not self.query_text:
             raise ValueError("Query text is required")
@@ -451,19 +424,7 @@ class TrigramQueryBuilder(BaseQueryBuilder):
                 threshold=self._threshold,
             )
 
-        # Apply offset and limit
-        if self._offset > 0:
-            results = results[self._offset:]
-        results = results[: self._limit]
-
-        # Apply column selection
-        if self._columns:
-            results = [
-                {k: v for k, v in r.items() if k in self._columns or k == "id"}
-                for r in results
-            ]
-
-        return cast(List[QueryResult], results)
+        return self._post_process_results(cast(list[QueryResult], results))
 
 
 @dataclass
@@ -499,7 +460,7 @@ class HybridQueryBuilder(BaseQueryBuilder):
 
     query_text: str = ""
 
-    _weights: Tuple[float, float] = (0.5, 0.5)
+    _weights: tuple[float, float] = (0.5, 0.5)
     _use_rrf: bool = False
     _rrf_k: int = 60
     _keyword_type: KeywordSearchType = KeywordSearchType.FTS
@@ -535,7 +496,7 @@ class HybridQueryBuilder(BaseQueryBuilder):
         self._bm25_b = b
         return self
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute hybrid search."""
         if not self.query_text:
             raise ValueError("Query text is required")
@@ -552,19 +513,7 @@ class HybridQueryBuilder(BaseQueryBuilder):
             text_config=self._text_config,
         )
 
-        # Apply offset and limit
-        if self._offset > 0:
-            results = results[self._offset:]
-        results = results[: self._limit]
-
-        # Apply column selection
-        if self._columns:
-            results = [
-                {k: v for k, v in r.items() if k in self._columns or k == "id"}
-                for r in results
-            ]
-
-        return cast(List[QueryResult], results)
+        return self._post_process_results(cast(list[QueryResult], results))
 
 
 @dataclass
@@ -585,11 +534,11 @@ class VectorQueryBuilder(BaseQueryBuilder):
         )
     """
 
-    query_vector: Optional[List[float]] = None
+    query_vector: list[float] | None = None
 
     # Vector parameters
-    _ef: Optional[int] = None
-    _refine_factor: Optional[int] = None
+    _ef: int | None = None
+    _refine_factor: int | None = None
     _bypass_vector_index: bool = False
 
     def ef(self, n: int) -> VectorQueryBuilder:
@@ -607,29 +556,17 @@ class VectorQueryBuilder(BaseQueryBuilder):
         self._bypass_vector_index = True
         return self
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute vector search."""
         if not self.query_vector:
             raise ValueError("Query vector is required")
 
         results = cast(
-            List[QueryResult],
+            list[QueryResult],
             await self.db.asimilarity_search_by_vector(
                 embedding=self.query_vector,
                 k=self._limit + self._offset,
             ),
         )
 
-        # Apply offset and limit
-        if self._offset > 0:
-            results = results[self._offset:]
-        results = results[: self._limit]
-
-        # Apply column selection
-        if self._columns:
-            results = cast(List[QueryResult], [
-                {k: v for k, v in r.items() if k in self._columns or k == "id"}
-                for r in results
-            ])
-
-        return results
+        return self._post_process_results(results)

@@ -9,7 +9,7 @@ rerank_search, and related helpers.
 import json
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from langchain_core.documents import Document
 from sqlalchemy import text
@@ -35,7 +35,7 @@ class MultimodalMixin(MixinBase):
 
     def register_spaces(
         self,
-        spaces: List[Any],
+        spaces: list[Any],
     ) -> None:
         """
         Register vector spaces for multimodal search on this collection.
@@ -65,9 +65,7 @@ class MultimodalMixin(MixinBase):
         try:
             from ..spaces import TextSpace, validate_spaces
         except ImportError:
-            raise ImportError(
-                "src.spaces module not found. Ensure spaces.py is present."
-            )
+            raise ImportError("src.spaces module not found. Ensure spaces.py is present.")
 
         validate_spaces(spaces)
 
@@ -78,8 +76,7 @@ class MultimodalMixin(MixinBase):
 
         self._spaces = list(spaces)
         logger.info(
-            f"Registered {len(spaces)} spaces: "
-            f"{[f'{s.name}({s.dimensions}d)' for s in spaces]}"
+            f"Registered {len(spaces)} spaces: {[f'{s.name}({s.dimensions}d)' for s in spaces]}"
         )
 
     async def _ensure_multimodal_columns(self) -> None:
@@ -117,24 +114,20 @@ class MultimodalMixin(MixinBase):
                 if check_result.fetchone() is None:
                     # Add vector column
                     await conn.execute(
-                        text(
-                            f"ALTER TABLE {qualified_table} "
-                            f"ADD COLUMN {col_name} vector({dims})"
-                        )
+                        text(f"ALTER TABLE {qualified_table} ADD COLUMN {col_name} vector({dims})")
                     )
                     logger.info(
-                        f"Added column embedding_{space.name} "
-                        f"(vector({dims})) to {self.table_name}"
+                        f"Added column embedding_{space.name} (vector({dims})) to {self.table_name}"
                     )
 
             await conn.commit()
 
     async def add_documents_multimodal(
         self,
-        documents: List[Document],
+        documents: list[Document],
         batch_size: int = 100,
         show_progress: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Add documents with embeddings for all registered vector spaces.
 
@@ -200,9 +193,7 @@ class MultimodalMixin(MixinBase):
                 all_ids.append(doc_id)
 
                 # Encode all spaces
-                space_embeddings = encode_document_spaces(
-                    doc, self._spaces, self.embedding_model
-                )
+                space_embeddings = encode_document_spaces(doc, self._spaces, self.embedding_model)
 
                 # Build dynamic SQL for multi-column insert
                 col_names = [
@@ -254,24 +245,21 @@ class MultimodalMixin(MixinBase):
 
             if show_progress:
                 done = min(batch_start + batch_size, total)
-                logger.info(
-                    f"Multimodal insert: {done}/{total} ({done / total * 100:.0f}%)"
-                )
+                logger.info(f"Multimodal insert: {done}/{total} ({done / total * 100:.0f}%)")
 
         logger.info(
-            f"✓ Added {len(all_ids)} documents with "
-            f"{len(self._spaces)} space embeddings each"
+            f"✓ Added {len(all_ids)} documents with {len(self._spaces)} space embeddings each"
         )
         return all_ids
 
     async def build_multimodal_index(
         self,
-        index_type: Optional[IndexType] = None,
+        index_type: IndexType | None = None,
         metric: DistanceMetric = DistanceMetric.COSINE,
         m: int = 16,
         ef_construction: int = 64,
-        spaces: Optional[List[str]] = None,
-    ) -> Dict[str, str]:
+        spaces: list[str] | None = None,
+    ) -> dict[str, str]:
         """
         Build vector indexes on each registered space's embedding column.
 
@@ -339,9 +327,7 @@ class MultimodalMixin(MixinBase):
                         """)
                         )
                     elif idx_type == IndexType.IVFFLAT:
-                        result = await conn.execute(
-                            text(f"SELECT COUNT(*) FROM {qualified_table}")
-                        )
+                        result = await conn.execute(text(f"SELECT COUNT(*) FROM {qualified_table}"))
                         row_count = result.scalar() or 1000
                         lists = max(int(row_count**0.5), 1)
                         await conn.execute(
@@ -355,8 +341,7 @@ class MultimodalMixin(MixinBase):
 
                     created[space.name] = index_name
                     logger.info(
-                        f"✓ Created {idx_type.value} index on "
-                        f"embedding_{space.name}: {index_name}"
+                        f"✓ Created {idx_type.value} index on embedding_{space.name}: {index_name}"
                     )
 
                 await conn.commit()
@@ -368,12 +353,12 @@ class MultimodalMixin(MixinBase):
 
     async def multimodal_search(
         self,
-        query_params: Dict[str, Any],
-        weights: Optional[Dict[str, float]] = None,
+        query_params: dict[str, Any],
+        weights: dict[str, float] | None = None,
         k: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         metric: DistanceMetric = DistanceMetric.COSINE,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Weighted search across all registered vector spaces.
 
@@ -432,9 +417,7 @@ class MultimodalMixin(MixinBase):
             raise ImportError("src.spaces module required")
 
         # Build query embeddings for each relevant space
-        query_embeddings = encode_query_spaces(
-            query_params, self._spaces, self.embedding_model
-        )
+        query_embeddings = encode_query_spaces(query_params, self._spaces, self.embedding_model)
 
         if not query_embeddings:
             raise ValidationError(
@@ -447,9 +430,7 @@ class MultimodalMixin(MixinBase):
             weights = {s.name: 1.0 for s in self._spaces if s.name in query_params}
 
         # Normalize weights to sum to 1.0
-        total_weight = sum(
-            weights.get(s.name, 0.0) for s in self._spaces if s.name in query_params
-        )
+        total_weight = sum(weights.get(s.name, 0.0) for s in self._spaces if s.name in query_params)
         if total_weight == 0:
             total_weight = 1.0
 
@@ -530,14 +511,14 @@ class MultimodalMixin(MixinBase):
 
     async def multimodal_hybrid_search(
         self,
-        query_params: Dict[str, Any],
-        weights: Optional[Dict[str, float]] = None,
+        query_params: dict[str, Any],
+        weights: dict[str, float] | None = None,
         keyword_weight: float = 0.3,
         k: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         metric: DistanceMetric = DistanceMetric.COSINE,
         keyword_type: KeywordSearchType = KeywordSearchType.FTS,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Multimodal search fused with BM25/FTS keyword scores.
 
@@ -600,6 +581,7 @@ class MultimodalMixin(MixinBase):
             kw_results = await self.keyword_search(
                 text_query,
                 k=k * 2,
+                filter=filter,
                 search_type=keyword_type,
             )
         else:
@@ -615,7 +597,7 @@ class MultimodalMixin(MixinBase):
 
         return fused
 
-    async def get_multimodal_index_stats(self) -> Dict[str, Any]:
+    async def get_multimodal_index_stats(self) -> dict[str, Any]:
         """
         Get index statistics for each registered space's embedding column.
 
@@ -675,7 +657,7 @@ class MultimodalMixin(MixinBase):
         rerank_top_k: int = 5,
         search_method: str = "semantic",
         **search_kwargs,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Retrieve-then-Rerank: first stage retrieval followed by precision reranking.
 
@@ -755,9 +737,7 @@ class MultimodalMixin(MixinBase):
         elif method in ("keyword", "bm25", "fts"):
             from ..base import KeywordSearchType
 
-            search_type = (
-                KeywordSearchType.BM25 if method == "bm25" else KeywordSearchType.FTS
-            )
+            search_type = KeywordSearchType.BM25 if method == "bm25" else KeywordSearchType.FTS
             candidates = await self.keyword_search(
                 query, k=k, search_type=search_type, **search_kwargs
             )
@@ -826,7 +806,6 @@ class MultimodalMixin(MixinBase):
             )
 
         logger.info(
-            f"rerank_search: ✓ returned {len(results)} results "
-            f"(from {len(candidates)} candidates)"
+            f"rerank_search: ✓ returned {len(results)} results (from {len(candidates)} candidates)"
         )
         return results

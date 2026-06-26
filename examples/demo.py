@@ -5,7 +5,7 @@ pgVectorDB v2.2.0 Demo Script
 This script demonstrates the key features of pgVectorDB:
 1. Initialization and setup
 2. Document operations
-3. All 10 search methods
+3. Fluent search modes
 4. Extension-aware features
 
 Run with: python scripts/demo.py
@@ -17,12 +17,11 @@ Requirements:
 
 import asyncio
 import logging
+
 from langchain_core.documents import Document
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # ==================== Configuration ====================
@@ -32,9 +31,7 @@ DB_PORT = "9002"
 DB_NAME = "postgres"
 DB_USER = "user"
 DB_PASSWORD = "root"
-CONNECTION_STRING = (
-    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
+CONNECTION_STRING = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 
 async def main():
@@ -48,12 +45,12 @@ async def main():
     print("\n📦 Step 1: Importing modules...")
 
     from pgvectordb import (
-        pgVectorDB,
-        IndexType,
-        KeywordSearchType,
+        ALLOWED_TEXT_CONFIGS,
         DistanceMetric,
         ExtensionManager,
-        ALLOWED_TEXT_CONFIGS,
+        IndexType,
+        KeywordSearchType,
+        pgVectorDB,
     )
 
     print("✓ All imports successful")
@@ -67,9 +64,7 @@ async def main():
     try:
         from langchain_huggingface import HuggingFaceEmbeddings
 
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         print("✓ HuggingFace embeddings loaded")
     except ImportError:
         print("❌ langchain-huggingface not installed. Install with:")
@@ -97,12 +92,8 @@ async def main():
 
         print("Extension Status:")
         print(f"  - pgvector: {'✓' if status['pgvector'] else '✗'} (required)")
-        print(
-            f"  - vectorscale: {'✓' if status['vectorscale'] else '✗'} (optional, enables DiskANN)"
-        )
-        print(
-            f"  - pg_textsearch: {'✓' if status['pg_textsearch'] else '✗'} (optional, enables BM25)"
-        )
+        print(f"  - vectorscale: {'✓' if status['vectorscale'] else '✗'} (required for DiskANN)")
+        print(f"  - pg_textsearch: {'✓' if status['pg_textsearch'] else '✗'} (required for BM25)")
 
         # Show feature availability
         features = ext_manager.get_feature_availability()
@@ -208,35 +199,31 @@ async def main():
 
     # 1. Keyword Search (FTS)
     print("\n--- 1. Keyword Search (FTS) ---")
-    results = await pgvdb.keyword_search(
-        test_query, k=3, search_type=KeywordSearchType.FTS
-    )
+    results = await pgvdb.query(test_query).keyword().fts(text_config="english").limit(3).to_list()
     for r in results:
         print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
 
     # 2. Semantic Search
     print("\n--- 2. Semantic Search ---")
-    results = await pgvdb.semantic_search(test_query, k=3)
+    results = await pgvdb.query(test_query).semantic().limit(3).to_list()
     for r in results:
         print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
 
     # 3. Hybrid Search
     print("\n--- 3. Hybrid Search (RRF) ---")
-    results = await pgvdb.hybrid_search(test_query, k=3, use_rrf=True)
+    results = await pgvdb.query(test_query).hybrid().rrf(k=60).limit(3).to_list()
     for r in results:
         print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
 
     # 4. Metadata Semantic Search
     print("\n--- 4. Metadata Semantic Search (category=ai) ---")
-    results = await pgvdb.metadata_semantic_search(
-        test_query, filter={"category": "ai"}, k=3
-    )
+    results = await pgvdb.query(test_query).semantic().where({"category": "ai"}).limit(3).to_list()
     for r in results:
         print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
 
     # 5. Trigram Search (fuzzy)
     print("\n--- 5. Trigram Search (typo-tolerant) ---")
-    results = await pgvdb.trigram_search("machin lerning", k=3, threshold=0.2)
+    results = await pgvdb.query("machin lerning").trigram().threshold(0.2).limit(3).to_list()
     for r in results:
         print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
 

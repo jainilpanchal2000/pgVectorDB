@@ -125,9 +125,7 @@ class TestFeatureAvailability:
     async def test_feature_values_format(self, checked_manager):
         features = checked_manager.get_feature_availability()
         for key, val in features.items():
-            assert isinstance(val, dict), (
-                f"Feature '{key}' should be dict, got {type(val)}"
-            )
+            assert isinstance(val, dict), f"Feature '{key}' should be dict, got {type(val)}"
             assert "available" in val
             assert "requires" in val
             assert "version" in val

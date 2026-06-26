@@ -118,9 +118,7 @@ class TestImportFromJson:
             await rag_with_docs.import_from_json(path, batch_size=5, skip_existing=True)
 
             after = await rag_with_docs.count_by_metadata(None)
-            assert after == before, (
-                "Document count should not change with skip_existing=True"
-            )
+            assert after == before, "Document count should not change with skip_existing=True"
         finally:
             Path(path).unlink(missing_ok=True)
 
@@ -141,9 +139,7 @@ class TestImportFromJson:
                 index_type=IndexType.HNSW,
             )
             await fresh.initialize(overwrite_existing=True)
-            count = await fresh.import_from_json(
-                path, batch_size=5, skip_existing=False
-            )
+            count = await fresh.import_from_json(path, batch_size=5, skip_existing=False)
             assert count > 0
             await fresh.close()
         finally:
@@ -158,9 +154,7 @@ class TestImportFromJson:
 def _skip_on_halfvec_error(e: Exception):
     """Skip the test if the error is related to halfvec type incompatibility."""
     error_str = str(e).lower()
-    if any(
-        kw in error_str for kw in ["halfvec", "type", "column", "cast", "dimension"]
-    ):
+    if any(kw in error_str for kw in ["halfvec", "type", "column", "cast", "dimension"]):
         pytest.skip(f"halfvec type not supported with current vector dimensions: {e}")
     raise e
 

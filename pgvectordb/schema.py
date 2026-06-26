@@ -97,9 +97,7 @@ def get_vector_table(
     if include_timestamps:
         columns.extend(
             [
-                Column(
-                    "created_at", DateTime(timezone=True), server_default=func.now()
-                ),
+                Column("created_at", DateTime(timezone=True), server_default=func.now()),
                 Column("updated_at", DateTime(timezone=True), onupdate=func.now()),
             ]
         )
@@ -224,9 +222,7 @@ def get_multimodal_table(
     if include_timestamps:
         columns.extend(
             [
-                Column(
-                    "created_at", DateTime(timezone=True), server_default=func.now()
-                ),
+                Column("created_at", DateTime(timezone=True), server_default=func.now()),
                 Column("updated_at", DateTime(timezone=True), onupdate=func.now()),
             ]
         )
@@ -328,8 +324,7 @@ def get_distance_operator(distance_metric: str) -> str:
 
     if distance_metric.lower() not in operators:
         raise ValueError(
-            f"Unknown distance metric: '{distance_metric}'. "
-            f"Supported: {list(operators.keys())}"
+            f"Unknown distance metric: '{distance_metric}'. Supported: {list(operators.keys())}"
         )
 
     return operators[distance_metric.lower()]
@@ -374,8 +369,7 @@ def get_index_ops(distance_metric: str, vector_type: str = "vector") -> str:
 
     if distance_metric.lower() not in base_ops:
         raise ValueError(
-            f"Unknown distance metric: '{distance_metric}'. "
-            f"Supported: {list(base_ops.keys())}"
+            f"Unknown distance metric: '{distance_metric}'. Supported: {list(base_ops.keys())}"
         )
 
     type_prefix = {
@@ -386,8 +380,7 @@ def get_index_ops(distance_metric: str, vector_type: str = "vector") -> str:
 
     if vector_type not in type_prefix:
         raise ValueError(
-            f"Unknown vector type: '{vector_type}'. "
-            f"Supported: {list(type_prefix.keys())}"
+            f"Unknown vector type: '{vector_type}'. Supported: {list(type_prefix.keys())}"
         )
 
     return f"{type_prefix[vector_type]}_{base_ops[distance_metric.lower()]}"

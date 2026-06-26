@@ -1,5 +1,5 @@
-import unittest
 import sys
+import unittest
 from pathlib import Path
 
 # Add parent directory to path to import src

@@ -1,8 +1,9 @@
 """
-Production-Ready Multi-Index RAG System
-========================================
+PostgreSQL-Native Vector Search and RAG
+=======================================
 
-Main ``pgVectorDB`` class — the single entry-point for all operations.
+Main ``pgVectorDB`` class, the single entry point for document ingestion,
+indexing, fluent retrieval, diagnostics, and LangChain integration.
 
 Related modules
 ---------------
@@ -25,15 +26,15 @@ Quick Start
     ... )
     >>> await pgvdb.initialize()
     >>> await pgvdb.add_documents(docs)
-    >>> results = await pgvdb.semantic_search("artificial intelligence", k=5)
+    >>> results = await pgvdb.query("artificial intelligence").semantic().limit(5).to_list()
 
-Version: 0.0.4
+Version: 0.0.6
 License: MIT
 """
 
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .query.unified import UnifiedQueryBuilder
@@ -119,7 +120,12 @@ class pgVectorDB(
         await pgvdb.initialize()
         await pgvdb.add_documents(documents, labels=doc_labels)
         await pgvdb.build_index(include_labels=True)
-        results = await pgvdb.semantic_search("AI applications", k=5, label_filter=[1, 2])
+        results = await (
+            pgvdb.query("AI applications")
+            .semantic()
+            .limit(5)
+            .to_list()
+        )
         ```
     """
 
@@ -158,9 +164,7 @@ class pgVectorDB(
         self.connection_string = connection_string
         self.schema_name = schema_name
         self._validate_schema_name(schema_name)  # Security: validate before SQL use
-        self.index_type = (
-            IndexType(index_type) if isinstance(index_type, str) else index_type
-        )
+        self.index_type = IndexType(index_type) if isinstance(index_type, str) else index_type
 
         # Create engine with connection pooling
         try:
@@ -175,18 +179,18 @@ class pgVectorDB(
             raise DatabaseError(f"Failed to create database engine: {e}") from e
 
         self.engine: PGEngine = PGEngine.from_engine(self.sqlalchemy_engine)
-        self._vector_store: Optional[PGVectorStore] = None
+        self._vector_store: PGVectorStore | None = None
         self.vector_size = self._get_embedding_dimension()
         self._index_built = False
-        self._query_params: Dict[str, Any] = {}  # Store tuning params (search)
-        self._diskann_build_params: Dict[str, Any] = {}  # Store tuning params (build)
+        self._query_params: dict[str, Any] = {}  # Store tuning params (search)
+        self._diskann_build_params: dict[str, Any] = {}  # Store tuning params (build)
 
         # Load default query params from Config
         self._query_params["ivfflat.probes"] = Config.DEFAULT_IVFFLAT_PROBES
         self._query_params["hnsw.ef_search"] = Config.DEFAULT_HNSW_EF_SEARCH
 
         # Extension manager for graceful degradation (v2.2.0)
-        self._extensions: Optional[Any] = None
+        self._extensions: Any | None = None
         if ExtensionManager is not None:
             self._extensions = ExtensionManager(self.sqlalchemy_engine)
 
@@ -195,9 +199,7 @@ class pgVectorDB(
             f"(vector_size={self.vector_size})"
         )
 
-    def _validate_init_params(
-        self, collection_name: str, connection_string: str
-    ) -> None:
+    def _validate_init_params(self, collection_name: str, connection_string: str) -> None:
         """Validate initialization parameters."""
         if not collection_name or not isinstance(collection_name, str):
             raise ValidationError("collection_name must be a non-empty string")
@@ -208,9 +210,7 @@ class pgVectorDB(
         if not connection_string or not isinstance(connection_string, str):
             raise ValidationError("connection_string must be a non-empty string")
         if not connection_string.startswith("postgresql"):
-            raise ValidationError(
-                "connection_string must be a valid PostgreSQL connection string"
-            )
+            raise ValidationError("connection_string must be a valid PostgreSQL connection string")
 
     def _validate_schema_name(self, schema_name: str) -> None:
         """Validate schema name to prevent SQL injection."""
@@ -229,9 +229,7 @@ class pgVectorDB(
                 raise ValidationError("Embedding dimension must be positive")
             return dimension
         except Exception as e:
-            raise ValidationError(
-                f"Could not determine embedding dimension: {e}"
-            ) from e
+            raise ValidationError(f"Could not determine embedding dimension: {e}") from e
 
     async def _ensure_extensions(self) -> None:
         """
@@ -240,8 +238,8 @@ class pgVectorDB(
         Extensions managed:
         - vector: Core pgvector extension for vector operations (REQUIRED)
         - pg_trgm: Trigram similarity for fuzzy text matching (REQUIRED)
-        - vectorscale: DiskANN index support (OPTIONAL - required for DiskANN)
-        - pg_textsearch: BM25 search ranking (OPTIONAL)
+        - vectorscale: DiskANN index support (required for DiskANN)
+        - pg_textsearch: BM25 search ranking (required for BM25)
 
         Raises:
             InitializationError: If DiskANN requested but vectorscale not available
@@ -281,12 +279,12 @@ class pgVectorDB(
                     )
                     if result.fetchone() is None:
                         raise InitializationError(
-                                "Cannot use DiskANN index: vectorscale extension is not installed.\n\n"
-                                "To install vectorscale:\n"
-                                "1. Follow installation at https://github.com/timescale/pgvectorscale\n"
-                                "2. Run: CREATE EXTENSION vectorscale CASCADE;\n\n"
-                                "Alternative: Use IndexType.HNSW or IndexType.IVFFLAT instead."
-                            )
+                            "Cannot use DiskANN index: vectorscale extension is not installed.\n\n"
+                            "To install vectorscale:\n"
+                            "1. Follow installation at https://github.com/timescale/pgvectorscale\n"
+                            "2. Run: CREATE EXTENSION vectorscale CASCADE;\n\n"
+                            "Alternative: Use IndexType.HNSW or IndexType.IVFFLAT instead."
+                        )
                         await conn.execute(
                             text("CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;")
                         )
@@ -312,16 +310,12 @@ class pgVectorDB(
             for row in result.fetchall():
                 ext_name, ext_ver = row[0], row[1]
                 if ext_name == "vector":
-                    if version.parse(ext_ver) < version.parse(
-                        Config.MIN_VECTOR_VERSION
-                    ):
+                    if version.parse(ext_ver) < version.parse(Config.MIN_VECTOR_VERSION):
                         logger.warning(
                             f"Extension 'vector' version {ext_ver} is older than recommended {Config.MIN_VECTOR_VERSION}"
                         )
                 elif ext_name == "vectorscale":
-                    if version.parse(ext_ver) < version.parse(
-                        Config.MIN_VECTORSCALE_VERSION
-                    ):
+                    if version.parse(ext_ver) < version.parse(Config.MIN_VECTORSCALE_VERSION):
                         logger.warning(
                             f"Extension 'vectorscale' version {ext_ver} is older than recommended {Config.MIN_VECTORSCALE_VERSION}"
                         )
@@ -376,9 +370,7 @@ class pgVectorDB(
                 logger.info("✓ Full-text search index created")
 
                 # Create trigram GIN index for similarity search
-                trigram_index_name = quote_identifier(
-                    f"idx_{self.table_name}_content_trgm"
-                )
+                trigram_index_name = quote_identifier(f"idx_{self.table_name}_content_trgm")
                 await conn.execute(
                     text(
                         f"CREATE INDEX IF NOT EXISTS {trigram_index_name} "
@@ -461,9 +453,7 @@ class pgVectorDB(
     def _ensure_initialized(self) -> None:
         """Ensure the system is initialized before operations."""
         if not self._vector_store:
-            raise InitializationError(
-                "System not initialized. Call initialize() first."
-            )
+            raise InitializationError("System not initialized. Call initialize() first.")
 
     def query(self, query_text: str) -> "UnifiedQueryBuilder":
         """Create a unified query builder for any search method.
@@ -518,11 +508,11 @@ class pgVectorDB(
     # ========== Internal Search Helpers ==========
     async def _semantic_search_with_sql_filter(
         self,
-        embedding: List[float],
+        embedding: list[float],
         sql_filter: str,
         k: int = 4,
         use_exact_search: bool = False,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """Execute semantic search with a raw SQL filter string.
 
         Args:
@@ -579,9 +569,7 @@ class pgVectorDB(
         except Exception as e:
             raise DatabaseError(f"Semantic search with SQL filter failed: {e}") from e
 
-    def _explain_query_plan(
-        self, builder: Any, verbose: bool = False
-    ) -> Dict[str, Any]:
+    def _explain_query_plan(self, builder: Any, verbose: bool = False) -> dict[str, Any]:
         """Generate EXPLAIN plan for a query without executing.
 
         Uses PostgreSQL EXPLAIN (FORMAT JSON) to get structured plan.
@@ -638,12 +626,16 @@ class pgVectorDB(
                 "Query Text": query,
                 "Plan": {
                     "Node Type": "Index Scan" if not builder._bypass_vector_index else "Seq Scan",
-                    "Index Name": f"idx_{self.table_name}_vector" if not builder._bypass_vector_index else None,
+                    "Index Name": f"idx_{self.table_name}_vector"
+                    if not builder._bypass_vector_index
+                    else None,
                     "Relation Name": self.table_name,
                     "Actual Rows": builder._limit,
-                    "Index Cond": f"embedding {distance_op} {vector_str}::vector" if not builder._bypass_vector_index else None,
+                    "Index Cond": f"embedding {distance_op} {vector_str}::vector"
+                    if not builder._bypass_vector_index
+                    else None,
                     "Filter": where_clause if where_clause else None,
-                }
+                },
             },
             "raw_plan": [query],
             "index_used": self.index_type.value if not builder._bypass_vector_index else "none",
@@ -653,9 +645,7 @@ class pgVectorDB(
             "has_filter": bool(where_clause),
         }
 
-    async def _analyze_query_plan(
-        self, builder: Any
-    ) -> Dict[str, Any]:
+    async def _analyze_query_plan(self, builder: Any) -> dict[str, Any]:
         """Run EXPLAIN ANALYZE and return execution metrics.
 
         Uses PostgreSQL EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) to get
@@ -710,10 +700,13 @@ class pgVectorDB(
                     await conn.execute(text("SET LOCAL enable_indexscan = off"))
 
                 # Execute EXPLAIN ANALYZE
-                result = await conn.execute(text(query), {
-                    "embedding": str(query_vector),
-                    "k": builder._limit,
-                })
+                result = await conn.execute(
+                    text(query),
+                    {
+                        "embedding": str(query_vector),
+                        "k": builder._limit,
+                    },
+                )
                 rows = result.fetchall()
 
                 # Parse the JSON output
@@ -721,6 +714,7 @@ class pgVectorDB(
                     plan_json = rows[0][0]
                     if isinstance(plan_json, str):
                         import json
+
                         plan_data = json.loads(plan_json)
                     else:
                         plan_data = plan_json
@@ -761,7 +755,7 @@ class pgVectorDB(
                 "error": str(e),
             }
 
-    def _build_filter_sql(self, filter_dict: Dict[str, Any]) -> str:
+    def _build_filter_sql(self, filter_dict: dict[str, Any]) -> str:
         """Build SQL WHERE clause from filter dict.
 
         Simple implementation - converts metadata filter to SQL.

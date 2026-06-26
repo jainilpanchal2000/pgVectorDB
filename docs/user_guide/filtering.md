@@ -1,217 +1,178 @@
 # Metadata Filtering
 
-pgVectorDB implements MongoDB-style JSON queries that translate to secure PostgreSQL `JSONB` clauses. Use with the fluent API via `.where()`.
-
----
-
-## The `.where()` Method
-
-Add filters to any search:
+pgVectorDB filters are MongoDB-style dictionaries that compile to parameterized PostgreSQL JSONB predicates. Use them through `.where(...)` on the fluent query builder.
 
 ```python
 results = await (
-    db.search("machine learning")
+    db.query("machine learning")
+    .semantic()
     .where({"category": "ai", "status": "published"})
     .limit(10)
     .to_list()
 )
 ```
 
-**Key point**: Filters are applied **before** the vector search (pre-filter) by default, ensuring accurate results.
+Filters are applied before result ranking where the underlying search method supports it. For large collections, pair frequent filters with scalar indexes.
 
----
+## Operator Reference
 
-## Filter Operators Reference
+### Equality
 
-### Comparison Operators
+Implicit equality is the most common form.
 
-#### `$eq` - Equality (Implicit)
-```python
-# Implicit equality (preferred)
-results = await db.search("query").where({"department": "HR"}).to_list()
-
-# SQL: langchain_metadata->>'department' = 'HR'
-```
-
-#### `$ne` - Not Equal
 ```python
 results = await (
-    db.search("query")
-    .where({"status": {"$ne": "archived"}})
-    .to_list()
-)
-# SQL: langchain_metadata->>'status' != 'archived'
-```
-
-#### `$lt`, `$lte`, `$gt`, `$gte` - Numeric Comparisons
-```python
-results = await (
-    db.search("query")
-    .where({"price": {"$lt": 100}})
-    .to_list()
-)
-results = await (
-    db.search("query")
-    .where({"rating": {"$gte": 4.5}})
-    .to_list()
-)
-# SQL: (langchain_metadata->>'price')::numeric < 100
-```
-
-#### `$between` - Range (Inclusive)
-```python
-results = await (
-    db.search("quarterly report")
-    .where({"year": {"$between": [2020, 2023]}})
-    .to_list()
-)
-# SQL: (langchain_metadata->>'year')::numeric BETWEEN 2020 AND 2023
-```
-
-### Set Operators
-
-#### `$in` - In Array
-```python
-results = await (
-    db.search("technology")
-    .where({"category": {"$in": ["tech", "science", "engineering"]}})
-    .to_list()
-)
-# SQL: langchain_metadata->>'category' = ANY(ARRAY['tech', 'science', 'engineering'])
-```
-
-#### `$nin` - Not In Array
-```python
-results = await (
-    db.search("query")
-    .where({"tag": {"$nin": ["draft", "deleted", "archived"]}})
-    .to_list()
-)
-# SQL: langchain_metadata->>'tag' != ALL(ARRAY['draft', 'deleted', 'archived'])
-```
-
-### Existence Operators
-
-#### `$exists` - Key Existence
-```python
-results = await (
-    db.search("premium content")
-    .where({
-        "deleted_at": {"$exists": False},  # Must NOT exist
-        "premium_tier": {"$exists": True}   # Must exist
-    })
-    .to_list()
-)
-# SQL: langchain_metadata->>'deleted_at' IS NULL AND langchain_metadata->>'premium_tier' IS NOT NULL
-```
-
-### Pattern Matching
-
-#### `$like`, `$ilike` - SQL LIKE Patterns
-```python
-results = await (
-    db.search("corporate email")
-    .where({
-        "email": {"$like": "%@company.com"},
-        "title": {"$ilike": "%database%"}  # Case insensitive
-    })
-    .to_list()
-)
-# SQL: langchain_metadata->>'email' LIKE '%@company.com'
-```
-
-### Logical Operators
-
-#### `$and` - AND Grouping
-```python
-results = await (
-    db.search("finance report")
-    .where({
-        "$and": [
-            {"department": "finance"},
-            {"level": {"$gte": 3}},
-            {"status": "active"}
-        ]
-    })
+    db.query("onboarding guide")
+    .semantic()
+    .where({"department": "HR"})
     .to_list()
 )
 ```
 
-#### `$or` - OR Grouping
+Equivalent explicit form:
+
 ```python
-results = await (
-    db.search("urgent items")
-    .where({
-        "$or": [
-            {"priority": "critical"},
-            {"created_at": {"$gte": "2024-01-01"}, "status": "unread"}
-        ]
-    })
-    .to_list()
-)
+results = await db.query("onboarding guide").semantic().where({"department": {"$eq": "HR"}}).to_list()
 ```
 
-#### Nested Logic
-```python
-results = await (
-    db.search("research papers")
-    .where({
-        "$and": [
-            {"year": {"$between": [2020, 2023]}},
-            {"$or": [
-                {"category": "ai"},
-                {"citations": {"$gt": 1000}}
-            ]}
-        ]
-    })
-    .to_list()
-)
-```
-
----
-
-## Usage Examples
-
-### Multi-tenant Isolation
+### Numeric Comparisons
 
 ```python
-# Essential for SaaS applications
 results = await (
-    db.search("project documentation")
-    .where({"tenant_id": current_user.tenant_id})  # Always filter by tenant
+    db.query("budget laptops")
+    .hybrid()
+    .where({"price": {"$lt": 1000}, "rating": {"$gte": 4.2}})
     .limit(10)
     .to_list()
 )
 ```
 
-### Category + Date Range
+Supported comparison operators:
+
+| Operator | Meaning |
+| --- | --- |
+| `$ne` | Not equal. |
+| `$lt` / `$lte` | Less than / less than or equal. |
+| `$gt` / `$gte` | Greater than / greater than or equal. |
+| `$between` | Inclusive range: `[low, high]`. |
+
+### Ranges
 
 ```python
 results = await (
-    db.search("breaking news")
-    .where({
-        "category": "news",
-        "published_at": {"$gte": "2024-01-01"},
-        "status": "published"
-    })
+    db.query("quarterly report")
+    .semantic()
+    .where({"year": {"$between": [2024, 2026]}})
     .limit(20)
     .to_list()
 )
 ```
 
-### Permission-based Search
+### Lists
 
 ```python
 results = await (
-    db.search("confidential documents")
+    db.query("database tutorials")
+    .keyword()
+    .where({"category": {"$in": ["postgres", "vector", "rag"]}})
+    .limit(10)
+    .to_list()
+)
+```
+
+```python
+results = await (
+    db.query("public docs")
+    .semantic()
+    .where({"status": {"$nin": ["draft", "archived", "deleted"]}})
+    .to_list()
+)
+```
+
+### Existence Checks
+
+```python
+results = await (
+    db.query("premium content")
+    .semantic()
+    .where({
+        "deleted_at": {"$exists": False},
+        "premium_tier": {"$exists": True},
+    })
+    .to_list()
+)
+```
+
+### Pattern Matching
+
+```python
+results = await (
+    db.query("corporate contact")
+    .keyword()
+    .where({
+        "email": {"$like": "%@company.com"},
+        "title": {"$ilike": "%database%"},
+    })
+    .to_list()
+)
+```
+
+`$like` is case-sensitive. `$ilike` is case-insensitive.
+
+### Logical Operators
+
+Use `$and` and `$or` to build nested filters.
+
+```python
+results = await (
+    db.query("research papers")
+    .hybrid()
+    .where({
+        "$and": [
+            {"year": {"$between": [2020, 2026]}},
+            {
+                "$or": [
+                    {"category": "ai"},
+                    {"citations": {"$gt": 1000}},
+                ]
+            },
+        ]
+    })
+    .limit(10)
+    .to_list()
+)
+```
+
+## Common Patterns
+
+### Multi-tenant Isolation
+
+```python
+results = await (
+    db.query("project documentation")
+    .hybrid()
+    .where({"tenant_id": current_user.tenant_id})
+    .limit(10)
+    .to_list()
+)
+```
+
+Always include the tenant filter in application-level retrieval paths for SaaS workloads.
+
+### Permission-aware Search
+
+```python
+results = await (
+    db.query("confidential roadmap")
+    .semantic()
     .where({
         "$or": [
             {"owner_id": current_user.id},
-            {"shared_with": {"$in": current_user.teams}},
-            {"visibility": "public"}
+            {"team_id": {"$in": current_user.team_ids}},
+            {"visibility": "public"},
         ]
     })
-    .limit(50)
+    .limit(20)
     .to_list()
 )
 ```
@@ -220,89 +181,129 @@ results = await (
 
 ```python
 results = await (
-    db.search("wireless headphones")
+    db.query("wireless noise cancelling headphones")
+    .hybrid()
     .where({
         "category": "electronics",
         "price": {"$between": [50, 200]},
         "in_stock": True,
-        "rating": {"$gte": 4.0}
+        "rating": {"$gte": 4.0},
     })
+    .weights(semantic=0.65, keyword=0.35)
     .limit(10)
     .to_list()
 )
 ```
 
----
+### Fresh Content
 
-## Scalar Index Creation
-
-For large collections (100K+ documents), create B-Tree or GIN indexes on frequently filtered fields:
+Use metadata filters when freshness is a hard constraint.
 
 ```python
-# B-Tree index for range queries ($gt, $lt, $between)
-await db.create_scalar_index("price", index_type="btree")
-
-# GIN index for low-cardinality fields ($eq, $in)
-await db.create_scalar_index("category", index_type="bitmap")  # Uses GIN
+results = await (
+    db.query("security advisory")
+    .semantic()
+    .where({"published_at": {"$gte": "2026-01-01"}})
+    .limit(10)
+    .to_list()
+)
 ```
 
-**Benefits:**
-- 10-100x faster filtered queries
-- Reduced PostgreSQL CPU usage
-- Better multi-tenant performance
+Use `RecencySpace` when freshness should be a ranking signal instead of a strict cutoff. See [Multimodal Search](multimodal_search.md).
 
-See [Indexing & Performance](../advanced/indexing.md) for details.
+## Scalar Indexes
 
----
+Create scalar indexes for fields that appear in frequent filters. This is one of the main optimization differentiators in pgVectorDB because it keeps metadata filtering fast inside PostgreSQL.
+
+```python
+await db.create_scalar_index("price", index_type="btree")
+await db.create_scalar_index("category", index_type="bitmap")
+await db.create_scalar_index("tags", index_type="gin")
+```
+
+| Index type | Best for | Example filter |
+| --- | --- | --- |
+| `btree` | Numeric ranges and high-cardinality equality. | `{"price": {"$between": [50, 200]}}` |
+| `bitmap` | Low-cardinality categories. | `{"category": "electronics"}` |
+| `gin` | Array or containment-style metadata. | `{"tags": {"$in": ["rag", "postgres"]}}` |
+| `labellist` | DiskANN label arrays. | Label-filtered ANN search. |
+
+The scalar index builder auto-detects metadata value types and creates expression indexes such as numeric casts for range fields.
+
+## Verify Filter Performance
+
+Use the fluent analyzer for a quick timing check:
+
+```python
+metrics = await (
+    db.query("portable computer")
+    .semantic()
+    .where({"price": {"$between": [400, 900]}})
+    .ef(100)
+    .limit(10)
+    .analyze_plan()
+)
+
+print(metrics["execution_time_ms"])
+print(metrics["rows_returned"])
+```
+
+Use `explain_query()` from [Analytics & Diagnostics](analytics_and_diagnostics.md) when you need raw PostgreSQL `EXPLAIN` output.
 
 ## Complete Example
 
 ```python
 import asyncio
-from pgvectordb import pgVectorDB
+
+from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
+
+from pgvectordb import pgVectorDB
+
 
 async def main():
     db = pgVectorDB(
-        collection_name="documents",
-        embedding_model=HuggingFaceEmbeddings(),
-        connection_string="postgresql+asyncpg://..."
+        collection_name="products",
+        embedding_model=HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2"),
+        connection_string="postgresql+asyncpg://user:root@localhost:9002/postgres",
     )
     await db.initialize()
-    
-    # Add sample documents
-    await db.add_texts(
-        texts=["AI research paper", "Database guide", "ML tutorial"],
-        metadatas=[
-            {"category": "ai", "year": 2024, "citations": 150},
-            {"category": "tech", "year": 2023, "citations": 80},
-            {"category": "ai", "year": 2024, "citations": 230},
-        ]
-    )
-    
-    # Search with complex filter
+
+    await db.add_documents([
+        Document(page_content="Wireless headphones with active noise cancellation", metadata={"category": "electronics", "price": 149, "rating": 4.6}),
+        Document(page_content="USB-C studio microphone for podcasting", metadata={"category": "electronics", "price": 89, "rating": 4.4}),
+        Document(page_content="Cotton travel backpack", metadata={"category": "travel", "price": 72, "rating": 4.1}),
+    ])
+
+    await db.create_scalar_index("price", index_type="btree")
+    await db.create_scalar_index("category", index_type="bitmap")
+
     results = await (
-        db.search("machine learning")
+        db.query("portable audio gear")
+        .hybrid()
         .where({
             "$and": [
-                {"category": "ai"},
-                {"year": {"$gte": 2024}},
-                {"$or": [
-                    {"citations": {"$gt": 100}},
-                    {"featured": True}
-                ]}
+                {"category": "electronics"},
+                {"price": {"$between": [50, 200]}},
+                {"rating": {"$gte": 4.0}},
             ]
         })
         .limit(5)
         .to_list()
     )
-    
-    for r in results:
-        print(f"[{r['score']:.4f}] {r['content']}")
-        print(f"    Metadata: {r['metadata']}")
-    
+
+    for row in results:
+        print(row["score"], row["content"], row["metadata"])
+
     await db.close()
 
-if __name__ == "__main__":
-    asyncio.run(main())
+
+asyncio.run(main())
 ```
+
+## Next Steps
+
+- [Search & Retrieval](search_and_retrieval.md)
+- [Multimodal Search](multimodal_search.md)
+- [Analytics & Diagnostics](analytics_and_diagnostics.md)
+- [Indexing & Performance](../advanced/indexing.md)

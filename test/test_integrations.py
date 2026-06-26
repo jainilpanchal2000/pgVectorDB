@@ -91,9 +91,7 @@ class TestRetrieverInvoke:
         except Exception as e:
             err = str(e).lower()
             if "set local" in err or "syntax error" in err or "$1" in err:
-                pytest.skip(
-                    f"Skipped: asyncpg SET LOCAL parameter binding limitation: {e}"
-                )
+                pytest.skip(f"Skipped: asyncpg SET LOCAL parameter binding limitation: {e}")
             raise
 
     async def test_ainvoke_returns_list(self, rag_with_index):

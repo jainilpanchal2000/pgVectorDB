@@ -18,7 +18,7 @@ Examples:
 """
 
 from enum import Enum
-from typing import Any, Dict, TypedDict
+from typing import Any, TypedDict
 
 # ==================== Enums ====================
 
@@ -466,7 +466,7 @@ class QueryResult(TypedDict):
 
     id: str
     content: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     score: float
 
 

@@ -22,7 +22,7 @@ Based on: https://medium.com/@autorag/tips-to-understand-pgvdb-retrieval-metrics
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -39,7 +39,7 @@ class EvaluationResult:
     ndcg_score: float
     hit_rate: float
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert to dictionary."""
         return {
             "precision": self.precision,
@@ -71,8 +71,8 @@ class QueryGroundTruth:
     """Ground truth for a single query."""
 
     query: str
-    relevant_doc_ids: List[str]  # List of relevant document IDs
-    metadata: Optional[Dict[str, Any]] = None
+    relevant_doc_ids: list[str]  # List of relevant document IDs
+    metadata: dict[str, Any] | None = None
 
 
 class RAGEvaluator:
@@ -103,9 +103,9 @@ class RAGEvaluator:
 
     def evaluate(
         self,
-        queries: List[str],
-        retrieved_results: List[List[str]],
-        ground_truth: List[List[str]],
+        queries: list[str],
+        retrieved_results: list[list[str]],
+        ground_truth: list[list[str]],
     ) -> EvaluationResult:
         """
         Evaluate retrieval results against ground truth.
@@ -141,8 +141,8 @@ class RAGEvaluator:
         )
 
     def evaluate_single_query(
-        self, retrieved_docs: List[str], relevant_docs: List[str]
-    ) -> Dict[str, float]:
+        self, retrieved_docs: list[str], relevant_docs: list[str]
+    ) -> dict[str, float]:
         """
         Evaluate a single query.
 
@@ -167,11 +167,7 @@ class RAGEvaluator:
         recall = true_positives / len(relevant_set) if relevant_set else 0.0
 
         # F1
-        f1 = (
-            (2 * precision * recall / (precision + recall))
-            if (precision + recall) > 0
-            else 0.0
-        )
+        f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
 
         # Average Precision
         ap = self._average_precision(retrieved_docs, relevant_docs)
@@ -196,7 +192,7 @@ class RAGEvaluator:
         }
 
     def _compute_precision(
-        self, retrieved_results: List[List[str]], ground_truth: List[List[str]]
+        self, retrieved_results: list[list[str]], ground_truth: list[list[str]]
     ) -> float:
         """
         Compute average Precision@K across all queries.
@@ -226,7 +222,7 @@ class RAGEvaluator:
         return np.mean(precisions) if precisions else 0.0
 
     def _compute_recall(
-        self, retrieved_results: List[List[str]], ground_truth: List[List[str]]
+        self, retrieved_results: list[list[str]], ground_truth: list[list[str]]
     ) -> float:
         """
         Compute average Recall@K across all queries.
@@ -266,7 +262,7 @@ class RAGEvaluator:
         return 2 * precision * recall / (precision + recall)
 
     def _compute_map(
-        self, retrieved_results: List[List[str]], ground_truth: List[List[str]]
+        self, retrieved_results: list[list[str]], ground_truth: list[list[str]]
     ) -> float:
         """
         Compute Mean Average Precision (mAP).
@@ -282,7 +278,7 @@ class RAGEvaluator:
 
         return np.mean(average_precisions) if average_precisions else 0.0
 
-    def _average_precision(self, retrieved: List[str], relevant: List[str]) -> float:
+    def _average_precision(self, retrieved: list[str], relevant: list[str]) -> float:
         """
         Compute Average Precision for a single query.
 
@@ -307,7 +303,7 @@ class RAGEvaluator:
         return precision_sum / len(relevant_set)
 
     def _compute_mrr(
-        self, retrieved_results: List[List[str]], ground_truth: List[List[str]]
+        self, retrieved_results: list[list[str]], ground_truth: list[list[str]]
     ) -> float:
         """
         Compute Mean Reciprocal Rank (MRR).
@@ -323,7 +319,7 @@ class RAGEvaluator:
 
         return np.mean(reciprocal_ranks) if reciprocal_ranks else 0.0
 
-    def _reciprocal_rank(self, retrieved: List[str], relevant: List[str]) -> float:
+    def _reciprocal_rank(self, retrieved: list[str], relevant: list[str]) -> float:
         """
         Compute Reciprocal Rank for a single query.
 
@@ -348,7 +344,7 @@ class RAGEvaluator:
         return 0.0
 
     def _compute_ndcg(
-        self, retrieved_results: List[List[str]], ground_truth: List[List[str]]
+        self, retrieved_results: list[list[str]], ground_truth: list[list[str]]
     ) -> float:
         """
         Compute Normalized Discounted Cumulative Gain (NDCG).
@@ -364,7 +360,7 @@ class RAGEvaluator:
 
         return np.mean(ndcg_scores) if ndcg_scores else 0.0
 
-    def _ndcg_at_k(self, retrieved: List[str], relevant: List[str]) -> float:
+    def _ndcg_at_k(self, retrieved: list[str], relevant: list[str]) -> float:
         """
         Compute NDCG@K for a single query.
 
@@ -408,7 +404,7 @@ class RAGEvaluator:
         return dcg / idcg
 
     def _compute_hit_rate(
-        self, retrieved_results: List[List[str]], ground_truth: List[List[str]]
+        self, retrieved_results: list[list[str]], ground_truth: list[list[str]]
     ) -> float:
         """
         Compute Hit Rate (% of queries with at least one relevant result).
@@ -435,15 +431,15 @@ class EvaluationDataset:
     """
 
     def __init__(self):
-        self.queries: List[str] = []
-        self.ground_truth: List[List[str]] = []
-        self.metadata: List[Dict[str, Any]] = []
+        self.queries: list[str] = []
+        self.ground_truth: list[list[str]] = []
+        self.metadata: list[dict[str, Any]] = []
 
     def add_query(
         self,
         query: str,
-        relevant_doc_ids: List[str],
-        metadata: Optional[Dict[str, Any]] = None,
+        relevant_doc_ids: list[str],
+        metadata: dict[str, Any] | None = None,
     ):
         """Add a query with ground truth to dataset."""
         self.queries.append(query)
@@ -464,7 +460,7 @@ class EvaluationDataset:
     @classmethod
     def load(cls, filepath: str) -> "EvaluationDataset":
         """Load dataset from JSON file."""
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
 
         dataset = cls()
@@ -477,7 +473,7 @@ class EvaluationDataset:
     def __len__(self) -> int:
         return len(self.queries)
 
-    def __getitem__(self, idx: int) -> Tuple[str, List[str], Dict[str, Any]]:
+    def __getitem__(self, idx: int) -> tuple[str, list[str], dict[str, Any]]:
         """Get query, ground truth, and metadata by index."""
         return self.queries[idx], self.ground_truth[idx], self.metadata[idx]
 
@@ -629,9 +625,9 @@ def create_sample_evaluation_dataset() -> EvaluationDataset:
 
 def print_detailed_results(
     evaluator: RAGEvaluator,
-    queries: List[str],
-    retrieved_results: List[List[str]],
-    ground_truth: List[List[str]],
+    queries: list[str],
+    retrieved_results: list[list[str]],
+    ground_truth: list[list[str]],
 ):
     """
     Print detailed per-query results and overall metrics.
@@ -714,9 +710,7 @@ if __name__ == "__main__":
 
     if result.recall < 0.5:
         print("⚠️  Low Recall: Missing many relevant documents.")
-        print(
-            "   → Consider: Retrieving more documents (increase k), or improving query expansion"
-        )
+        print("   → Consider: Retrieving more documents (increase k), or improving query expansion")
 
     if result.mrr_score < 0.5:
         print("⚠️  Low MRR: First relevant document appears late in results.")
@@ -724,15 +718,11 @@ if __name__ == "__main__":
 
     if result.ndcg_score < 0.6:
         print("⚠️  Low NDCG: Poor ranking quality overall.")
-        print(
-            "   → Consider: Hybrid search, query rewriting, or advanced ranking models"
-        )
+        print("   → Consider: Hybrid search, query rewriting, or advanced ranking models")
 
     if result.hit_rate < 0.8:
         print("⚠️  Low Hit Rate: Many queries return no relevant documents.")
-        print(
-            "   → Consider: Expanding document corpus or improving query understanding"
-        )
+        print("   → Consider: Expanding document corpus or improving query understanding")
 
     print("\n✅ Evaluation complete!")
 
@@ -761,10 +751,10 @@ class KValueAnalysis:
 
     def analyze(
         self,
-        queries: List[str],
-        retrieved_results_by_k: Dict[int, List[List[str]]],
-        ground_truth: List[List[str]],
-    ) -> Dict[int, EvaluationResult]:
+        queries: list[str],
+        retrieved_results_by_k: dict[int, list[list[str]]],
+        ground_truth: list[list[str]],
+    ) -> dict[int, EvaluationResult]:
         """
         Analyze multiple K values.
 
@@ -849,7 +839,7 @@ class KValueAnalysis:
             bars = "█" * int(self.results_by_k[k].ndcg_score * 50)
             print(f"  K={k:>3}: {bars} {self.results_by_k[k].ndcg_score:.3f}")
 
-    def get_recommendation(self) -> Dict[str, Any]:
+    def get_recommendation(self) -> dict[str, Any]:
         """
         Get K value recommendations based on different criteria.
 

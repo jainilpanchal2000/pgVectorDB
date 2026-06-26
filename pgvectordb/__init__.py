@@ -2,11 +2,11 @@
 pgVectorDB - Production PostgreSQL Vector Database
 ===================================================
 
-**Version:** 0.0.5.post1
-**Status:** Production-Ready with Multi-Embedding Support
+**Version:** 0.0.6
+**Status:** Production-ready PostgreSQL vector search and RAG toolkit
 
-A comprehensive PostgreSQL-based RAG (Retrieval-Augmented Generation) system with
-advanced vector indexing, multiple search methods, and production utilities.
+PostgreSQL-native vector search with a fluent query API, multimodal spaces,
+SQL diagnostics, reranking, and retrieval evaluation utilities.
 
 Module Structure
 ----------------
@@ -21,8 +21,8 @@ Module Structure
 Extension Requirements
 ----------------------
 - **pgvector** (REQUIRED): Core vector operations
-- **vectorscale** (OPTIONAL): DiskANN index support
-- **pg_textsearch** (OPTIONAL): BM25 keyword search
+- **vectorscale** (REQUIRED FOR DISKANN): DiskANN index support
+- **pg_textsearch** (REQUIRED FOR BM25): BM25 keyword search
 
 Quick Start
 -----------
@@ -34,7 +34,7 @@ Quick Start
     ... )
     >>> await pgvdb.initialize()
     >>> await pgvdb.add_documents(documents)
-    >>> results = await pgvdb.semantic_search("query", k=5)
+    >>> results = await pgvdb.query("query").semantic().limit(5).to_list()
 """
 
 # Import from new modular base
@@ -84,6 +84,7 @@ from .metrics import (
     RAGEvaluator,
     create_sample_evaluation_dataset,
 )
+from .options import ConcurrentIndexBuildOptions, HybridSearchOptions, IndexBuildOptions
 
 # Import schema helpers
 from .schema import (
@@ -136,7 +137,7 @@ except ImportError:
     HuggingFaceReranker = None
     create_reranker = None
 
-__version__ = "0.0.5.post1"
+__version__ = "0.0.6"
 
 __all__ = [
     # Core class
@@ -171,6 +172,9 @@ __all__ = [
     "create_sample_evaluation_dataset",
     # Config
     "Config",
+    "ConcurrentIndexBuildOptions",
+    "HybridSearchOptions",
+    "IndexBuildOptions",
     "get_test_config",
     "get_production_config",
     # Schema helpers

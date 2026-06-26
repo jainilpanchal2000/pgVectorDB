@@ -134,9 +134,7 @@ class TestUpdateDocuments:
             page_content=docs[0].page_content,
             metadata={"langchain_id": ids[0], "updated": True, "status": "reviewed"},
         )
-        updated_ids = await pgvdb.aupdate_documents(
-            [updated_doc], update_embeddings=False
-        )
+        updated_ids = await pgvdb.aupdate_documents([updated_doc], update_embeddings=False)
         assert len(updated_ids) == 1
 
     async def test_update_with_re_embedding(self, pgvdb, small_docs):
@@ -149,9 +147,7 @@ class TestUpdateDocuments:
         )
         # update_embeddings=True requires embedding the new content — should work
         try:
-            updated_ids = await pgvdb.aupdate_documents(
-                [updated_doc], update_embeddings=True
-            )
+            updated_ids = await pgvdb.aupdate_documents([updated_doc], update_embeddings=True)
             assert len(updated_ids) == 1
         except Exception as e:
             # Some implementations may not support full re-embedding in update
@@ -194,17 +190,13 @@ class TestUpdateMetadata:
     async def test_bulk_update_count(self, pgvdb, small_docs):
         docs, _ = small_docs
         ids = await pgvdb.add_documents(docs)
-        updated = await pgvdb.update_metadata(
-            ids=ids[:10], metadata_updates={"tagged": True}
-        )
+        updated = await pgvdb.update_metadata(ids=ids[:10], metadata_updates={"tagged": True})
         assert updated == 10
 
     async def test_bulk_update_persists(self, pgvdb, small_docs):
         docs, _ = small_docs
         ids = await pgvdb.add_documents(docs)
-        await pgvdb.update_metadata(
-            ids=ids[:5], metadata_updates={"batch_label": "test_run"}
-        )
+        await pgvdb.update_metadata(ids=ids[:5], metadata_updates={"batch_label": "test_run"})
         retrieved = await pgvdb.aget_by_ids(ids[:5])
         for doc in retrieved:
             assert doc["metadata"].get("batch_label") == "test_run"

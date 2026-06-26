@@ -98,10 +98,6 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=0)
 all_splits = text_splitter.split_documents(data)
 
 # 3. Add to pgVectorDB
-# Extract texts and metadata from the LangChain Document objects
-texts = [doc.page_content for doc in all_splits]
-metadatas = [doc.metadata for doc in all_splits]
-
-await db.add_texts(texts=texts, metadatas=metadatas)
+await db.add_documents(all_splits)
 
 ```

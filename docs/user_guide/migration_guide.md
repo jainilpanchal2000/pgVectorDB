@@ -1,309 +1,224 @@
-# Migration Guide: Old API to Fluent API
+# Migration Guide
 
-This guide shows how to migrate from the legacy method-based API to the new LanceDB-style fluent API in v0.0.6+.
+This guide maps older method-based pgVectorDB usage to the current fluent query style. Legacy search methods still exist for compatibility, but new docs and examples use `db.query(...)`.
 
-!!! note "Backward Compatibility"
-    All legacy methods continue to work. The fluent API is additive — you can use both styles interchangeably.
+## Quick Mapping
 
----
+| Legacy method | Fluent API |
+| --- | --- |
+| `semantic_search(query, k=10)` | `await db.query(query).semantic().limit(10).to_list()` |
+| `keyword_search(query, k=10)` | `await db.query(query).keyword().limit(10).to_list()` |
+| `keyword_search(..., search_type=KeywordSearchType.BM25)` | `await db.query(query).keyword().bm25().limit(10).to_list()` |
+| `hybrid_search(query, k=10)` | `await db.query(query).hybrid().limit(10).to_list()` |
+| `hybrid_search(..., use_rrf=True)` | `await db.query(query).hybrid().rrf(k=60).limit(10).to_list()` |
+| `metadata_semantic_search(query, filter, k=10)` | `await db.query(query).semantic().where(filter).limit(10).to_list()` |
+| `metadata_keyword_search(query, filter, k=10)` | `await db.query(query).keyword().where(filter).limit(10).to_list()` |
+| `trigram_search(query, k=10)` | `await db.query(query).trigram().limit(10).to_list()` |
+| `semantic_search(..., use_exact_search=True)` | `await db.query(query).semantic().bypass_vector_index().limit(10).to_list()` |
 
-## Quick Reference
+## Semantic Search
 
-| Old Method | New Fluent API | Notes |
-|------------|----------------|-------|
-| `semantic_search(query, k=10)` | `db.search(query).limit(10).to_list()` | Now supports method chaining |
-| `keyword_search(query, k=10)` | `db.search(query).to_list()` | Both FTS and BM25 |
-| `hybrid_search(query, k=10)` | `db.search(query).nearest_to_text(...).to_list()` | Vector + FTS fusion |
-| `metadata_semantic_search(query, filter, k=10)` | `db.search(query).where(filter).limit(10).to_list()` | Built-in filtering |
-| `semantic_search(..., use_exact_search=True)` | `db.search(query).bypass_vector_index().to_list()` | Force exact search |
+Before:
 
----
-
-## Examples
-
-### 1. Basic Semantic Search
-
-**Old API:**
 ```python
-results = await db.semantic_search(
-    query="machine learning",
-    k=10
+results = await db.semantic_search("machine learning", k=10)
+```
+
+After:
+
+```python
+results = await db.query("machine learning").semantic().limit(10).to_list()
+```
+
+## Keyword and BM25 Search
+
+Before:
+
+```python
+results = await db.keyword_search("database optimization", k=10)
+```
+
+After:
+
+```python
+results = await db.query("database optimization").keyword().limit(10).to_list()
+```
+
+For BM25:
+
+```python
+results = await (
+    db.query("database optimization")
+    .keyword()
+    .bm25_params(k1=1.2, b=0.75)
+    .limit(10)
+    .to_list()
 )
 ```
 
-**New Fluent API:**
-```python
-results = await db.search("machine learning").limit(10).to_list()
-```
+## Filtered Search
 
----
+Before:
 
-### 2. Keyword Search (FTS)
-
-**Old API:**
-```python
-results = await db.keyword_search(
-    query="machine learning",
-    k=10,
-    search_type=KeywordSearchType.FTS
-)
-```
-
-**New Fluent API:**
-```python
-# Currently returns VectorQueryBuilder which auto-embeds
-# For pure FTS, use:
-results = await db.search_text("machine learning").limit(10).to_list()
-# Note: search_text method needs separate implementation
-```
-
----
-
-### 3. Filtered Search
-
-**Old API:**
 ```python
 results = await db.metadata_semantic_search(
     query="AI frameworks",
-    filter={"category": "ai"},
-    k=10
+    filter={"category": "ai", "year": {"$gte": 2024}},
+    k=10,
 )
 ```
 
-**New Fluent API:**
+After:
+
 ```python
 results = await (
-    db.search("AI frameworks")
-    .where({"category": "ai"})
+    db.query("AI frameworks")
+    .semantic()
+    .where({"category": "ai", "year": {"$gte": 2024}})
     .limit(10)
     .to_list()
 )
 ```
 
----
+## Hybrid Search
 
-### 4. Complex Filter
+Before:
 
-**Old API:**
-```python
-results = await db.metadata_semantic_search(
-    query="database optimization",
-    filter={
-        "$and": [
-            {"category": "database"},
-            {"year": {"$gte": 2023}},
-        ]
-    },
-    k=10
-)
-```
-
-**New Fluent API:**
-```python
-results = await (
-    db.search("database optimization")
-    .where({
-        "$and": [
-            {"category": "database"},
-            {"year": {"$gte": 2023}},
-        ]
-    })
-    .limit(10)
-    .to_list()
-)
-```
-
----
-
-### 5. Hybrid Search (Vector + Keyword)
-
-**Old API:**
 ```python
 results = await db.hybrid_search(
     query="machine learning",
     k=10,
     use_rrf=True,
-    rrf_k=60
+    rrf_k=60,
 )
 ```
 
-**New Fluent API:**
+After:
+
 ```python
 results = await (
-    db.search("machine learning")  # Vector search base
-    .nearest_to_text("neural networks")  # Add FTS component
+    db.query("machine learning")
+    .hybrid()
+    .rrf(k=60)
     .limit(10)
     .to_list()
 )
 ```
 
----
+For weighted hybrid search:
 
-### 6. Exact Search (Bypass Index)
-
-**Old API:**
-```python
-results = await db.semantic_search(
-    query="test",
-    k=10,
-    use_exact_search=True
-)
-```
-
-**New Fluent API:**
 ```python
 results = await (
-    db.search("test")
-    .bypass_vector_index()  # Forces sequential scan
+    db.query("machine learning")
+    .hybrid()
+    .weights(semantic=0.7, keyword=0.3)
     .limit(10)
     .to_list()
 )
 ```
 
----
+## Fuzzy Search
 
-### 7. Query Parameter Tuning
+Before:
 
-**Old API:**
+```python
+results = await db.trigram_search("vectro databse", k=10)
+```
+
+After:
+
+```python
+results = await (
+    db.query("vectro databse")
+    .trigram()
+    .threshold(0.2)
+    .limit(10)
+    .to_list()
+)
+```
+
+## Query Tuning
+
+Before:
+
 ```python
 await db.set_query_params({"hnsw.ef_search": 100})
 results = await db.semantic_search("query", k=10)
 ```
 
-**New Fluent API:**
+After, prefer per-query tuning while experimenting:
+
 ```python
 results = await (
-    db.search("query")
-    .ef(100)  # Per-query parameter
+    db.query("query")
+    .semantic()
+    .ef(100)
     .limit(10)
     .to_list()
 )
 ```
 
----
+Keep `set_query_params(...)` for runtime defaults that should apply broadly.
 
-### 8. Explain Query Plan
+## Query Analysis
 
-**Old API:**
+Before:
+
 ```python
-plan = await db.explain_query(
+plan_lines = await db.explain_query(
     query="machine learning",
     search_method="semantic_search",
-    k=10
-)
-```
-
-**New Fluent API:**
-```python
-plan = db.search("machine learning").explain_plan()
-# or
-plan = (
-    db.search("query")
-    .where({"category": "ai"})
-    .explain_plan(verbose=True)
-)
-```
-
----
-
-### 9. Analyze Query Performance
-
-**Old API:**
-```python
-details = await db.explain_query(
-    query="test",
-    search_method="semantic_search",
-    k=10,
-    analyze=True
-)
-```
-
-**New Fluent API:**
-```python
-metrics = await db.search("test").analyze_plan()
-print(f"Execution time: {metrics['execution_time_ms']}ms")
-```
-
----
-
-### 10. Search with Reranking
-
-**Old API:**
-```python
-results = await db.semantic_search_with_reranker(
-    query="machine learning",
     k=10,
 )
 ```
 
-**New Fluent API:**
+After, use the fluent analyzer for the query you are composing:
+
 ```python
-results = await (
-    db.search("machine learning")
-    .limit(50)  # Fetch more
-    .rerank(cross_encoder_reranker)  # Apply reranker
-    .limit(10)  # Return top 10
-    .to_list()
+plan = db.query("machine learning").semantic().limit(10).explain_plan()
+
+metrics = await (
+    db.query("machine learning")
+    .semantic()
+    .limit(10)
+    .analyze_plan()
 )
 ```
 
----
+Use `explain_query(...)` when you need raw PostgreSQL `EXPLAIN (ANALYZE, BUFFERS, VERBOSE)` output.
 
-### 11. Multiple Output Formats
+## Output Formats
 
-**Old API:**
-```python
-results = await db.semantic_search("query", k=10)
-# results is List[QueryResult]
-```
-
-**New Fluent API:**
-```python
-# As list
-results = await db.search("query").limit(10).to_list()
-
-# As pandas DataFrame
-df = await db.search("query").limit(10).to_pandas()
-
-# As PyArrow Table
-table = await db.search("query").limit(10).to_arrow()
-```
-
----
-
-## Which API Should I Use?
-
-Use the **Fluent API** when:
-- You want cleaner, chainable query composition
-- You need to build queries dynamically
-- You want per-query parameter tuning
-- You need query analysis (explain/analyze)
-
-Keep using the **Legacy API** when:
-- You have existing code that works
-- You need specific methods not yet mapped (e.g., `trigram_search`)
-- You prefer explicit method calls
-- You're building wrappers or abstractions
-
----
-
-## Internal Implementation
-
-The fluent API delegates to existing methods:
+Legacy methods return lists. Fluent queries let you choose output shape:
 
 ```python
-# This fluent call:
-results = await db.search("query").where({"category": "ai"}).limit(10).to_list()
-
-# Internally calls:
-results = await self.metadata_semantic_search(
-    query="query",
-    filter={"category": "ai"},
-    k=10
-)
+rows = await db.query("retrieval quality").semantic().limit(10).to_list()
+frame = await db.query("retrieval quality").semantic().limit(10).to_pandas()
+arrow_table = await db.query("retrieval quality").semantic().limit(10).to_arrow()
 ```
 
-This ensures:
-- **Backward compatibility** — old code still works
-- **Consistent behavior** — same underlying implementation
-- **No duplication** — fluent API wraps existing methods
+## Ingestion and Indexing Names
+
+The current docs use `add_documents(...)` for LangChain `Document` objects and `build_index(...)` for vector index creation.
+
+```python
+from langchain_core.documents import Document
+from pgvectordb import DistanceMetric
+
+await db.add_documents([
+    Document(page_content="Index tuning guide", metadata={"topic": "optimization"})
+])
+
+await db.build_index(metric=DistanceMetric.COSINE)
+```
+
+## When to Keep Legacy Methods
+
+Keep legacy methods when you already have stable code or need explicit low-level behavior. Prefer the fluent API for new application code because it keeps filters, mode selection, output conversion, analysis, and query tuning in one readable chain.
+
+## Related Guides
+
+- [Quickstart](../getting_started/quickstart.md)
+- [Search & Retrieval](search_and_retrieval.md)
+- [Metadata Filtering](filtering.md)
+- [Analytics & Diagnostics](analytics_and_diagnostics.md)

@@ -238,30 +238,22 @@ class TestConstants:
         assert any("DiskANN" in k for k in EXTENSION_REQUIREMENTS), (
             "Should contain a DiskANN feature key"
         )
-        assert any("BM25" in k for k in EXTENSION_REQUIREMENTS), (
-            "Should contain a BM25 feature key"
-        )
+        assert any("BM25" in k for k in EXTENSION_REQUIREMENTS), "Should contain a BM25 feature key"
 
     def test_extension_requirements_values_are_extension_names(self):
         from pgvectordb import EXTENSION_REQUIREMENTS
 
         valid_extensions = {"vectorscale", "pg_textsearch", "pgvector"}
         for feature, ext in EXTENSION_REQUIREMENTS.items():
-            assert ext in valid_extensions, (
-                f"Feature '{feature}' maps to unknown extension '{ext}'"
-            )
+            assert ext in valid_extensions, f"Feature '{feature}' maps to unknown extension '{ext}'"
 
     def test_extension_requirements_diskann_needs_vectorscale(self):
         from pgvectordb import EXTENSION_REQUIREMENTS
 
-        diskann_features = {
-            k: v for k, v in EXTENSION_REQUIREMENTS.items() if "DiskANN" in k
-        }
+        diskann_features = {k: v for k, v in EXTENSION_REQUIREMENTS.items() if "DiskANN" in k}
         assert diskann_features, "Should have at least one DiskANN feature"
         for k, v in diskann_features.items():
-            assert v == "vectorscale", (
-                f"DiskANN feature '{k}' should require vectorscale"
-            )
+            assert v == "vectorscale", f"DiskANN feature '{k}' should require vectorscale"
 
     def test_extension_requirements_bm25_needs_pg_textsearch(self):
         from pgvectordb import EXTENSION_REQUIREMENTS
@@ -269,9 +261,7 @@ class TestConstants:
         bm25_features = {k: v for k, v in EXTENSION_REQUIREMENTS.items() if "BM25" in k}
         assert bm25_features, "Should have at least one BM25 feature"
         for k, v in bm25_features.items():
-            assert v == "pg_textsearch", (
-                f"BM25 feature '{k}' should require pg_textsearch"
-            )
+            assert v == "pg_textsearch", f"BM25 feature '{k}' should require pg_textsearch"
 
 
 # ---------------------------------------------------------------------------

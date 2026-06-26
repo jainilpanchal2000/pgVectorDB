@@ -39,9 +39,7 @@ DB_NAME = "testdb"
 DB_USER = "testuser"
 DB_PASSWORD = "testpass"
 SCHEMA_NAME = "test"
-CONNECTION_STRING = (
-    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
+CONNECTION_STRING = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 
 # ---------------------------------------------------------------------------
@@ -197,14 +195,15 @@ def embeddings():
     """
     try:
         from langchain_huggingface import HuggingFaceEmbeddings
+
         return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     except ImportError:
         from unittest.mock import MagicMock
+
         mock = MagicMock()
         mock.embed_documents.return_value = [[0.0] * 384]
         mock.embed_query.return_value = [0.0] * 384
         return mock
-
 
 
 @pytest_asyncio.fixture(scope="session")

@@ -27,4 +27,6 @@ jobs:
         run: uv sync --group docs
 
       - name: Build & deploy documentation
+        env:
+          NO_MKDOCS_2_WARNING: "true"
         run: uv run mkdocs gh-deploy --force

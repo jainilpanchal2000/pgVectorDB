@@ -12,7 +12,8 @@ import json
 import logging
 import re
 import time
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from sqlalchemy import text
 
@@ -24,7 +25,6 @@ from ..base import (
     ValidationError,
 )
 from ..schema import build_qualified_name
-
 from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 class AnalyticsMixin(MixinBase):
     """Mixin providing analytics, monitoring, and diagnostics."""
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get comprehensive statistics about the system.
 
@@ -54,9 +54,7 @@ class AnalyticsMixin(MixinBase):
             async with self.sqlalchemy_engine.connect() as conn:
                 # Get document count
                 result = await conn.execute(
-                    text(
-                        f'SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"'
-                    )
+                    text(f'SELECT COUNT(*) FROM "{self.schema_name}"."{self.table_name}"')
                 )
                 stats["document_count"] = result.scalar()
 
@@ -88,7 +86,7 @@ class AnalyticsMixin(MixinBase):
 
         return stats
 
-    async def get_index_stats(self) -> Dict[str, Any]:
+    async def get_index_stats(self) -> dict[str, Any]:
         """
         Get detailed index statistics for monitoring and optimization.
 
@@ -197,7 +195,7 @@ class AnalyticsMixin(MixinBase):
 
     async def explain_query(
         self, query: str, search_method: str = "semantic_search", **search_kwargs
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Show PostgreSQL query execution plan for performance debugging.
 
@@ -232,7 +230,7 @@ class AnalyticsMixin(MixinBase):
 
         try:
             # Get the embedding if needed
-            embedding: Optional[Any] = None
+            embedding: Any | None = None
             if search_method in ["semantic_search", "hybrid_search"]:
                 embedding = self.embedding_model.embed_query(query)
 
@@ -240,7 +238,7 @@ class AnalyticsMixin(MixinBase):
 
             # Build EXPLAIN query based on method
             explain_query: Any
-            params: Dict[str, Any]
+            params: dict[str, Any]
             if search_method == "semantic_search":
                 explain_query = text(f"""
                     EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
@@ -282,8 +280,8 @@ class AnalyticsMixin(MixinBase):
             raise DatabaseError(f"Failed to explain query: {e}") from e
 
     async def benchmark_search_methods(
-        self, test_queries: List[str], k: int = 4
-    ) -> Dict[str, Dict[str, float]]:
+        self, test_queries: list[str], k: int = 4
+    ) -> dict[str, dict[str, float]]:
         """
         Compare performance of all search methods on test queries.
 
@@ -330,9 +328,7 @@ class AnalyticsMixin(MixinBase):
                         elapsed = (time.time() - start) * 1000  # Convert to ms
                         times.append(elapsed)
                     except Exception as e:
-                        logger.warning(
-                            f"Error in {method_name} with query '{query}': {e}"
-                        )
+                        logger.warning(f"Error in {method_name} with query '{query}': {e}")
                         continue
 
                 if times:
@@ -356,7 +352,7 @@ class AnalyticsMixin(MixinBase):
         except Exception as e:
             raise DatabaseError(f"Failed to benchmark search methods: {e}") from e
 
-    async def validate_collection(self) -> Dict[str, Any]:
+    async def validate_collection(self) -> dict[str, Any]:
         """
         Check data integrity and health of the collection.
 
@@ -470,8 +466,8 @@ class AnalyticsMixin(MixinBase):
             raise DatabaseError(f"Failed to validate collection: {e}") from e
 
     async def compute_recall(
-        self, test_queries: List[str], k: int = 10, sample_size: Optional[int] = None
-    ) -> Dict[str, float]:
+        self, test_queries: list[str], k: int = 10, sample_size: int | None = None
+    ) -> dict[str, float]:
         """
         Compute recall by comparing approximate vs exact search results.
 
@@ -499,15 +495,11 @@ class AnalyticsMixin(MixinBase):
 
         for query in queries:
             # Get approximate results
-            approx_results = await self.semantic_search(
-                query, k=k, use_exact_search=False
-            )
+            approx_results = await self.semantic_search(query, k=k, use_exact_search=False)
             approx_ids = {r["id"] for r in approx_results}
 
             # Get exact results
-            exact_results = await self.semantic_search(
-                query, k=k, use_exact_search=True
-            )
+            exact_results = await self.semantic_search(query, k=k, use_exact_search=True)
             exact_ids = {r["id"] for r in exact_results}
 
             # Calculate overlap
@@ -521,9 +513,9 @@ class AnalyticsMixin(MixinBase):
     def set_iterative_scan(
         self,
         mode: IterativeScanMode = IterativeScanMode.RELAXED_ORDER,
-        max_scan_tuples: Optional[int] = None,
-        scan_mem_multiplier: Optional[float] = None,
-        max_probes: Optional[int] = None,
+        max_scan_tuples: int | None = None,
+        scan_mem_multiplier: float | None = None,
+        max_probes: int | None = None,
     ) -> None:
         """
         Configure iterative index scan for better recall with filtered queries.
@@ -554,7 +546,7 @@ class AnalyticsMixin(MixinBase):
 
         logger.info(f"Iterative scan configured: mode={mode.value}")
 
-    async def create_label_definitions(self, labels: List[Dict[str, Any]]) -> int:
+    async def create_label_definitions(self, labels: list[dict[str, Any]]) -> int:
         """
         Create label definitions for semantic label filtering with DiskANN.
 
@@ -613,7 +605,7 @@ class AnalyticsMixin(MixinBase):
         except Exception as e:
             raise DatabaseError(f"Failed to create label definitions: {e}") from e
 
-    async def get_label_ids_by_names(self, names: List[str]) -> List[int]:
+    async def get_label_ids_by_names(self, names: list[str]) -> list[int]:
         """
         Get label IDs from label names.
 
@@ -678,7 +670,7 @@ class AnalyticsMixin(MixinBase):
     # ==================== NEW FEATURES: PARALLEL WORKERS (Task 32) ====================
 
     async def set_parallel_workers(
-        self, gather: Optional[int] = None, maintenance: Optional[int] = None
+        self, gather: int | None = None, maintenance: int | None = None
     ) -> None:
         """
         Configure parallel workers for queries and index builds.
@@ -708,9 +700,7 @@ class AnalyticsMixin(MixinBase):
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 if gather is not None:
-                    await conn.execute(
-                        text(f"SET max_parallel_workers_per_gather = {gather}")
-                    )
+                    await conn.execute(text(f"SET max_parallel_workers_per_gather = {gather}"))
                     logger.info(f"Set max_parallel_workers_per_gather = {gather}")
 
                 if maintenance is not None:
@@ -723,9 +713,7 @@ class AnalyticsMixin(MixinBase):
         except Exception as e:
             raise DatabaseError(f"Failed to set parallel workers: {e}") from e
 
-    async def compute_centroid(
-        self, filter: Optional[Dict[str, Any]] = None
-    ) -> Optional[List[float]]:
+    async def compute_centroid(self, filter: dict[str, Any] | None = None) -> list[float] | None:
         """
         Compute average (centroid) of embeddings, optionally filtered.
 
@@ -773,7 +761,7 @@ class AnalyticsMixin(MixinBase):
 
     # ==================== NEW FEATURES: BM25 MONITORING (Task 21) ====================
 
-    async def get_bm25_index_stats(self) -> Dict[str, Any]:
+    async def get_bm25_index_stats(self) -> dict[str, Any]:
         """
         Get BM25 index statistics for monitoring.
 
@@ -812,7 +800,7 @@ class AnalyticsMixin(MixinBase):
 
     # ==================== NEW FEATURES: SLOW QUERY MONITORING (Task 29) ====================
 
-    async def get_slow_queries(self, limit: int = 20) -> List[Dict[str, Any]]:
+    async def get_slow_queries(self, limit: int = 20) -> list[dict[str, Any]]:
         """
         Get slow queries from pg_stat_statements (if available).
 
@@ -860,9 +848,9 @@ class AnalyticsMixin(MixinBase):
         query: str,
         k: int = 10,
         rerank_top_k: int = 5,
-        reranker: Optional[Callable[[str, List[str]], List[float]]] = None,
+        reranker: Callable[[str, list[str]], list[float]] | None = None,
         **search_kwargs,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Semantic search with optional cross-encoder reranking.
 
@@ -925,7 +913,7 @@ class AnalyticsMixin(MixinBase):
             for c, score in scored[:rerank_top_k]
         ]
 
-    async def dump_bm25_index(self, output_file: Optional[str] = None) -> str:
+    async def dump_bm25_index(self, output_file: str | None = None) -> str:
         """
         Dump BM25 index structure for debugging.
 

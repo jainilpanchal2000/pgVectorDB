@@ -6,7 +6,7 @@ pgVectorDB requires a PostgreSQL database with specific extensions for vector se
 
 ## Option 1: Docker (Recommended)
 
-The `docker/` folder in the repo contains a custom PostgreSQL 17 image pre-installed with all four required extensions: `pgvector`, `pg_trgm`, `pgvectorscale` (DiskANN), and `pg_textsearch` (BM25).
+The `docker/` folder in the repo contains a custom PostgreSQL 17 image pre-installed with the full pgVectorDB extension set: `vector`/`pgvector`, `pg_trgm`, `vectorscale` (DiskANN), and `pg_textsearch` (BM25).
 
 ### Build & Start
 
@@ -32,13 +32,13 @@ docker compose exec db psql -U user -d postgres -c \
 |-------|---------|
 | **Base** | `pgvector/pgvector:pg17` (PostgreSQL 17 + pgvector 0.8.2) |
 | **pgvector** | v0.8.2 — includes parallel HNSW buffer overflow fix |
-| **pgvectorscale** | v0.9.0 — DiskANN index + label filtering (via Rust/pgrx) |
+| **vectorscale** | v0.9.0 — DiskANN index + label filtering (from the pgvectorscale project, via Rust/pgrx) |
 | **pg_textsearch** | v1.0.0 — BM25 ranking (production-ready: pg_dump, VACUUM support) |
 | **pg_trgm** | Built-in PostgreSQL module — trigram fuzzy search |
 
 ### Default Connection
 
-```
+```text
 Host:     localhost
 Port:     9002
 Database: postgres
@@ -84,22 +84,22 @@ CREATE EXTENSION IF NOT EXISTS vector;    -- pgvector: vector storage + HNSW/IVF
 CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- trigram fuzzy search
 ```
 
-**Docker Auto-Initialization:** When using Docker, the `docker/init-extensions.sql` file automatically creates these extensions on first container startup. This script is mounted via `docker-compose.yml`:
+**Docker Auto-Initialization:** When using Docker, the `docker/init.sql` file automatically creates these extensions on first container startup. This script is mounted via `docker-compose.yml`:
 
 ```yaml
 volumes:
-  - ./docker/init-extensions.sql:/docker-entrypoint-initdb.d/init.sql
+    - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 ```
 
-See `docker/init-extensions.sql` in the repo for the exact commands.
+See `docker/init.sql` in the repo for the exact commands.
 
-### Optional (unlocks more features)
+### Feature Extensions
 
 ```sql
--- DiskANN index + label filtering (requires vectorscale)
+-- DiskANN index + label filtering
 CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;
 
--- BM25 keyword search (requires pg_textsearch)
+-- BM25 keyword search
 CREATE EXTENSION IF NOT EXISTS pg_textsearch;
 ```
 
@@ -112,8 +112,8 @@ CREATE EXTENSION IF NOT EXISTS pg_textsearch;
 |-----------|----------|--------------|-----------|
 | `vector` | ✅ Yes | `pgvector/pgvector` Docker image | Hard error on init |
 | `pg_trgm` | ✅ Yes | Built into PostgreSQL | Hard error on init |
-| `vectorscale` | ⬜ Optional | Timescale / compile from source | DiskANN unavailable |
-| `pg_textsearch` | ⬜ Optional | Timescale / compile from source | BM25 falls back to FTS |
+| `vectorscale` | Required for DiskANN | Timescale / compile from source | DiskANN unavailable |
+| `pg_textsearch` | Required for BM25 | Timescale / compile from source | Use PostgreSQL FTS instead |
 
 ---
 

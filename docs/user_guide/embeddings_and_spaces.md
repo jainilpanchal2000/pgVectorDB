@@ -206,21 +206,22 @@ await db.add_documents_multimodal(docs)
 ### Searching
 
 ```python
-results = await db.multimodal_search(
-    query_params={
-        "description": "headphones for working from home",
-        "price": 200.0,
-        "category": "Electronics",
-    },
-    weights={"description": 0.5, "price": 0.3, "category": 0.2},
-    k=5
+results = await (
+    db.query("headphones for working from home")
+    .across_spaces(
+        spaces,
+        weights={"description": 0.7, "price": 0.2, "category": 0.1},
+    )
+    .where({"category": "Electronics"})
+    .limit(5)
+    .to_list()
 )
 
 for r in results:
     print(f"{r['score']:.4f} | {r['content']}")
 ```
 
-See [Multimodal Search](multimodal_search.md) for the complete pipeline including index creation and monitoring.
+See [Multimodal Search](multimodal_search.md) for the complete pipeline, including direct per-space query values when you need to pass explicit numeric or category preferences.
 
 ---
 

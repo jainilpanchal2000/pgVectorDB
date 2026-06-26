@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict
+from typing import Any
 
 from dotenv import load_dotenv
 from langchain_core.embeddings import Embeddings
@@ -29,9 +29,7 @@ class Config:
 
     # Embedding Model
     EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "huggingface")
-    HUGGINGFACE_MODEL = os.getenv(
-        "HUGGINGFACE_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
-    )
+    HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "amazon.titan-embed-text-v1")
     BEDROCK_REGION = os.getenv("BEDROCK_REGION", "us-east-1")
 
@@ -103,16 +101,12 @@ class Config:
     DEFAULT_NUMBER_SPACE_DIMS = 1  # Dimensions for NumberSpace
     DEFAULT_MULTIMODAL_METRIC = "cosine"  # Default metric for multimodal search
     DEFAULT_SPACE_WEIGHT = 1.0  # Default weight per space
-    DEFAULT_MULTIMODAL_KEYWORD_WEIGHT = (
-        0.0  # BM25 weight in multimodal hybrid (0 = off)
-    )
+    DEFAULT_MULTIMODAL_KEYWORD_WEIGHT = 0.0  # BM25 weight in multimodal hybrid (0 = off)
 
     # ==================== Reranker Defaults (v0.0.3) ====================
 
     DEFAULT_RERANKER_TOP_K = 5  # Results to return after reranking
-    DEFAULT_RERANKER_CANDIDATE_K = (
-        100  # Initial candidates to retrieve before reranking
-    )
+    DEFAULT_RERANKER_CANDIDATE_K = 100  # Initial candidates to retrieve before reranking
     DEFAULT_CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     DEFAULT_COHERE_RERANK_MODEL = "rerank-english-v3.0"
     DEFAULT_BEDROCK_RERANK_MODEL = "amazon.rerank-v1:0"
@@ -147,9 +141,7 @@ class Config:
                     model_id=cls.BEDROCK_MODEL_ID, region_name=cls.BEDROCK_REGION
                 )
             except ImportError as e:
-                raise ImportError(
-                    "Please install langchain-aws to use Bedrock embeddings"
-                ) from e
+                raise ImportError("Please install langchain-aws to use Bedrock embeddings") from e
 
         elif cls.EMBEDDING_PROVIDER == "huggingface":
             try:
@@ -162,12 +154,10 @@ class Config:
                 ) from e
 
         else:
-            raise ValueError(
-                f"Unsupported embedding provider: {cls.EMBEDDING_PROVIDER}"
-            )
+            raise ValueError(f"Unsupported embedding provider: {cls.EMBEDDING_PROVIDER}")
 
 
-def get_test_config() -> Dict[str, Any]:
+def get_test_config() -> dict[str, Any]:
     """Get configuration for testing."""
     return {
         "db_host": "localhost",
@@ -180,7 +170,7 @@ def get_test_config() -> Dict[str, Any]:
     }
 
 
-def get_production_config() -> Dict[str, Any]:
+def get_production_config() -> dict[str, Any]:
     """Get recommended production configuration."""
     return {
         "pool_size": 10,

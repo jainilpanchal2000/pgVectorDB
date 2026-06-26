@@ -3,6 +3,7 @@ Test Scalar Index creation (TDD - Red Phase)
 
 Tests for BTree and Bitmap scalar indexes on metadata.
 """
+
 import pytest
 
 
@@ -60,12 +61,7 @@ class TestIndexUsage:
         await db_with_docs.create_scalar_index("category", index_type="btree")
 
         # Get explain plan for filtered query
-        plan = (
-            db_with_docs.query("test search")
-            .where({"category": "ai"})
-            .limit(5)
-            .explain_plan()
-        )
+        plan = db_with_docs.query("test search").where({"category": "ai"}).limit(5).explain_plan()
 
         # Should show index usage
         plan_str = str(plan).lower()

@@ -37,6 +37,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "langchain-community>=0.2",
     "langchain>=0.2",
+    "typing-extensions>=4.8",
 ]
 
 [project.optional-dependencies]
@@ -56,6 +57,10 @@ rerankers = [
 cohere = [
     "cohere>=5.0",
 ]
+dataframe = [
+    "pandas>=2.0,<3.0",
+    "pyarrow>=14.0,<22.0",
+]
 jupyter = [
     # Convenience tools for running pgVectorDB in Jupyter notebooks.
     # Not required in production environments.
@@ -64,14 +69,17 @@ jupyter = [
     "jupyter>=1.0",
 ]
 all = [
-    "pgvectordb[huggingface,aws,rerankers,cohere]",
+    "pgvectordb[huggingface,aws,rerankers,cohere,dataframe]",
 ]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
-    "black>=24.0",
-    "mypy>=1.8",
-    "ruff>=0.4.0",
+    "black>=24.0,<26.0",
+    "mypy>=1.8,<2.0",
+    "pandas>=2.0,<3.0",
+    "pyarrow>=14.0,<22.0",
+    "pyright>=1.1.375,<2.0",
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "ruff>=0.6.0,<1.0",
 ]
 
 [project.urls]
@@ -102,6 +110,17 @@ filterwarnings = [
 line-length = 100
 target-version = ["py310"]
 
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "RUF"]
+ignore = ["E501", "RUF022"]
+
+[tool.ruff.format]
+line-ending = "auto"
+
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
@@ -109,13 +128,17 @@ warn_unused_configs = true
 
 [dependency-groups]
 dev = [
+    "black>=24.0,<26.0",
     "ipykernel>=7.2.0",
     "jupyter>=1.1.1",
+    "mypy>=1.8,<2.0",
     "nbconvert>=7.17.0",
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
-    "pyright>=1.1.0",
-    "ruff>=0.4.0",
+    "pandas>=2.0,<3.0",
+    "pyarrow>=14.0,<22.0",
+    "pyright>=1.1.375,<2.0",
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "ruff>=0.6.0,<1.0",
 ]
 docs = [
     "mkdocs-material>=9.5.0",
@@ -123,7 +146,9 @@ docs = [
 ]
 
 [tool.pyright]
-pythonPath = ".venv/bin/python3"
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.10"
 typeCheckingMode = "standard"
 reportMissingImports = "error"
 reportMissingModuleSource = "none"

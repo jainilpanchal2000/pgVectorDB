@@ -6,7 +6,7 @@ Provides: export_to_json, import_from_json, create_halfvec_table, create_sparsev
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from langchain_core.documents import Document
 from sqlalchemy import text
@@ -16,7 +16,6 @@ from ..base import (
     ValidationError,
 )
 from ..schema import build_qualified_name
-
 from ._base import MixinBase
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,7 @@ class StorageMixin(MixinBase):
     async def export_to_json(
         self,
         output_file: str,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         include_embeddings: bool = False,
     ) -> int:
         """
@@ -67,9 +66,7 @@ class StorageMixin(MixinBase):
 
             # Select columns based on include_embeddings
             if include_embeddings:
-                select_columns = (
-                    '"langchain_id", "content", "langchain_metadata", "embedding"'
-                )
+                select_columns = '"langchain_id", "content", "langchain_metadata", "embedding"'
             else:
                 select_columns = '"langchain_id", "content", "langchain_metadata"'
 
@@ -133,7 +130,7 @@ class StorageMixin(MixinBase):
             if not input_path.exists():
                 raise ValidationError(f"Input file not found: {input_file}")
 
-            with open(input_path, "r", encoding="utf-8") as f:
+            with open(input_path, encoding="utf-8") as f:
                 documents_data = json.load(f)
 
             if not isinstance(documents_data, list):
@@ -147,9 +144,7 @@ class StorageMixin(MixinBase):
                 if "id" in doc_data:
                     metadata["langchain_id"] = doc_data["id"]
 
-                doc = Document(
-                    page_content=doc_data.get("content", ""), metadata=metadata
-                )
+                doc = Document(page_content=doc_data.get("content", ""), metadata=metadata)
                 documents.append(doc)
 
             # Check for existing IDs if skip_existing is True
@@ -166,13 +161,9 @@ class StorageMixin(MixinBase):
 
                 # Filter out existing documents
                 documents = [
-                    doc
-                    for doc in documents
-                    if doc.metadata.get("langchain_id") not in existing_ids
+                    doc for doc in documents if doc.metadata.get("langchain_id") not in existing_ids
                 ]
-                logger.info(
-                    f"Skipping {len(documents_data) - len(documents)} existing documents"
-                )
+                logger.info(f"Skipping {len(documents_data) - len(documents)} existing documents")
 
             if not documents:
                 logger.info("No new documents to import")
@@ -189,7 +180,7 @@ class StorageMixin(MixinBase):
             raise DatabaseError(f"Failed to import from JSON: {e}") from e
 
     async def create_halfvec_table(
-        self, table_name: Optional[str] = None, overwrite_existing: bool = False
+        self, table_name: str | None = None, overwrite_existing: bool = False
     ) -> str:
         """
         Create a table with half-precision vectors (halfvec) for 50% storage savings.
@@ -221,9 +212,7 @@ class StorageMixin(MixinBase):
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 if overwrite_existing:
-                    await conn.execute(
-                        text(f"DROP TABLE IF EXISTS {qualified_table} CASCADE")
-                    )
+                    await conn.execute(text(f"DROP TABLE IF EXISTS {qualified_table} CASCADE"))
 
                 # Create table with halfvec type
                 await conn.execute(
@@ -279,7 +268,7 @@ class StorageMixin(MixinBase):
 
     async def create_sparsevec_table(
         self,
-        table_name: Optional[str] = None,
+        table_name: str | None = None,
         max_dimensions: int = 10000,
         overwrite_existing: bool = False,
     ) -> str:
@@ -317,9 +306,7 @@ class StorageMixin(MixinBase):
         try:
             async with self.sqlalchemy_engine.connect() as conn:
                 if overwrite_existing:
-                    await conn.execute(
-                        text(f"DROP TABLE IF EXISTS {qualified_table} CASCADE")
-                    )
+                    await conn.execute(text(f"DROP TABLE IF EXISTS {qualified_table} CASCADE"))
 
                 # Create table with sparsevec type
                 await conn.execute(
@@ -370,9 +357,7 @@ class StorageMixin(MixinBase):
         try:
             qualified_table = build_qualified_name(self.schema_name, self.table_name)
             async with self.sqlalchemy_engine.connect() as conn:
-                await conn.execute(
-                    text(f"DROP TABLE IF EXISTS {qualified_table} CASCADE")
-                )
+                await conn.execute(text(f"DROP TABLE IF EXISTS {qualified_table} CASCADE"))
                 await conn.commit()
 
             logger.info(f"✓ Deleted table: {self.schema_name}.{self.table_name}")

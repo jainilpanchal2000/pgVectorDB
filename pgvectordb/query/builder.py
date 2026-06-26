@@ -4,6 +4,7 @@ Query Builders - LanceDB-style fluent API
 This module implements the query builder pattern from LanceDB,
 adapted for PostgreSQL with pgvector.
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,15 +12,11 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    List,
     Literal,
-    Optional,
-    Union,
 )
 
 from ..base import QueryResult
+from ._postprocessing import results_to_arrow, results_to_pandas
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -41,43 +38,43 @@ class VectorQueryBuilder:
 
     Examples:
         >>> results = await (
-        ...     db.search([0.1, 0.2, ...])
+        ...     db.query("machine learning").semantic()
         ...     .where({"category": "ai"})
         ...     .limit(10)
-        ...     .nprobes(20)
+        ...     .ef(100)
         ...     .to_list()
         ... )
     """
 
     # Reference to the database instance
-    db: "pgVectorDB" = field(repr=False)
+    db: pgVectorDB = field(repr=False)
 
     # Query state
-    query_vector: Optional[List[float]] = None
-    query_text: Optional[str] = None  # For hybrid conversion
+    query_vector: list[float] | None = None
+    query_text: str | None = None  # For hybrid conversion
 
     # Execution parameters
     _limit: int = 10
     _offset: int = 0
-    _columns: Optional[List[str]] = None
-    _where: Optional[Union[str, Dict[str, Any]]] = None
+    _columns: list[str] | None = None
+    _where: str | dict[str, Any] | None = None
     _prefilter: bool = True
 
     # Vector-specific parameters
-    _distance_type: Optional[str] = None
+    _distance_type: str | None = None
     _vector_column: str = "embedding"
-    _nprobes: Optional[int] = None
-    _minimum_nprobes: Optional[int] = None
-    _maximum_nprobes: Optional[int] = None
-    _ef: Optional[int] = None
-    _refine_factor: Optional[int] = None
-    _lower_bound: Optional[float] = None
-    _upper_bound: Optional[float] = None
+    _nprobes: int | None = None
+    _minimum_nprobes: int | None = None
+    _maximum_nprobes: int | None = None
+    _ef: int | None = None
+    _refine_factor: int | None = None
+    _lower_bound: float | None = None
+    _upper_bound: float | None = None
     _bypass_vector_index: bool = False
 
     # Reranking
-    _reranker: Optional[Callable[[str, List[str]], List[float]]] = None
-    _rerank_query: Optional[str] = None
+    _reranker: Any | None = None
+    _rerank_query: str | None = None
 
     def limit(self, n: int) -> VectorQueryBuilder:
         """Set the maximum number of results to return.
@@ -103,7 +100,7 @@ class VectorQueryBuilder:
         self._offset = n
         return self
 
-    def select(self, columns: List[str]) -> VectorQueryBuilder:
+    def select(self, columns: list[str]) -> VectorQueryBuilder:
         """Set columns to return in results.
 
         Args:
@@ -115,9 +112,7 @@ class VectorQueryBuilder:
         self._columns = columns
         return self
 
-    def where(
-        self, filter: Union[str, Dict[str, Any]], prefilter: bool = True
-    ) -> VectorQueryBuilder:
+    def where(self, filter: str | dict[str, Any], prefilter: bool = True) -> VectorQueryBuilder:
         """Set filter conditions for the query.
 
         Args:
@@ -218,7 +213,7 @@ class VectorQueryBuilder:
         return self
 
     def distance_range(
-        self, lower: Optional[float] = None, upper: Optional[float] = None
+        self, lower: float | None = None, upper: float | None = None
     ) -> VectorQueryBuilder:
         """Set distance range filter.
 
@@ -246,9 +241,7 @@ class VectorQueryBuilder:
         self._bypass_vector_index = True
         return self
 
-    def rerank(
-        self, reranker: Callable[[str, List[str]], List[float]], query: Optional[str] = None
-    ) -> VectorQueryBuilder:
+    def rerank(self, reranker: Any, query: str | None = None) -> VectorQueryBuilder:
         """Apply a cross-encoder reranker to results.
 
         Args:
@@ -262,7 +255,7 @@ class VectorQueryBuilder:
         self._rerank_query = query or self.query_text
         return self
 
-    def explain_plan(self, verbose: bool = False) -> Dict[str, Any]:
+    def explain_plan(self, verbose: bool = False) -> dict[str, Any]:
         """Generate query execution plan without running.
 
         Uses PostgreSQL EXPLAIN to show query plan.
@@ -277,7 +270,7 @@ class VectorQueryBuilder:
         # and run EXPLAIN (FORMAT JSON)
         return self.db._explain_query_plan(self, verbose=verbose)  # type: ignore[arg-type]
 
-    async def analyze_plan(self) -> Dict[str, Any]:
+    async def analyze_plan(self) -> dict[str, Any]:
         """Execute query with EXPLAIN ANALYZE and return metrics.
 
         Returns actual execution statistics including timing and I/O.
@@ -287,7 +280,7 @@ class VectorQueryBuilder:
         """
         return await self.db._analyze_query_plan(self)  # type: ignore[arg-type]
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute query and return results as a list.
 
         Returns:
@@ -299,33 +292,25 @@ class VectorQueryBuilder:
             embedding=self.query_vector, k=self._limit
         )
 
-    async def to_pandas(self) -> "pd.DataFrame":
+    async def to_pandas(self) -> pd.DataFrame:
         """Execute query and return results as pandas DataFrame.
 
         Returns:
             pandas DataFrame
         """
-        import pandas as pd
-
         results = await self.to_list()
-        return pd.DataFrame(results)
+        return results_to_pandas(results)
 
-    async def to_arrow(self) -> "pa.Table":
+    async def to_arrow(self) -> pa.Table:
         """Execute query and return results as PyArrow Table.
 
         Returns:
             PyArrow Table
         """
-        import pyarrow as pa
-
         results = await self.to_list()
-        if not results:
-            return pa.table({})
+        return results_to_arrow(results)
 
-        # Convert list of dicts to Arrow table
-        return pa.Table.from_pylist(results)
-
-    def nearest_to_text(self, query: str, columns: Optional[List[str]] = None) -> HybridQueryBuilder:
+    def nearest_to_text(self, query: str, columns: list[str] | None = None) -> HybridQueryBuilder:
         """Convert vector query to hybrid search with FTS.
 
         Args:
@@ -347,25 +332,25 @@ class VectorQueryBuilder:
 class FTSQueryBuilder:
     """Query builder for full-text search."""
 
-    db: "pgVectorDB" = field(repr=False)
+    db: pgVectorDB = field(repr=False)
     query_text: str = ""
 
     _limit: int = 10
     _offset: int = 0
-    _columns: Optional[List[str]] = None
-    _where: Optional[Union[str, Dict[str, Any]]] = None
-    _fts_columns: Optional[List[str]] = None
+    _columns: list[str] | None = None
+    _where: str | dict[str, Any] | None = None
+    _fts_columns: list[str] | None = None
     _phrase_query: bool = False
 
     def limit(self, n: int) -> FTSQueryBuilder:
         self._limit = n
         return self
 
-    def where(self, filter: Union[str, Dict[str, Any]]) -> FTSQueryBuilder:
+    def where(self, filter: str | dict[str, Any]) -> FTSQueryBuilder:
         self._where = filter
         return self
 
-    def select(self, columns: List[str]) -> FTSQueryBuilder:
+    def select(self, columns: list[str]) -> FTSQueryBuilder:
         self._columns = columns
         return self
 
@@ -374,19 +359,19 @@ class FTSQueryBuilder:
         self._phrase_query = enabled
         return self
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute FTS query."""
         return await self.db.keyword_search(  # type: ignore[attr-defined]
             query=self.query_text, k=self._limit
         )
 
-    async def to_pandas(self) -> "pd.DataFrame":
+    async def to_pandas(self) -> pd.DataFrame:
         import pandas as pd
 
         results = await self.to_list()
         return pd.DataFrame(results)
 
-    async def to_arrow(self) -> "pa.Table":
+    async def to_arrow(self) -> pa.Table:
         import pyarrow as pa
 
         results = await self.to_list()
@@ -394,7 +379,7 @@ class FTSQueryBuilder:
             return pa.table({})
         return pa.Table.from_pylist(results)
 
-    def nearest_to(self, vector: List[float]) -> HybridQueryBuilder:
+    def nearest_to(self, vector: list[float]) -> HybridQueryBuilder:
         """Convert FTS query to hybrid with vector search."""
         # Create a vector builder first
         vector_builder = VectorQueryBuilder(db=self.db, query_vector=vector)
@@ -410,13 +395,13 @@ class FTSQueryBuilder:
 class HybridQueryBuilder:
     """Query builder for hybrid (vector + FTS) search."""
 
-    db: "pgVectorDB" = field(repr=False)
+    db: pgVectorDB = field(repr=False)
     vector_builder: VectorQueryBuilder = field(repr=False)
     text_query: str = ""
-    fts_columns: Optional[List[str]] = None
+    fts_columns: list[str] | None = None
 
     _limit: int = 10
-    _reranker: Optional[Callable] = None
+    _reranker: Any | None = None
     _norm: str = "score"  # "score" or "rank"
     _rrf_k: int = 60  # RRF constant
 
@@ -424,19 +409,17 @@ class HybridQueryBuilder:
         self._limit = n
         return self
 
-    def where(self, filter: Union[str, Dict[str, Any]]) -> HybridQueryBuilder:
+    def where(self, filter: str | dict[str, Any]) -> HybridQueryBuilder:
         """Apply filter to both vector and FTS queries."""
         self.vector_builder.where(filter)
         # FTS filter would also be applied here
         return self
 
-    def select(self, columns: List[str]) -> HybridQueryBuilder:
+    def select(self, columns: list[str]) -> HybridQueryBuilder:
         self.vector_builder.select(columns)
         return self
 
-    def rerank(
-        self, reranker: Optional[Callable] = None, normalize: str = "score"
-    ) -> HybridQueryBuilder:
+    def rerank(self, reranker: Any | None = None, normalize: str = "score") -> HybridQueryBuilder:
         """Set reranker and normalization method.
 
         Args:
@@ -452,19 +435,20 @@ class HybridQueryBuilder:
         self._rrf_k = k
         return self
 
-    async def to_list(self) -> List[QueryResult]:
+    async def to_list(self) -> list[QueryResult]:
         """Execute hybrid search with fusion."""
         return await self.db.hybrid_search(  # type: ignore[attr-defined]
-            query=self.text_query, k=self._limit  # type: ignore[union-attr]
+            query=self.text_query,
+            k=self._limit,  # type: ignore[union-attr]
         )
 
-    async def to_pandas(self) -> "pd.DataFrame":
+    async def to_pandas(self) -> pd.DataFrame:
         import pandas as pd
 
         results = await self.to_list()
         return pd.DataFrame(results)
 
-    async def to_arrow(self) -> "pa.Table":
+    async def to_arrow(self) -> pa.Table:
         import pyarrow as pa
 
         results = await self.to_list()
