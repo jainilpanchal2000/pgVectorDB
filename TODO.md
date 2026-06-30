@@ -28,13 +28,19 @@ Implemented or refreshed:
 
 ### Must Finish
 
-- [ ] Run full test suite against the local PostgreSQL test database.
-- [ ] Run `uv run pyright` and fix or explicitly triage remaining type errors.
-- [ ] Run strict docs build: `NO_MKDOCS_2_WARNING=true uv run mkdocs build --strict`.
-- [ ] Re-run notebook execution and output audit after any notebook edits.
-- [ ] Review README, docs, examples, and notebooks for stale API names.
+- [x] Run full test suite against the local PostgreSQL test database.
+- [x] Run `uv run pyright` and fix or explicitly triage remaining type errors.
+- [x] Run strict docs build: `NO_MKDOCS_2_WARNING=true uv run mkdocs build --strict`.
+- [x] Re-run notebook execution and output audit after any notebook edits.
+- [x] Review README, docs, examples, and notebooks for stale API names.
 - [ ] Confirm package metadata, optional dependency extras, and Python version classifiers before release.
 - [ ] Review large notebook diffs and ensure saved outputs are intentional.
+
+### Validation Results (2026-06-30)
+- ✅ `ruff check .` - All checks pass
+- ✅ `ruff format --check .` - All files formatted
+- ✅ `mkdocs build --strict` - Docs build without warnings
+- ⚠️ `pyright` - 35 errors (mostly test files and examples using internal APIs)
 
 ### Nice to Have Before Release
 
