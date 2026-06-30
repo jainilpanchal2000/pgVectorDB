@@ -28,6 +28,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _warn_deprecated() -> None:
+    """Emit deprecation warning for old query builder classes."""
+    import warnings
+    warnings.warn(
+        "VectorQueryBuilder, FTSQueryBuilder, and HybridQueryBuilder from pgvectordb.query.builder "
+        "are deprecated. Use UnifiedQueryBuilder from pgvectordb.query.unified instead. "
+        "These classes will be removed in v0.0.7.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 @dataclass
 class VectorQueryBuilder:
     """
@@ -48,6 +60,10 @@ class VectorQueryBuilder:
 
     # Reference to the database instance
     db: pgVectorDB = field(repr=False)
+
+    def __post_init__(self) -> None:
+        """Emit deprecation warning on instantiation."""
+        _warn_deprecated()
 
     # Query state
     query_vector: list[float] | None = None
@@ -335,6 +351,10 @@ class FTSQueryBuilder:
     db: pgVectorDB = field(repr=False)
     query_text: str = ""
 
+    def __post_init__(self) -> None:
+        """Emit deprecation warning on instantiation."""
+        _warn_deprecated()
+
     _limit: int = 10
     _offset: int = 0
     _columns: list[str] | None = None
@@ -399,6 +419,10 @@ class HybridQueryBuilder:
     vector_builder: VectorQueryBuilder = field(repr=False)
     text_query: str = ""
     fts_columns: list[str] | None = None
+
+    def __post_init__(self) -> None:
+        """Emit deprecation warning on instantiation."""
+        _warn_deprecated()
 
     _limit: int = 10
     _reranker: Any | None = None

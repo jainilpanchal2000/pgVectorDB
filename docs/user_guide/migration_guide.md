@@ -137,6 +137,43 @@ results = await (
 )
 ```
 
+## Metadata-Only Search
+
+Before (no direct equivalent in legacy API):
+
+```python
+results = await db.metadata_filter(
+    filter={"status": "active", "priority": {"$gte": 8}},
+    k=10,
+)
+```
+
+After:
+
+```python
+results = await (
+    db.query("")
+    .metadata_only()
+    .where({"status": "active", "priority": {"$gte": 8}})
+    .limit(10)
+    .to_list()
+)
+```
+
+## DiskANN Label Filtering
+
+When using DiskANN index, filter by labels:
+
+```python
+results = await (
+    db.query("machine learning")
+    .semantic()
+    .labels([1, 2, 3])
+    .limit(10)
+    .to_list()
+)
+```
+
 ## Query Tuning
 
 Before:

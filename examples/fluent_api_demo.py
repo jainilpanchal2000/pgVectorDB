@@ -4,9 +4,12 @@ pgVectorDB v0.0.6 Demo - Fluent API
 
 This script demonstrates the new LanceDB-style fluent API:
 - Query builder pattern with method chaining
-- Explain/Analyze query plans
+- Explain/Analyze query plans with real PostgreSQL EXPLAIN ANALYZE
 - Advanced query parameters (ef, nprobes, refine_factor)
 - Scalar indexes for metadata filtering
+- NEW: Metadata-only search (metadata_only)
+- NEW: Ensemble search (ensemble)
+- NEW: Label filtering (labels) for DiskANN
 
 Run with: python examples/fluent_api_demo.py
 """
@@ -273,10 +276,56 @@ async def main():
         print(f"  {i}. [{r['score']:.4f}] {r['content'][:60]}...")
 
     # ============================================================
-    # DEMO 10: Statistics
+    # DEMO 10: NEW - Metadata-Only Search
     # ============================================================
     print("\n" + "=" * 60)
-    print("DEMO 10: Collection Statistics")
+    print("DEMO 10: Metadata-Only Search (NEW in v0.0.6)")
+    print("Code: db.query('').metadata_only().where({'category': 'ai'}).limit(5).to_list()")
+    print("=" * 60)
+    print("  Search documents by metadata without text query")
+
+    try:
+        meta_results = await (
+            db.query("")
+            .metadata_only()
+            .where({"category": "ai"})
+            .limit(5)
+            .to_list()
+        )
+        for i, r in enumerate(meta_results, 1):
+            print(f"  {i}. {r['content'][:60]}...")
+            print(f"      Metadata: {r['metadata']}")
+    except Exception as e:
+        print(f"  Note: metadata_only() requires pgVectorDB v0.0.6+ - {e}")
+
+    # ============================================================
+    # DEMO 11: NEW - Ensemble Search
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 11: Ensemble Search (NEW in v0.0.6)")
+    print("Code: db.query('query').ensemble().where({'category': 'ai'}).limit(5).to_list()")
+    print("=" * 60)
+    print("  Hybrid search on filtered subset - convenient for RAG applications")
+
+    try:
+        ensemble_results = await (
+            db.query("machine learning")
+            .ensemble()
+            .where({"category": "ai"})
+            .weights(semantic=0.7, keyword=0.3)
+            .limit(5)
+            .to_list()
+        )
+        for i, r in enumerate(ensemble_results, 1):
+            print(f"  {i}. [{r['score']:.4f}] {r['content'][:60]}...")
+    except Exception as e:
+        print(f"  Note: ensemble() requires pgVectorDB v0.0.6+ - {e}")
+
+    # ============================================================
+    # DEMO 12: Statistics
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("DEMO 12: Collection Statistics")
     print("=" * 60)
 
     stats = await db.get_stats()
@@ -292,12 +341,15 @@ async def main():
     print("Demo Complete!")
     print("=" * 60)
     print("\nKey takeaways:")
-    print("  1. Use .search() for semantic search with fluent API")
+    print("  1. Use db.query() for semantic search with fluent API")
     print("  2. Use .where() for metadata filtering")
-    print("  3. Use .explain_plan() to check query plans")
-    print("  4. Use .ef(), .nprobes() for tuning recall")
-    print("  5. Use .bypass_vector_index() for exact search")
-    print("  6. Use .to_list(), .to_pandas(), .to_arrow() for outputs")
+    print("  3. Use .explain_plan() to check query plans without executing")
+    print("  4. Use .analyze_plan() for real PostgreSQL EXPLAIN ANALYZE")
+    print("  5. Use .ef(), .nprobes() for tuning recall")
+    print("  6. Use .bypass_vector_index() for exact search")
+    print("  7. Use .metadata_only() for pure metadata filtering (v0.0.6+)")
+    print("  8. Use .ensemble() for filtered hybrid search (v0.0.6+)")
+    print("  9. Use .to_list(), .to_pandas(), .to_arrow() for outputs")
 
     # Cleanup
     await db.close()

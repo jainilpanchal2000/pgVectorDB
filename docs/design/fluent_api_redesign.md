@@ -20,10 +20,11 @@ The builder is lazy. It stores the query configuration until an execution method
 
 | Concern | Fluent method family |
 | --- | --- |
-| Search mode | `.semantic()`, `.keyword()`, `.hybrid()`, `.trigram()`, `.search_mode(...)` |
+| Search mode | `.semantic()`, `.keyword()`, `.hybrid()`, `.trigram()`, `.metadata_only()`, `.search_mode(...)` |
 | Filters | `.where(...)` |
 | Pagination and projection | `.limit(...)`, `.offset(...)`, `.select(...)` |
 | Vector tuning | `.ef(...)`, `.nprobes(...)`, `.refine_factor(...)`, `.distance_range(...)`, `.bypass_vector_index()` |
+| DiskANN (label filtering) | `.labels(...)` |
 | Keyword tuning | `.fts(...)`, `.bm25()`, `.bm25_params(...)`, `.phrase(...)`, `.universal(...)` |
 | Hybrid tuning | `.weights(...)`, `.rrf(...)` |
 | Multimodal search | `.in_space(...)`, `.across_spaces(...)` |
@@ -59,6 +60,7 @@ This makes it easier to build dynamic application queries, expose search control
 | `keyword_search(query, k=10)` | `await db.query(query).keyword().limit(10).to_list()` |
 | `hybrid_search(query, k=10)` | `await db.query(query).hybrid().limit(10).to_list()` |
 | `metadata_semantic_search(query, filter, k=10)` | `await db.query(query).semantic().where(filter).limit(10).to_list()` |
+| `metadata_filter(filter, k=10)` | `await db.query("").metadata_only().where(filter).limit(10).to_list()` |
 | `trigram_search(query, k=10)` | `await db.query(query).trigram().limit(10).to_list()` |
 
 ## Compatibility Rule

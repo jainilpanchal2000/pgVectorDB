@@ -94,6 +94,9 @@ class SearchConfig:
     space_weights: dict[str, float] | None = None
     active_space: str | None = None
 
+    # DiskANN label filtering
+    label_filter: list[int] | None = None
+
     def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary, excluding None values."""
         return {k: v for k, v in self.__dict__.items() if v is not None}
@@ -194,9 +197,54 @@ class UnifiedQueryBuilder:
         self._search_method = SearchMethod.HYBRID
         return self
 
+    def ensemble(self) -> UnifiedQueryBuilder:
+        """Set search mode to ensemble (filtered hybrid) search.
+
+        This is equivalent to hybrid search but requires a filter to be set
+        via .where(). Performs both semantic and keyword search on the
+        filtered subset and fuses results.
+
+        Returns:
+            Self for chaining
+
+        Examples:
+            results = await (
+                db.query("machine learning")
+                .ensemble()
+                .where({"category": "ai"})
+                .weights(0.7, 0.3)
+                .limit(10)
+                .to_list()
+            )
+
+        Note:
+            Requires a filter to be set via .where(). Without a filter,
+            this falls back to standard hybrid search.
+        """
+        self._search_method = SearchMethod.HYBRID
+        # Note: ensemble is essentially hybrid with mandatory filter
+        return self
+
     def trigram(self) -> UnifiedQueryBuilder:
         """Set search mode to trigram (fuzzy) search."""
         self._search_method = SearchMethod.TRIGRAM
+        return self
+
+    def metadata_only(self) -> UnifiedQueryBuilder:
+        """Set search mode to pure metadata filtering (no text search).
+
+        Requires a filter to be set via .where(). Query text is optional
+        for this search mode.
+
+        Examples:
+            # Filter documents by metadata only
+            results = await db.query("")
+                .metadata_only()
+                .where({"category": "ai", "status": "active"})
+                .limit(10)
+                .to_list()
+        """
+        self._search_method = SearchMethod.METADATA_FILTER
         return self
 
     # ============================================================
@@ -274,6 +322,33 @@ class UnifiedQueryBuilder:
             if not (0.99 <= total <= 1.01):
                 logger.warning(f"Space weights sum to {total:.2f}, should be approximately 1.0")
 
+        return self
+
+    def labels(self, label_ids: list[int]) -> UnifiedQueryBuilder:
+        """Set DiskANN label filter for semantic search.
+
+        Only applicable when using DiskANN index type. Filters results to
+        only include documents with the specified labels.
+
+        Args:
+            label_ids: List of label IDs to filter by
+
+        Returns:
+            Self for chaining
+
+        Examples:
+            # Filter to documents with labels 1 or 2
+            results = await (
+                db.query("machine learning")
+                .labels([1, 2])
+                .limit(10)
+                .to_list()
+            )
+
+        Note:
+            Only works with IndexType.DISKANN. Other index types will ignore this.
+        """
+        self._config.label_filter = label_ids
         return self
 
     # ============================================================
@@ -487,6 +562,8 @@ class UnifiedQueryBuilder:
                 results = await self._execute_hybrid(**args)
             elif self._search_method == SearchMethod.TRIGRAM:
                 results = await self._execute_trigram(**args)
+            elif self._search_method == SearchMethod.METADATA_FILTER:
+                results = await self._execute_metadata_filter(**args)
             else:
                 raise ValueError(f"Unknown search method: {self._search_method}")
 
@@ -510,45 +587,244 @@ class UnifiedQueryBuilder:
     # ============================================================
 
     def explain_plan(self, verbose: bool = False) -> dict[str, Any]:
-        """Generate query execution plan without running."""
+        """Generate query execution plan without executing.
+
+        Uses PostgreSQL EXPLAIN (FORMAT JSON) to get structured plan.
+
+        Args:
+            verbose: Include verbose output
+
+        Returns:
+            Structured plan information with query details, index usage,
+            estimated costs, and filter conditions.
+        """
         self.db._ensure_initialized()
 
-        # Check for multimodal spaces search
-        if self._config.spaces:
-            return self._build_multimodal_explain(verbose)
+        # Build the query based on search method
+        query_text = self.query_text or ""
+        qualified_table = f'"{self.db.schema_name}"."{self.db.table_name}"'
 
-        # Determine which method would be called
+        # Build filter clause if present
+        where_clause = ""
+        filter_info = None
+        if self._config.filter:
+            from ..query.filters import MetadataFilterCompiler
+            filter_sql, _ = MetadataFilterCompiler().build(self._config.filter)
+            where_clause = f"WHERE {filter_sql}"
+            filter_info = self._config.filter
+
+        # Build query info based on search method
         if self._search_method == SearchMethod.SEMANTIC:
-            return self._build_semantic_explain(verbose)
+            query_info = {
+                "search_method": "semantic",
+                "query": query_text,
+                "filter": filter_info,
+                "limit": self._config.limit,
+                "index_type": self.db.index_type.value,
+                "ef_search": self._config.ef,
+                "nprobes": self._config.nprobes,
+                "bypass_index": self._config.bypass_vector_index,
+                "sql_preview": f"SELECT ... FROM {qualified_table} {where_clause} ORDER BY embedding <=> $1 LIMIT {self._config.limit}",
+            }
         elif self._search_method == SearchMethod.KEYWORD:
-            return self._build_keyword_explain(verbose)
+            query_info = {
+                "search_method": "keyword",
+                "query": query_text,
+                "keyword_type": self._config.keyword_type.value,
+                "filter": filter_info,
+                "limit": self._config.limit,
+                "bm25_k1": self._config.bm25_k1 if self._config.keyword_type.value == "bm25" else None,
+                "bm25_b": self._config.bm25_b if self._config.keyword_type.value == "bm25" else None,
+                "sql_preview": f"SELECT ... FROM {qualified_table} {where_clause} ORDER BY ts_rank(...) DESC LIMIT {self._config.limit}",
+            }
         elif self._search_method == SearchMethod.HYBRID:
-            return {"plan": "Hybrid search runs two queries in parallel"}
+            query_info = {
+                "search_method": "hybrid",
+                "query": query_text,
+                "hybrid_mode": self._config.hybrid_mode,
+                "semantic_weight": self._config.semantic_weight,
+                "keyword_weight": self._config.keyword_weight,
+                "rrf_k": self._config.rrf_k if self._config.hybrid_mode == "rrf" else None,
+                "filter": filter_info,
+                "limit": self._config.limit,
+                "note": "Hybrid search executes both semantic and keyword queries in parallel",
+            }
+        elif self._search_method == SearchMethod.TRIGRAM:
+            query_info = {
+                "search_method": "trigram",
+                "query": query_text,
+                "threshold": self._config.trigram_threshold,
+                "filter": filter_info,
+                "limit": self._config.limit,
+            }
+        elif self._search_method == SearchMethod.METADATA_FILTER:
+            query_info = {
+                "search_method": "metadata_filter",
+                "filter": filter_info,
+                "limit": self._config.limit,
+                "note": "Pure metadata filtering without text search",
+            }
         else:
-            return {"plan": f"{self._search_method.value} search"}
+            query_info = {"plan": f"{self._search_method.value} search"}
+
+        # Check for multimodal spaces
+        if self._config.spaces:
+            space_info = []
+            for space in self._config.spaces:
+                space_name = getattr(space, "name", getattr(space, "field", "unknown"))
+                space_type = type(space).__name__
+                space_info.append({"name": space_name, "type": space_type})
+            query_info["spaces"] = space_info
+            query_info["space_weights"] = self._config.space_weights
+
+        return query_info
 
     async def analyze_plan(self) -> dict[str, Any]:
-        """Execute with EXPLAIN ANALYZE and return metrics."""
-        import time
+        """Execute with EXPLAIN ANALYZE and return metrics.
 
-        start = time.time()
-        results = await self.to_list()
-        elapsed = (time.time() - start) * 1000
+        Uses PostgreSQL EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON, TIMING) to get
+        actual execution statistics including timing and I/O.
 
-        result = {
-            "execution_time_ms": elapsed,
-            "rows_returned": len(results),
-            "config": self._config.to_dict(),
-        }
+        Returns:
+            Dictionary with actual PostgreSQL execution metrics:
+            - execution_time_ms: Actual query execution time from PostgreSQL
+            - planning_time_ms: Query planning time
+            - rows_returned: Number of rows returned
+            - rows_scanned: Number of rows scanned
+            - total_cost: Estimated total cost
+            - index_used: Which index was used
+            - shared_hit_blocks: Shared buffer hits
+            - shared_read_blocks: Shared buffer reads
+        """
+        self.db._ensure_initialized()
 
-        # Add multimodal info if applicable
-        if self._config.spaces:
-            result["search_method"] = "multimodal"
-            result["num_spaces"] = len(self._config.spaces)
+        # Build the query based on search method
+        query_text = self.query_text or ""
+        embedding: list[float] | None = None
+
+        if self._search_method in (SearchMethod.SEMANTIC, SearchMethod.HYBRID):
+            if query_text:
+                embedding = self.db.embedding_model.embed_query(query_text)
+
+        # Build base query
+        qualified_table = f'"{self.db.schema_name}"."{self.db.table_name}"'
+
+        # Build filter clause if present
+        where_clause = ""
+        params: dict[str, Any] = {}
+        if self._config.filter:
+            from ..query.filters import MetadataFilterCompiler
+            filter_sql, filter_params = MetadataFilterCompiler().build(self._config.filter)
+            where_clause = f"WHERE {filter_sql}"
+            params.update(filter_params)
+
+        # Build query based on search method
+        if self._search_method == SearchMethod.SEMANTIC and embedding is not None:
+            query_sql = f"""
+                SELECT "langchain_id", "content", "langchain_metadata",
+                       "embedding" <=> :embedding AS distance
+                FROM {qualified_table}
+                {where_clause}
+                ORDER BY distance
+                LIMIT :k
+            """
+            params["embedding"] = str(embedding)
+            params["k"] = self._config.limit
+        elif self._search_method == SearchMethod.KEYWORD:
+            query_sql = f"""
+                SELECT "langchain_id", "content", "langchain_metadata",
+                       ts_rank(content_tsvector, plainto_tsquery('english', :query)) as rank
+                FROM {qualified_table}
+                {where_clause}
+                {"AND" if where_clause else "WHERE"} content_tsvector @@ plainto_tsquery('english', :query)
+                ORDER BY rank DESC
+                LIMIT :k
+            """
+            params["query"] = query_text
+            params["k"] = self._config.limit
         else:
-            result["search_method"] = self._search_method.value
+            # For other methods, fall back to timing to_list()
+            import time
+            start = time.time()
+            results = await self.to_list()
+            elapsed = (time.time() - start) * 1000
+            return {
+                "execution_time_ms": elapsed,
+                "rows_returned": len(results),
+                "config": self._config.to_dict(),
+                "search_method": self._search_method.value,
+                "note": "EXPLAIN ANALYZE not implemented for this search method",
+            }
 
-        return result
+        # Run EXPLAIN ANALYZE
+        explain_query = f"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON, TIMING) {query_sql}"
+
+        try:
+            from sqlalchemy import text
+
+            async with self.db.sqlalchemy_engine.connect() as conn:
+                # Apply query parameters (ef, nprobes, etc.)
+                self._sync_search_config_to_query_params()
+
+                # Apply stored query params
+                if hasattr(self.db, '_apply_query_params'):
+                    await self.db._apply_query_params(conn)
+
+                # Bypass index if requested
+                if self._config.bypass_vector_index:
+                    await conn.execute(text("SET LOCAL enable_indexscan = off"))
+
+                # Execute EXPLAIN ANALYZE
+                result = await conn.execute(text(explain_query), params)
+                rows = result.fetchall()
+
+                # Parse the JSON output
+                if rows:
+                    plan_json = rows[0][0]
+                    if isinstance(plan_json, str):
+                        import json
+                        plan_data = json.loads(plan_json)
+                    else:
+                        plan_data = plan_json
+
+                    # Extract key metrics
+                    plan = plan_data[0] if isinstance(plan_data, list) else plan_data
+                    plan_info = plan.get("Plan", {})
+
+                    return {
+                        "plan": plan_data,
+                        "execution_time_ms": plan.get("Execution Time", 0.0),
+                        "planning_time_ms": plan.get("Planning Time", 0.0),
+                        "rows_returned": plan_info.get("Actual Rows", 0),
+                        "rows_scanned": plan_info.get("Actual Rows", 0),
+                        "total_cost": plan_info.get("Total Cost", 0.0),
+                        "index_used": self.db.index_type.value,
+                        "shared_hit_blocks": plan.get("Shared Hit Blocks", 0),
+                        "shared_read_blocks": plan.get("Shared Read Blocks", 0),
+                        "search_method": self._search_method.value,
+                        "config": self._config.to_dict(),
+                    }
+                else:
+                    return {
+                        "plan": None,
+                        "error": "No plan returned",
+                        "search_method": self._search_method.value,
+                    }
+
+        except Exception as e:
+            logger.warning(f"Failed to run EXPLAIN ANALYZE: {e}")
+            # Fall back to timing to_list()
+            import time
+            start = time.time()
+            results = await self.to_list()
+            elapsed = (time.time() - start) * 1000
+            return {
+                "execution_time_ms": elapsed,
+                "rows_returned": len(results),
+                "config": self._config.to_dict(),
+                "search_method": self._search_method.value,
+                "error": f"EXPLAIN ANALYZE failed: {e}",
+            }
 
     # ============================================================
     # Internal Methods
@@ -556,6 +832,13 @@ class UnifiedQueryBuilder:
 
     def _ensure_executable(self) -> None:
         """Ensure query can be executed."""
+        # METADATA_FILTER does not require query_text or query_vector
+        if self._search_method == SearchMethod.METADATA_FILTER:
+            if not self._config.filter:
+                raise ValueError("METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria.")
+            self.db._ensure_initialized()
+            return
+
         if not self.query_text and not self.query_vector:
             raise ValueError("Either query_text or query_vector is required")
         self.db._ensure_initialized()
@@ -571,22 +854,47 @@ class UnifiedQueryBuilder:
 
         return args
 
+    def _sync_search_config_to_query_params(self) -> None:
+        """Sync SearchConfig parameters to db._query_params for connection-level settings.
+
+        This ensures ef, nprobes, and other index-specific parameters are applied
+        before executing the search.
+        """
+        from ..base import IndexType
+
+        # Apply ef for HNSW
+        if self._config.ef is not None and self.db.index_type == IndexType.HNSW:
+            self.db._query_params["hnsw.ef_search"] = self._config.ef
+
+        # Apply nprobes for IVFFlat
+        if self._config.nprobes is not None and self.db.index_type == IndexType.IVFFLAT:
+            self.db._query_params["ivfflat.probes"] = self._config.nprobes
+
     async def _execute_semantic(self, **args) -> list[QueryResult]:
         """Execute semantic search."""
         query = self.query_text or ""
+
+        # Sync SearchConfig params to db._query_params
+        self._sync_search_config_to_query_params()
+
+        # Calculate k with refine_factor if specified
+        k = args.get("k", 10)
+        if self._config.refine_factor is not None and self._config.refine_factor > 1:
+            k = k * self._config.refine_factor
 
         # Use appropriate method based on filter
         if self._config.filter:
             results = await self.db.metadata_semantic_search(
                 query=query,
-                k=args.get("k", 10),
+                k=k,
                 filter=self._config.filter,
                 use_exact_search=self._config.bypass_vector_index,
             )
         else:
             results = await self.db.semantic_search(
                 query=query,
-                k=args.get("k", 10),
+                k=k,
+                label_filter=self._config.label_filter,
                 use_exact_search=self._config.bypass_vector_index,
             )
 
@@ -636,6 +944,7 @@ class UnifiedQueryBuilder:
             query=query,
             k=args.get("k", 10),
             weights=(self._config.semantic_weight, self._config.keyword_weight),
+            label_filter=self._config.label_filter,
             use_rrf=(self._config.hybrid_mode == "rrf"),
             rrf_k=self._config.rrf_k,
             keyword_type=self._config.keyword_type,
@@ -664,6 +973,18 @@ class UnifiedQueryBuilder:
                 k=args.get("k", 10),
                 threshold=self._config.trigram_threshold,
             )
+
+        return results
+
+    async def _execute_metadata_filter(self, **args) -> list[QueryResult]:
+        """Execute pure metadata filtering without text search."""
+        if not self._config.filter:
+            raise ValueError("METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria.")
+
+        results = await self.db.metadata_filter(
+            filter=self._config.filter,
+            k=args.get("k", 10),
+        )
 
         return results
 
@@ -755,12 +1076,5 @@ class UnifiedQueryBuilder:
             "query": self.query_text,
             "spaces": space_info,
             "weights": self._config.space_weights,
-            "limit": self._config.limit,
-        }
-        return {
-            "search_method": "keyword",
-            "query": self.query_text,
-            "type": self._config.keyword_type.value,
-            "filter": self._config.filter,
             "limit": self._config.limit,
         }

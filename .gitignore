@@ -49,3 +49,6 @@ dist/
 # Allow eval folder
 !eval/
 !eval/**/*
+
+# Temp
+temp/*
