@@ -134,7 +134,7 @@ class GINIndexHelper:
 
         logger.info(f"Creating GIN index: {index_name} on {table}.{column}")
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             await conn.execute(text(sql))
 
         # Run ANALYZE for statistics
@@ -166,7 +166,7 @@ class GINIndexHelper:
         if not table:
             raise ValueError("Table name must be provided or db.collection_name set")
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             query = text("""
                 SELECT
                     ci.relname as index_name,
@@ -263,7 +263,7 @@ class GINIndexHelper:
 
         logger.info(f"Creating FTS GIN index: {index_name}")
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             await conn.execute(text(sql))
             await conn.execute(text(f"ANALYZE {table}"))
 
@@ -287,7 +287,7 @@ class GINIndexHelper:
         """
         table = self._db.collection_name
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             # Run ANALYZE
             await conn.execute(text(f"ANALYZE {table}"))
 
@@ -341,14 +341,14 @@ class GINIndexHelper:
 
         logger.info(f"Dropping GIN index: {index_name}")
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             await conn.execute(text(sql))
 
         return True
 
     async def _index_exists(self, index_name: str) -> bool:
         """Check if an index already exists."""
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             query = text("""
                 SELECT EXISTS (
                     SELECT 1 FROM pg_indexes
@@ -386,7 +386,7 @@ class GINIndexHelper:
 
         suggestions = []
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             # Check for JSONB columns
             jsonb_query = text("""
                 SELECT column_name

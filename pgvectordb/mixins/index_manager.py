@@ -137,7 +137,7 @@ class IndexManager:
         if not table:
             return False
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             if index_name:
                 # Check specific index
                 query = text("""
@@ -202,7 +202,7 @@ class IndexManager:
         if not table:
             raise ValueError("Table name must be provided or db.collection_name set")
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             # Get index information
             if index_name:
                 query = text("""
@@ -306,7 +306,7 @@ class IndexManager:
         if not table:
             raise ValueError("Table name must be provided or db.collection_name set")
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             query = text("""
                 SELECT
                     ci.relname as index_name,
@@ -391,7 +391,7 @@ class IndexManager:
         prefix = "CONCURRENTLY" if concurrently else ""
         sql = f"REINDEX {prefix} INDEX {index_name}"
 
-        async with self._db.engine.begin() as conn:
+        async with self._db.sqlalchemy_engine.begin() as conn:
             await conn.execute(text(sql))
 
         # Wait if timeout specified
