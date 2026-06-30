@@ -243,7 +243,14 @@ async def main():
     print("\n--- 7. Ensemble Search (NEW) ---")
     print("  Hybrid search on filtered subset")
     try:
-        results = await pgvdb.query(test_query).ensemble().where({"category": "ai"}).weights(0.6, 0.4).limit(3).to_list()
+        results = (
+            await pgvdb.query(test_query)
+            .ensemble()
+            .where({"category": "ai"})
+            .weights(0.6, 0.4)
+            .limit(3)
+            .to_list()
+        )
         for r in results:
             print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
     except Exception as e:

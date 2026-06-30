@@ -286,11 +286,7 @@ async def main():
 
     try:
         meta_results = await (
-            db.query("")
-            .metadata_only()
-            .where({"category": "ai"})
-            .limit(5)
-            .to_list()
+            db.query("").metadata_only().where({"category": "ai"}).limit(5).to_list()
         )
         for i, r in enumerate(meta_results, 1):
             print(f"  {i}. {r['content'][:60]}...")

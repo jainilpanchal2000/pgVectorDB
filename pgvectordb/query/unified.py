@@ -66,6 +66,11 @@ class SearchConfig:
     refine_factor: int | None = None
     distance_range: tuple[float, float] | None = None
     bypass_vector_index: bool = False
+    exact_search: bool = False
+
+    # Filter strategy
+    filter_strategy: Literal["pre", "post", "auto"] = "auto"
+    fetch_multiplier: float = 2.0
 
     # Keyword search config
     keyword_type: KeywordSearchType = KeywordSearchType.BM25
@@ -434,8 +439,118 @@ class UnifiedQueryBuilder:
         return self
 
     def bypass_vector_index(self) -> UnifiedQueryBuilder:
-        """Force exact (brute force) vector search."""
+        """Force exact (brute force) vector search.
+
+        Deprecated: Use exact_search() instead for clearer semantics.
+        """
         self._config.bypass_vector_index = True
+        self._config.exact_search = True
+        return self
+
+    def exact_search(self, exact: bool = True) -> UnifiedQueryBuilder:
+        """Force exact (brute force) search bypassing ANN index.
+
+        When exact=True:
+        - HNSW: SET LOCAL hnsw.ef_search = 100000 (effectively exact)
+        - IVFFlat: Skip list probes, use exact distance calculation
+        - DiskANN: Use exact mode or very high ef
+
+        Returns best possible recall at cost of latency.
+
+        Args:
+            exact: Whether to use exact search (default: True)
+
+        Returns:
+            Self for chaining
+
+        Examples:
+            # Force exact search for best recall
+            results = await db.query("test").exact_search().limit(10).to_list()
+
+            # Override previous exact setting
+            results = await db.query("test").exact_search(False).limit(10).to_list()
+        """
+        self._config.exact_search = exact
+        self._config.bypass_vector_index = exact
+        return self
+
+    def within_distance(self, radius: float) -> UnifiedQueryBuilder:
+        """Filter to results within distance radius from query vector.
+
+        Only applies to semantic/hybrid search. Uses distance operator
+        in WHERE clause for pre-filtering when possible.
+
+        Note: Distance metric depends on index type:
+        - HNSW/IVFFlat: Cosine distance (0=same, 2=opposite)
+        - Inner product indexes: Lower is better
+
+        Args:
+            radius: Maximum distance from query vector (inclusive)
+
+        Returns:
+            Self for chaining
+
+        Examples:
+            # Find similar documents with similarity >= 0.95 (cosine dist <= 0.05)
+            results = await db.query("machine learning")
+                .semantic()
+                .within_distance(0.05)
+                .limit(10)
+                .to_list()
+
+            # With metadata filter
+            results = await db.query("database")
+                .semantic()
+                .where({"category": "tech"})
+                .within_distance(0.1)
+                .limit(10)
+                .to_list()
+        """
+        self._config.distance_range = (0.0, radius)
+        return self
+
+    def pre_filter(self) -> UnifiedQueryBuilder:
+        """Force pre-filtering: apply metadata filter before vector search.
+
+        Best for: Highly selective filters (few results expected)
+        Trade-off: May reduce recall if filter excludes relevant vectors
+        that were approximated out by the vector index.
+
+        Returns:
+            Self for chaining
+
+        Examples:
+            # Pre-filter for selective metadata
+            results = await db.query("ml")
+                .semantic()
+                .pre_filter()
+                .where({"category": "ai", "priority": {"$gt": 8}})
+                .limit(10)
+                .to_list()
+        """
+        self._config.filter_strategy = "pre"
+        return self
+
+    def post_filter(self) -> UnifiedQueryBuilder:
+        """Force post-filtering: apply metadata filter after vector search.
+
+        Best for: Non-selective filters (many results expected)
+        Trade-off: Higher latency (fetches extra results), but perfect recall
+        within the returned set.
+
+        Returns:
+            Self for chaining
+
+        Examples:
+            # Post-filter for common metadata values
+            results = await db.query("technology")
+                .semantic()
+                .post_filter()
+                .where({"status": "active"})  # Many active docs
+                .limit(10)
+                .to_list()
+        """
+        self._config.filter_strategy = "post"
         return self
 
     # --------------------------------------------------------
@@ -609,6 +724,7 @@ class UnifiedQueryBuilder:
         filter_info = None
         if self._config.filter:
             from ..query.filters import MetadataFilterCompiler
+
             filter_sql, _ = MetadataFilterCompiler().build(self._config.filter)
             where_clause = f"WHERE {filter_sql}"
             filter_info = self._config.filter
@@ -633,8 +749,12 @@ class UnifiedQueryBuilder:
                 "keyword_type": self._config.keyword_type.value,
                 "filter": filter_info,
                 "limit": self._config.limit,
-                "bm25_k1": self._config.bm25_k1 if self._config.keyword_type.value == "bm25" else None,
-                "bm25_b": self._config.bm25_b if self._config.keyword_type.value == "bm25" else None,
+                "bm25_k1": self._config.bm25_k1
+                if self._config.keyword_type.value == "bm25"
+                else None,
+                "bm25_b": self._config.bm25_b
+                if self._config.keyword_type.value == "bm25"
+                else None,
                 "sql_preview": f"SELECT ... FROM {qualified_table} {where_clause} ORDER BY ts_rank(...) DESC LIMIT {self._config.limit}",
             }
         elif self._search_method == SearchMethod.HYBRID:
@@ -714,6 +834,7 @@ class UnifiedQueryBuilder:
         params: dict[str, Any] = {}
         if self._config.filter:
             from ..query.filters import MetadataFilterCompiler
+
             filter_sql, filter_params = MetadataFilterCompiler().build(self._config.filter)
             where_clause = f"WHERE {filter_sql}"
             params.update(filter_params)
@@ -745,6 +866,7 @@ class UnifiedQueryBuilder:
         else:
             # For other methods, fall back to timing to_list()
             import time
+
             start = time.time()
             results = await self.to_list()
             elapsed = (time.time() - start) * 1000
@@ -767,7 +889,7 @@ class UnifiedQueryBuilder:
                 self._sync_search_config_to_query_params()
 
                 # Apply stored query params
-                if hasattr(self.db, '_apply_query_params'):
+                if hasattr(self.db, "_apply_query_params"):
                     await self.db._apply_query_params(conn)
 
                 # Bypass index if requested
@@ -783,6 +905,7 @@ class UnifiedQueryBuilder:
                     plan_json = rows[0][0]
                     if isinstance(plan_json, str):
                         import json
+
                         plan_data = json.loads(plan_json)
                     else:
                         plan_data = plan_json
@@ -815,6 +938,7 @@ class UnifiedQueryBuilder:
             logger.warning(f"Failed to run EXPLAIN ANALYZE: {e}")
             # Fall back to timing to_list()
             import time
+
             start = time.time()
             results = await self.to_list()
             elapsed = (time.time() - start) * 1000
@@ -835,7 +959,9 @@ class UnifiedQueryBuilder:
         # METADATA_FILTER does not require query_text or query_vector
         if self._search_method == SearchMethod.METADATA_FILTER:
             if not self._config.filter:
-                raise ValueError("METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria.")
+                raise ValueError(
+                    "METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria."
+                )
             self.db._ensure_initialized()
             return
 
@@ -979,7 +1105,9 @@ class UnifiedQueryBuilder:
     async def _execute_metadata_filter(self, **args) -> list[QueryResult]:
         """Execute pure metadata filtering without text search."""
         if not self._config.filter:
-            raise ValueError("METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria.")
+            raise ValueError(
+                "METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria."
+            )
 
         results = await self.db.metadata_filter(
             filter=self._config.filter,

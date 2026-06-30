@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 def _warn_deprecated_builders() -> None:
     """Emit deprecation warning for builders module."""
     import warnings
+
     warnings.warn(
         "Query builders from pgvectordb.query.builders (SemanticQueryBuilder, KeywordQueryBuilder, "
         "TrigramQueryBuilder, HybridQueryBuilder, VectorQueryBuilder) are deprecated. "

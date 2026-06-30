@@ -238,7 +238,7 @@ results = await (
 )
 ```
 
-Labels must be configured during index creation. See [Indexing](../indexing.md) for DiskANN label setup.
+Labels must be configured during index creation. See [Indexing](../advanced/indexing.md) for DiskANN label setup.
 
 ## SQL Analysis
 

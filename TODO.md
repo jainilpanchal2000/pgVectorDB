@@ -7,9 +7,21 @@
 
 ---
 
+**Last Updated:** 2026-06-30  
+**Current Release:** 0.0.7  
+
+---
+
 ## Current State
 
-v0.0.6 is the fluent API and documentation release. The old public-facing examples have been moved toward the current `db.query(...)` style, while the lower-level search methods remain available internally and for advanced usage.
+v0.0.7 adds advanced query controls and index management utilities:
+
+- Distance range filtering with `.within_distance()` and `.distance_range()`
+- Exact search bypass with `.exact_search()`
+- Filter strategy controls with `.pre_filter()` and `.post_filter()`
+- Index management via `db.indexes` (wait_for_index, index_stats, list_indexes)
+- GIN index helpers via `db.gin` (ensure_gin_index, list_gin_indexes, suggest_indexes)
+- Comprehensive documentation for query controls and filtering strategies
 
 Implemented or refreshed:
 
@@ -92,16 +104,42 @@ Avoid in new user-facing snippets:
 
 ---
 
+## Completed in v0.0.7 ✓
+
+- [x] Add or finalize query params for ANN tuning: `nprobes`, `ef_search`, `refine_factor`, and exact-search bypass.
+- [x] Add distance-range filtering for near-duplicate and thresholded retrieval workflows.
+- [x] Add pre-filter vs post-filter controls with clear recall/latency trade-off docs.
+- [x] Add GIN/array index helpers for tag and label-list style metadata.
+- [x] Add index statistics and readiness helpers such as `wait_for_index()`.
+- [x] Add benchmark coverage for filter timing, scalar indexes, and BM25 vs FTS behavior.
+
+---
+
 ## v0.0.7 - Query Controls and Indexing Depth
 
-Focus: make advanced retrieval behavior explicit, testable, and documented.
+Focus: Make advanced retrieval behavior explicit, testable, and documented.
 
-- [ ] Add or finalize query params for ANN tuning: `nprobes`, `ef_search`, `refine_factor`, and exact-search bypass.
-- [ ] Add distance-range filtering for near-duplicate and thresholded retrieval workflows.
-- [ ] Add pre-filter vs post-filter controls with clear recall/latency trade-off docs.
-- [ ] Add GIN/array index helpers for tag and label-list style metadata.
-- [ ] Add index statistics and readiness helpers such as `wait_for_index()`.
-- [ ] Add benchmark coverage for filter timing, scalar indexes, and BM25 vs FTS behavior.
+Status: **COMPLETED** (2026-06-30)
+
+### New API Methods:
+- `.within_distance(radius)` - Filter results within distance radius
+- `.distance_range(min, max)` - Filter by distance range
+- `.exact_search()` - Force exact (brute-force) search
+- `.pre_filter()` - Apply metadata filter before vector search
+- `.post_filter()` - Apply metadata filter after vector search
+
+### New Index Utilities:
+- `db.indexes` - IndexManager for index monitoring
+- `db.indexes.wait_for_index()` - Wait for index creation
+- `db.indexes.index_stats()` - Get index statistics
+- `db.indexes.list_indexes()` - List all indexes
+- `db.gin` - GINIndexHelper for GIN indexes
+- `db.gin.ensure_gin_index()` - Create GIN index
+- `db.gin.suggest_indexes()` - Analyze and suggest indexes
+
+### Documentation:
+- `docs/user_guide/query_controls.md` - ANN tuning guide
+- `docs/user_guide/filtering_strategies.md` - Pre/post filter guidance
 
 Example target API:
 

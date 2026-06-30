@@ -63,6 +63,8 @@ from .mixins import (
     MultimodalMixin,
     StorageMixin,
 )
+from .mixins.gin_helper import GINIndexHelper
+from .mixins.index_manager import IndexManager
 from .schema import build_qualified_name, quote_identifier
 from .search import SearchMixin
 
@@ -194,6 +196,10 @@ class pgVectorDB(
         if ExtensionManager is not None:
             self._extensions = ExtensionManager(self.sqlalchemy_engine)
 
+        # Index management helpers (v0.0.7)
+        self._index_manager: IndexManager | None = None
+        self._gin_helper: GINIndexHelper | None = None
+
         logger.info(
             f"pgVectorDB initialized: '{collection_name}' with {self.index_type.value} "
             f"(vector_size={self.vector_size})"
@@ -220,6 +226,58 @@ class pgVectorDB(
             raise ValidationError(
                 "schema_name must contain only alphanumeric characters and underscores"
             )
+
+    @property
+    def indexes(self) -> IndexManager:
+        """Access index management utilities.
+
+        Provides methods for monitoring and managing indexes including:
+        - wait_for_index(): Wait for index creation to complete
+        - is_index_ready(): Check if index is ready for queries
+        - index_stats(): Get index statistics
+        - list_indexes(): List all indexes on the table
+
+        Examples:
+            # Wait for index creation
+            await db.indexes.wait_for_index(timeout=300)
+
+            # Check index stats
+            stats = await db.indexes.index_stats()
+            print(f"Index size: {stats['size_bytes']} bytes")
+        """
+        if self._index_manager is None:
+            self._index_manager = IndexManager(self)
+        return self._index_manager
+
+    @property
+    def gin(self) -> GINIndexHelper:
+        """Access GIN index utilities.
+
+        Provides methods for creating and managing GIN (Generalized Inverted
+        Index) indexes for metadata filtering and full-text search:
+        - ensure_gin_index(): Create GIN index if not exists
+        - list_gin_indexes(): List all GIN indexes
+        - create_tsvector_index(): Create GIN for full-text search
+        - drop_gin_index(): Drop a GIN index
+
+        Examples:
+            # Create GIN for metadata
+            await db.gin.ensure_gin_index("metadata", "jsonb")
+
+            # Create full-text index
+            await db.gin.create_tsvector_index("content")
+
+            # Get suggestions
+            suggestions = await db.gin.suggest_indexes()
+        """
+        if self._gin_helper is None:
+            self._gin_helper = GINIndexHelper(self)
+        return self._gin_helper
+
+    @property
+    def collection_name(self) -> str:
+        """Return the collection/table name."""
+        return self.table_name
 
     def _get_embedding_dimension(self) -> int:
         """Automatically detect embedding dimension."""
