@@ -18,20 +18,16 @@ Requirements:
 """
 
 import asyncio
-import json
 import os
 import sys
 import warnings
-from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
 # Add parent directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pgvectordb import pgVectorDB, SearchMethod, IndexType
-
+from pgvectordb import IndexType, SearchMethod, pgVectorDB
 
 # ============================================================================
 # Configuration
@@ -49,6 +45,7 @@ CONNECTION_STRING = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="module")
 def event_loop():
@@ -115,6 +112,7 @@ async def test_db():
 # Test Cases
 # ============================================================================
 
+
 class TestAnalyzePlan:
     """Test REAL PostgreSQL EXPLAIN ANALYZE functionality."""
 
@@ -141,7 +139,7 @@ class TestAnalyzePlan:
         metrics = await test_db.query("machine learning").limit(3).analyze_plan()
 
         # Should have plan data from PostgreSQL
-        if "plan" in metrics and metrics["plan"]:
+        if metrics.get("plan"):
             assert isinstance(metrics["plan"], dict) or isinstance(metrics["plan"], list)
 
 
@@ -174,11 +172,9 @@ class TestMetadataOnly:
     @pytest.mark.asyncio
     async def test_metadata_only_without_query_text(self, test_db):
         """Test that metadata_only() works without query text."""
-        results = await test_db.query("") \
-            .metadata_only() \
-            .where({"category": "ai"}) \
-            .limit(10) \
-            .to_list()
+        results = (
+            await test_db.query("").metadata_only().where({"category": "ai"}).limit(10).to_list()
+        )
 
         # Should return results
         assert len(results) > 0
@@ -190,11 +186,13 @@ class TestMetadataOnly:
     @pytest.mark.asyncio
     async def test_metadata_only_with_complex_filter(self, test_db):
         """Test metadata_only() with complex boolean filters."""
-        results = await test_db.query("") \
-            .metadata_only() \
-            .where({"$and": [{"year": {"$gte": 2024}}, {"status": "active"}]}) \
-            .limit(10) \
+        results = (
+            await test_db.query("")
+            .metadata_only()
+            .where({"$and": [{"year": {"$gte": 2024}}, {"status": "active"}]})
+            .limit(10)
             .to_list()
+        )
 
         for r in results:
             assert r.metadata.get("year") >= 2024
@@ -248,12 +246,14 @@ class TestEnsemble:
     @pytest.mark.asyncio
     async def test_ensemble_with_weights(self, test_db):
         """Test ensemble search with weights."""
-        results = await test_db.query("database") \
-            .ensemble() \
-            .where({"category": "database"}) \
-            .weights(semantic=0.6, keyword=0.4) \
-            .limit(5) \
+        results = (
+            await test_db.query("database")
+            .ensemble()
+            .where({"category": "database"})
+            .weights(semantic=0.6, keyword=0.4)
+            .limit(5)
             .to_list()
+        )
 
         # Should return results
         assert len(results) >= 0  # May be 0 if no matches
@@ -285,7 +285,6 @@ class TestDeprecationWarnings:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            from pgvectordb.query.builder import VectorQueryBuilder
 
             deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
             assert len(deprecation_warnings) > 0
@@ -295,7 +294,6 @@ class TestDeprecationWarnings:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            from pgvectordb.query.builders import SemanticQueryBuilder
 
             deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
             assert len(deprecation_warnings) > 0
@@ -307,22 +305,20 @@ class TestHybrid:
     @pytest.mark.asyncio
     async def test_hybrid_weighted(self, test_db):
         """Test hybrid search with weighted fusion."""
-        results = await test_db.query("search database") \
-            .hybrid() \
-            .weights(semantic=0.6, keyword=0.4) \
-            .limit(5) \
+        results = (
+            await test_db.query("search database")
+            .hybrid()
+            .weights(semantic=0.6, keyword=0.4)
+            .limit(5)
             .to_list()
+        )
 
         assert len(results) >= 0
 
     @pytest.mark.asyncio
     async def test_hybrid_rrf(self, test_db):
         """Test hybrid search with RRF."""
-        results = await test_db.query("search database") \
-            .hybrid() \
-            .rrf(k=60) \
-            .limit(5) \
-            .to_list()
+        results = await test_db.query("search database").hybrid().rrf(k=60).limit(5).to_list()
 
         assert len(results) >= 0
 
@@ -333,10 +329,9 @@ class TestFilteredSearch:
     @pytest.mark.asyncio
     async def test_filtered_semantic(self, test_db):
         """Test semantic search with filter."""
-        results = await test_db.query("machine learning") \
-            .where({"category": "ai"}) \
-            .limit(5) \
-            .to_list()
+        results = (
+            await test_db.query("machine learning").where({"category": "ai"}).limit(5).to_list()
+        )
 
         for r in results:
             assert r.metadata.get("category") == "ai"
@@ -344,11 +339,13 @@ class TestFilteredSearch:
     @pytest.mark.asyncio
     async def test_filtered_keyword(self, test_db):
         """Test keyword search with filter."""
-        results = await test_db.query("database") \
-            .keyword() \
-            .where({"category": "database"}) \
-            .limit(5) \
+        results = (
+            await test_db.query("database")
+            .keyword()
+            .where({"category": "database"})
+            .limit(5)
             .to_list()
+        )
 
         for r in results:
             assert r.metadata.get("category") == "database"

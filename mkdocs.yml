@@ -126,6 +126,8 @@ nav:
     - Multimodal Search: user_guide/multimodal_search.md
     - Search & Retrieval: user_guide/search_and_retrieval.md
     - Metadata Filtering: user_guide/filtering.md
+    - Query Control: user_guide/query_controls.md
+    - Filtering Strategies: user_guide/filtering_strategies.md
     - Reranking: user_guide/reranking.md
     - Metrics & Evaluation: user_guide/metrics_and_evaluation.md
     - Analytics & Diagnostics: user_guide/analytics_and_diagnostics.md

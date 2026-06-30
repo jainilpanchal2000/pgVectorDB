@@ -9,8 +9,8 @@ Tests for the fixed FluentAPI functionality:
 - ensemble search
 """
 
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestMetadataFilterSearch:
@@ -31,12 +31,7 @@ class TestMetadataFilterSearch:
 
         # Should raise ValueError when no filter is set
         with pytest.raises(ValueError) as exc_info:
-            await (
-                rag_hnsw.query("")
-                .search_mode(SearchMethod.METADATA_FILTER)
-                .limit(5)
-                .to_list()
-            )
+            await rag_hnsw.query("").search_mode(SearchMethod.METADATA_FILTER).limit(5).to_list()
         assert "filter" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
@@ -91,16 +86,12 @@ class TestAnalyzePlanRealExplain:
     @pytest.mark.asyncio
     async def test_analyze_plan_returns_postgresql_metrics(self, db_with_docs):
         """analyze_plan should return PostgreSQL metrics, not just Python timing."""
-        metrics = await (
-            db_with_docs.query("test search")
-            .limit(3)
-            .analyze_plan()
-        )
+        metrics = await db_with_docs.query("test search").limit(3).analyze_plan()
 
         assert isinstance(metrics, dict)
 
         # Should have PostgreSQL-specific keys OR fallback timing
-        has_postgres_metrics = any(
+        _ = any(
             key in metrics
             for key in [
                 "plan",
@@ -120,12 +111,7 @@ class TestAnalyzePlanRealExplain:
     @pytest.mark.asyncio
     async def test_analyze_plan_includes_search_method(self, db_with_docs):
         """analyze_plan should include search method in output."""
-        metrics = await (
-            db_with_docs.query("test search")
-            .semantic()
-            .limit(3)
-            .analyze_plan()
-        )
+        metrics = await db_with_docs.query("test search").semantic().limit(3).analyze_plan()
 
         assert "search_method" in metrics
         assert metrics["search_method"] == "semantic"
@@ -171,13 +157,7 @@ class TestExplainPlanStructured:
     @pytest.mark.asyncio
     async def test_explain_plan_hybrid_info(self, rag_hnsw):
         """explain_plan for hybrid should include hybrid-specific info."""
-        plan = (
-            rag_hnsw.query("machine learning")
-            .hybrid()
-            .weights(0.7, 0.3)
-            .limit(5)
-            .explain_plan()
-        )
+        plan = rag_hnsw.query("machine learning").hybrid().weights(0.7, 0.3).limit(5).explain_plan()
 
         assert isinstance(plan, dict)
         assert plan.get("search_method") == "hybrid"
@@ -228,7 +208,6 @@ class TestDeprecationWarnings:
             warnings.simplefilter("always")
 
             # Import should trigger warning
-            from pgvectordb.query.builder import VectorQueryBuilder
 
             # Creating instance should trigger warning
             # (would need actual db instance to test)
