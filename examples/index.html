@@ -1218,6 +1218,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#learning-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Learning Path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#coverage-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1515,6 +1537,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#learning-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Learning Path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#coverage-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1571,6 +1615,57 @@
 
 <h1 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h1>
 <p>Use these scripts and notebooks as starting points for real pgVectorDB workflows. The examples live in the repository and are grouped here by what they demonstrate.</p>
+<h2 id="learning-path">Learning Path<a class="headerlink" href="#learning-path" title="Permanent link">&para;</a></h2>
+<p>Start here and progress through in order:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Goal</th>
+<th>Example</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>First working collection</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/01_quickstart.ipynb">examples/01_quickstart.ipynb</a></td>
+<td>install, initialize, ingest, basic search</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Fluent API basics</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/06_unified_api_quickstart.ipynb">examples/06_unified_api_quickstart.ipynb</a></td>
+<td><code>db.query(...)</code>, search modes, lazy execution, output formats</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Advanced search</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/02_advanced_search.ipynb">examples/02_advanced_search.ipynb</a></td>
+<td>semantic, keyword, hybrid, filters, reranking</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Multimodal ranking</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/03_multimodal_search.ipynb">examples/03_multimodal_search.ipynb</a></td>
+<td><code>TextSpace</code>, <code>NumberSpace</code>, <code>CategorySpace</code>, <code>RecencySpace</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Optimization</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/04_storage_optimization.ipynb">examples/04_storage_optimization.ipynb</a></td>
+<td>DiskANN, HNSW, IVFFlat, quantization</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Evaluation</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/05_rag_evaluation.ipynb">examples/05_rag_evaluation.ipynb</a></td>
+<td><code>RAGEvaluator</code>, metrics, K-value analysis</td>
+</tr>
+</tbody>
+</table>
+<h2 id="additional-examples">Additional Examples<a class="headerlink" href="#additional-examples" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -1581,39 +1676,19 @@
 </thead>
 <tbody>
 <tr>
-<td>First working collection</td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/01_quickstart.ipynb">examples/01_quickstart.ipynb</a></td>
-<td>install, initialize, ingest, search</td>
+<td>Comprehensive demo</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/notebooks/demo.ipynb">notebooks/demo.ipynb</a></td>
+<td>All features with visualizations</td>
+</tr>
+<tr>
+<td>Evaluation scripts</td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/notebooks/eval_demo.ipynb">notebooks/eval_demo.ipynb</a></td>
+<td>Evaluation metrics and benchmarking</td>
 </tr>
 <tr>
 <td>Fluent API walkthrough</td>
 <td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">examples/fluent_api_demo.py</a></td>
-<td><code>db.query(...)</code>, search modes, filters, analysis</td>
-</tr>
-<tr>
-<td>Unified query notebook</td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/06_unified_api_quickstart.ipynb">examples/06_unified_api_quickstart.ipynb</a></td>
-<td>fluent API, lazy execution, outputs</td>
-</tr>
-<tr>
-<td>Advanced retrieval</td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/02_advanced_search.ipynb">examples/02_advanced_search.ipynb</a></td>
-<td>semantic, keyword, hybrid, filters</td>
-</tr>
-<tr>
-<td>Multimodal ranking</td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/03_multimodal_search.ipynb">examples/03_multimodal_search.ipynb</a></td>
-<td><code>TextSpace</code>, <code>NumberSpace</code>, <code>CategorySpace</code>, <code>RecencySpace</code></td>
-</tr>
-<tr>
-<td>Storage optimization</td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/04_storage_optimization.ipynb">examples/04_storage_optimization.ipynb</a></td>
-<td>DiskANN, quantization, storage choices</td>
-</tr>
-<tr>
-<td>RAG evaluation</td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/05_rag_evaluation.ipynb">examples/05_rag_evaluation.ipynb</a></td>
-<td><code>RAGEvaluator</code>, metrics, K-value analysis</td>
+<td>Python script demonstrating the Fluent API</td>
 </tr>
 <tr>
 <td>Product search</td>
@@ -1621,9 +1696,9 @@
 <td>catalog metadata, filters, ranking</td>
 </tr>
 <tr>
-<td>Real-estate natural language search</td>
+<td>Real-estate search</td>
 <td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/real_estate_nlq.py">examples/real_estate_nlq.py</a></td>
-<td>multimodal business signals, recency, numeric preferences</td>
+<td>multimodal signals, recency, numbers</td>
 </tr>
 <tr>
 <td>Minimal demo</td>
@@ -1645,7 +1720,27 @@
 <tr>
 <td>Fluent API</td>
 <td><a href="../getting_started/quickstart/">Quickstart</a>, <a href="../user_guide/search_and_retrieval/">Search &amp; Retrieval</a></td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">fluent_api_demo.py</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">fluent_api_demo.py</a>, <a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/06_unified_api_quickstart.ipynb">06_unified_api_quickstart.ipynb</a></td>
+</tr>
+<tr>
+<td>Unified Query</td>
+<td><a href="../user_guide/search_and_retrieval/">Search &amp; Retrieval</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/notebooks/demo.ipynb">notebooks/demo.ipynb</a></td>
+</tr>
+<tr>
+<td>Metadata filtering</td>
+<td><a href="../user_guide/filtering/">Filtering</a>, <a href="../user_guide/migration_guide/">Migration Guide</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/notebooks/demo.ipynb">notebooks/demo.ipynb</a> (Metadata-Only Search section)</td>
+</tr>
+<tr>
+<td>DiskANN Label Filtering</td>
+<td><a href="../user_guide/analytics_and_diagnostics/">Analytics &amp; Diagnostics</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/notebooks/demo.ipynb">notebooks/demo.ipynb</a> (Label Filtering section)</td>
+</tr>
+<tr>
+<td>EXPLAIN ANALYZE</td>
+<td><a href="../user_guide/analytics_and_diagnostics/">Analytics &amp; Diagnostics</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/06_unified_api_quickstart.ipynb">06_unified_api_quickstart.ipynb</a></td>
 </tr>
 <tr>
 <td>RecencySpace</td>
@@ -1655,12 +1750,12 @@
 <tr>
 <td>Built-in evaluators</td>
 <td><a href="../user_guide/metrics_and_evaluation/">Metrics &amp; Evaluation</a></td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/05_rag_evaluation.ipynb">05_rag_evaluation.ipynb</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/05_rag_evaluation.ipynb">05_rag_evaluation.ipynb</a>, <a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/notebooks/eval_demo.ipynb">notebooks/eval_demo.ipynb</a></td>
 </tr>
 <tr>
 <td>SQL analyzers</td>
 <td><a href="../user_guide/search_and_retrieval/">Search &amp; Retrieval</a>, <a href="../user_guide/analytics_and_diagnostics/">Analytics &amp; Diagnostics</a></td>
-<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">fluent_api_demo.py</a></td>
+<td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/fluent_api_demo.py">fluent_api_demo.py</a>, <a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/notebooks/demo.ipynb">notebooks/demo.ipynb</a></td>
 </tr>
 <tr>
 <td>Optimization</td>
@@ -1669,7 +1764,7 @@
 </tr>
 <tr>
 <td>Reranking</td>
-<td><a href="../user_guide/reranking/">Reranking</a></td>
+<td><a href="../user_guide/reranking/">Rerankers</a></td>
 <td><a href="https://github.com/jainilpanchal2000/pgVectorDB/blob/main/examples/02_advanced_search.ipynb">02_advanced_search.ipynb</a></td>
 </tr>
 <tr>

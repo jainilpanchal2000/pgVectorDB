@@ -1668,7 +1668,7 @@
 <tbody>
 <tr>
 <td>Search mode</td>
-<td><code>.semantic()</code>, <code>.keyword()</code>, <code>.hybrid()</code>, <code>.trigram()</code>, <code>.search_mode(...)</code></td>
+<td><code>.semantic()</code>, <code>.keyword()</code>, <code>.hybrid()</code>, <code>.trigram()</code>, <code>.metadata_only()</code>, <code>.search_mode(...)</code></td>
 </tr>
 <tr>
 <td>Filters</td>
@@ -1681,6 +1681,10 @@
 <tr>
 <td>Vector tuning</td>
 <td><code>.ef(...)</code>, <code>.nprobes(...)</code>, <code>.refine_factor(...)</code>, <code>.distance_range(...)</code>, <code>.bypass_vector_index()</code></td>
+</tr>
+<tr>
+<td>DiskANN (label filtering)</td>
+<td><code>.labels(...)</code></td>
 </tr>
 <tr>
 <td>Keyword tuning</td>
@@ -1746,6 +1750,10 @@
 <tr>
 <td><code>metadata_semantic_search(query, filter, k=10)</code></td>
 <td><code>await db.query(query).semantic().where(filter).limit(10).to_list()</code></td>
+</tr>
+<tr>
+<td><code>metadata_filter(filter, k=10)</code></td>
+<td><code>await db.query("").metadata_only().where(filter).limit(10).to_list()</code></td>
 </tr>
 <tr>
 <td><code>trigram_search(query, k=10)</code></td>
