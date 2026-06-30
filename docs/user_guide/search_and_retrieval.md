@@ -19,9 +19,10 @@ The builder is lazy. Chained methods only update configuration; execution happen
 
 | Stage | Methods |
 | --- | --- |
-| Choose retrieval mode | `.semantic()`, `.keyword()`, `.hybrid()`, `.trigram()`, `.search_mode(...)` |
+| Choose retrieval mode | `.semantic()`, `.keyword()`, `.hybrid()`, `.trigram()`, `.metadata_only()`, `.search_mode(...)` |
 | Add constraints | `.where(...)`, `.select(...)`, `.limit(...)`, `.offset(...)` |
 | Tune search | `.ef(...)`, `.nprobes(...)`, `.refine_factor(...)`, `.distance_range(...)`, `.bypass_vector_index()` |
+| DiskANN filtering | `.labels(...)` |
 | Tune keyword/hybrid | `.bm25()`, `.fts(...)`, `.bm25_params(...)`, `.weights(...)`, `.rrf(...)`, `.phrase(...)`, `.universal(...)` |
 | Improve ranking | `.rerank(...)` |
 | Execute | `.to_list()`, `.to_pandas()`, `.to_arrow()`, `.analyze_plan()` |
@@ -201,6 +202,43 @@ top_results = results[:10]
 ```
 
 Use reranking when top result order matters more than raw retrieval latency, especially for answer generation, support search, legal search, and high-value product search. In fluent queries, `.limit(...)` controls the candidate set that reaches the reranker; slice the returned list for the final result count. See [Reranking](reranking.md) for backend setup and candidate-count guidance.
+
+## Metadata-Only Search
+
+Use metadata-only search when you want to filter and retrieve documents without any text search or embedding—purely based on metadata fields.
+
+```python
+results = await (
+    db.query("")
+    .metadata_only()
+    .where({"status": "active", "priority": {"$gte": 8}})
+    .limit(10)
+    .to_list()
+)
+```
+
+This is useful for:
+- Listing all documents matching a criteria (e.g., all documents from a specific author)
+- Counting documents by metadata
+- Building faceted search without text queries
+
+Note: Query text is optional for metadata-only search. If provided, it will be ignored.
+
+## DiskANN Label Filtering
+
+When using DiskANN index type, you can filter by labels for efficient semantic search on labeled subsets.
+
+```python
+results = await (
+    db.query("machine learning framework")
+    .semantic()
+    .labels([1, 2, 3])  # Only search documents with these labels
+    .limit(10)
+    .to_list()
+)
+```
+
+Labels must be configured during index creation. See [Indexing](../indexing.md) for DiskANN label setup.
 
 ## SQL Analysis
 

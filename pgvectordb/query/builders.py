@@ -37,11 +37,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _warn_deprecated_builders() -> None:
+    """Emit deprecation warning for builders module."""
+    import warnings
+    warnings.warn(
+        "Query builders from pgvectordb.query.builders (SemanticQueryBuilder, KeywordQueryBuilder, "
+        "TrigramQueryBuilder, HybridQueryBuilder, VectorQueryBuilder) are deprecated. "
+        "Use UnifiedQueryBuilder from pgvectordb.query.unified instead. "
+        "These classes will be removed in v0.0.7.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 @dataclass
 class BaseQueryBuilder:
     """Base class for all query builders with common functionality."""
 
     db: pgVectorDB = field(repr=False)
+
+    def __post_init__(self) -> None:
+        """Emit deprecation warning."""
+        _warn_deprecated_builders()
 
     _limit: int = 10
     _offset: int = 0

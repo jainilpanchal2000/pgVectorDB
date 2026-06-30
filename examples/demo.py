@@ -1,12 +1,14 @@
 """
-pgVectorDB v2.2.0 Demo Script
+pgVectorDB v0.0.6 Demo Script
 =============================
 
 This script demonstrates the key features of pgVectorDB:
 1. Initialization and setup
 2. Document operations
-3. Fluent search modes
-4. Extension-aware features
+3. Fluent search modes (semantic, keyword, hybrid)
+4. NEW: Metadata-only search
+5. NEW: Ensemble search
+6. Extension-aware features
 
 Run with: python scripts/demo.py
 
@@ -227,6 +229,26 @@ async def main():
     for r in results:
         print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
 
+    # 6. Metadata-Only Search (NEW in v0.0.6)
+    print("\n--- 6. Metadata-Only Search (NEW) ---")
+    print("  Filter by metadata without text query")
+    try:
+        results = await pgvdb.query("").metadata_only().where({"category": "ai"}).limit(3).to_list()
+        for r in results:
+            print(f"  [{r['metadata'].get('category', 'N/A')}] {r['content'][:60]}...")
+    except Exception as e:
+        print(f"  (Requires v0.0.6+) Error: {e}")
+
+    # 7. Ensemble Search (NEW in v0.0.6)
+    print("\n--- 7. Ensemble Search (NEW) ---")
+    print("  Hybrid search on filtered subset")
+    try:
+        results = await pgvdb.query(test_query).ensemble().where({"category": "ai"}).weights(0.6, 0.4).limit(3).to_list()
+        for r in results:
+            print(f"  [{r['score']:.4f}] {r['content'][:60]}...")
+    except Exception as e:
+        print(f"  (Requires v0.0.6+) Error: {e}")
+
     # ==================== Step 8: Analytics ====================
     print("\n📊 Step 8: Collection statistics...")
 
@@ -251,7 +273,7 @@ async def main():
     print("✓ Connection closed")
 
     print("\n" + "=" * 80)
-    print("Demo complete! pgVectorDB v2.2.0 is working correctly.")
+    print("Demo complete! pgVectorDB v0.0.6 is working correctly.")
     print("=" * 80)
 
 
