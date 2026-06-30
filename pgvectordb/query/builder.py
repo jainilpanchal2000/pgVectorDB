@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 def _warn_deprecated() -> None:
     """Emit deprecation warning for old query builder classes."""
     import warnings
+
     warnings.warn(
         "VectorQueryBuilder, FTSQueryBuilder, and HybridQueryBuilder from pgvectordb.query.builder "
         "are deprecated. Use UnifiedQueryBuilder from pgvectordb.query.unified instead. "

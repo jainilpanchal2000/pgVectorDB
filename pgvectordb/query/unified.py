@@ -609,6 +609,7 @@ class UnifiedQueryBuilder:
         filter_info = None
         if self._config.filter:
             from ..query.filters import MetadataFilterCompiler
+
             filter_sql, _ = MetadataFilterCompiler().build(self._config.filter)
             where_clause = f"WHERE {filter_sql}"
             filter_info = self._config.filter
@@ -633,8 +634,12 @@ class UnifiedQueryBuilder:
                 "keyword_type": self._config.keyword_type.value,
                 "filter": filter_info,
                 "limit": self._config.limit,
-                "bm25_k1": self._config.bm25_k1 if self._config.keyword_type.value == "bm25" else None,
-                "bm25_b": self._config.bm25_b if self._config.keyword_type.value == "bm25" else None,
+                "bm25_k1": self._config.bm25_k1
+                if self._config.keyword_type.value == "bm25"
+                else None,
+                "bm25_b": self._config.bm25_b
+                if self._config.keyword_type.value == "bm25"
+                else None,
                 "sql_preview": f"SELECT ... FROM {qualified_table} {where_clause} ORDER BY ts_rank(...) DESC LIMIT {self._config.limit}",
             }
         elif self._search_method == SearchMethod.HYBRID:
@@ -714,6 +719,7 @@ class UnifiedQueryBuilder:
         params: dict[str, Any] = {}
         if self._config.filter:
             from ..query.filters import MetadataFilterCompiler
+
             filter_sql, filter_params = MetadataFilterCompiler().build(self._config.filter)
             where_clause = f"WHERE {filter_sql}"
             params.update(filter_params)
@@ -745,6 +751,7 @@ class UnifiedQueryBuilder:
         else:
             # For other methods, fall back to timing to_list()
             import time
+
             start = time.time()
             results = await self.to_list()
             elapsed = (time.time() - start) * 1000
@@ -767,7 +774,7 @@ class UnifiedQueryBuilder:
                 self._sync_search_config_to_query_params()
 
                 # Apply stored query params
-                if hasattr(self.db, '_apply_query_params'):
+                if hasattr(self.db, "_apply_query_params"):
                     await self.db._apply_query_params(conn)
 
                 # Bypass index if requested
@@ -783,6 +790,7 @@ class UnifiedQueryBuilder:
                     plan_json = rows[0][0]
                     if isinstance(plan_json, str):
                         import json
+
                         plan_data = json.loads(plan_json)
                     else:
                         plan_data = plan_json
@@ -815,6 +823,7 @@ class UnifiedQueryBuilder:
             logger.warning(f"Failed to run EXPLAIN ANALYZE: {e}")
             # Fall back to timing to_list()
             import time
+
             start = time.time()
             results = await self.to_list()
             elapsed = (time.time() - start) * 1000
@@ -835,7 +844,9 @@ class UnifiedQueryBuilder:
         # METADATA_FILTER does not require query_text or query_vector
         if self._search_method == SearchMethod.METADATA_FILTER:
             if not self._config.filter:
-                raise ValueError("METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria.")
+                raise ValueError(
+                    "METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria."
+                )
             self.db._ensure_initialized()
             return
 
@@ -979,7 +990,9 @@ class UnifiedQueryBuilder:
     async def _execute_metadata_filter(self, **args) -> list[QueryResult]:
         """Execute pure metadata filtering without text search."""
         if not self._config.filter:
-            raise ValueError("METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria.")
+            raise ValueError(
+                "METADATA_FILTER search method requires a filter. Use .where() to specify filter criteria."
+            )
 
         results = await self.db.metadata_filter(
             filter=self._config.filter,
